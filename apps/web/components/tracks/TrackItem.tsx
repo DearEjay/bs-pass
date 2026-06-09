@@ -60,17 +60,7 @@ export function TrackItem({ track, projectId }: { track: Track; projectId: strin
                     s === track.current_status && 'bg-accent',
                   )}
                 >
-                  <span className={cn(
-                    'w-1.5 h-1.5 rounded-full',
-                    STATUS_CONFIG[s].color.includes('orange') ? 'bg-orange-400' :
-                    STATUS_CONFIG[s].color.includes('yellow') ? 'bg-yellow-400' :
-                    STATUS_CONFIG[s].color.includes('cyan') ? 'bg-cyan-400' :
-                    STATUS_CONFIG[s].color.includes('blue') ? 'bg-blue-400' :
-                    STATUS_CONFIG[s].color.includes('violet') ? 'bg-violet-400' :
-                    STATUS_CONFIG[s].color.includes('green') ? 'bg-green-400' :
-                    STATUS_CONFIG[s].color.includes('purple') ? 'bg-purple-400' :
-                    'bg-muted-foreground',
-                  )} />
+                  <span className={cn('w-1.5 h-1.5 rounded-full', STATUS_CONFIG[s].dot)} />
                   {STATUS_CONFIG[s].label}
                 </button>
               ))}
