@@ -1,8 +1,11 @@
+// Sentry is activated once NEXT_PUBLIC_SENTRY_DSN is set in .env.local.
+// Full server/edge support requires upgrading to @sentry/nextjs@8 + adding
+// withSentryConfig() in next.config.js. For now, client-side only.
 import * as Sentry from '@sentry/nextjs'
 
-Sentry.init({
-  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
-  tracesSampleRate: 1.0,
-  debug: false,
-  // No-op when DSN is empty — safe to ship without a live project
-})
+if (process.env.NEXT_PUBLIC_SENTRY_DSN) {
+  Sentry.init({
+    dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
+    tracesSampleRate: 1.0,
+  })
+}

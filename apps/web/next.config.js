@@ -2,10 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-  experimental: {
-    instrumentationHook: true,
-  },
-  images: {
+images: {
     unoptimized: true,
   },
   env: {
