@@ -14,10 +14,10 @@ const STATUS_LABEL: Record<string, string> = {
 
 const STATUS_COLOR: Record<string, string> = {
   in_pre_production: 'text-muted-foreground border-border',
-  in_production: 'text-blue-400 border-blue-400/30 bg-blue-400/10',
-  in_post_production: 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10',
-  ready_for_release: 'text-green-400 border-green-400/30 bg-green-400/10',
-  released: 'text-purple-400 border-purple-400/30 bg-purple-400/10',
+  in_production: 'text-blue-600 border-blue-200 bg-blue-50',
+  in_post_production: 'text-amber-600 border-amber-200 bg-amber-50',
+  ready_for_release: 'text-emerald-600 border-emerald-200 bg-emerald-50',
+  released: 'text-violet-600 border-violet-200 bg-violet-50',
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -30,7 +30,7 @@ const TYPE_LABEL: Record<string, string> = {
 export function ProjectCard({ project }: { project: Project }) {
   return (
     <Link
-      href={`/projects/${project.id}/tracks`}
+      href={`/projects/${project.id}/roadmap`}
       className="block bg-card border border-border rounded-lg p-4 hover:border-primary/40 hover:bg-accent/50 transition-colors group"
     >
       {project.cover_url ? (
