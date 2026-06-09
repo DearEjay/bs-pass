@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_input.file_path // empty' | grep -q 'supabase/migrations/' && supabase gen types typescript --linked > apps/web/types/database.ts 2>/dev/null || true",
+            "statusMessage": "Regenerating database types..."
+          }
+        ]
+      }
+    ]
+  }
+}
