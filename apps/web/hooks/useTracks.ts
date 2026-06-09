@@ -1,8 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { computeProjectStatus } from '@shared/project-status'
 import type { Database } from '@/types/database'
 
 type Track = Database['public']['Tables']['tracks']['Row']
+type Project = Database['public']['Tables']['projects']['Row']
+type Split = Database['public']['Tables']['splits']['Row']
 type NewTrack = Pick<
   Database['public']['Tables']['tracks']['Insert'],
   'title' | 'bpm' | 'key' | 'project_id'
@@ -70,9 +73,22 @@ export function useUpdateTrackStatus(projectId: string) {
       if (error) throw error
       return data as Track
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tracks', projectId] })
-      qc.invalidateQueries({ queryKey: ['project'] })
+    onSuccess: async (updatedTrack) => {
+      // Apply track update to local cache immediately
+      qc.setQueryData<Track[]>(['tracks', projectId], old =>
+        old?.map(t => (t.id === updatedTrack.id ? updatedTrack : t)) ?? []
+      )
+
+      // Derive new project status from updated tracks + any cached splits
+      const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
+      const splits = qc.getQueryData<Split[]>(['splits', projectId]) ?? []
+      const newStatus = computeProjectStatus(tracks, splits)
+
+      // Persist to DB and update project cache optimistically
+      await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
+      qc.setQueryData<Project>(['project', projectId], old =>
+        old ? { ...old, status: newStatus } : old
+      )
     },
   })
 }
