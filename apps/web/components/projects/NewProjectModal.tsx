@@ -66,73 +66,35 @@ export function NewProjectModal({
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
           {/* Cover art */}
-          <div className="flex gap-4 items-start">
-            <div className="relative shrink-0">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={cn(
+                'w-full aspect-[2/1] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors overflow-hidden',
+                coverPreview
+                  ? 'border-transparent'
+                  : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground bg-muted/40',
+              )}
+            >
+              {coverPreview ? (
+                <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" />
+              ) : (
+                <>
+                  <ImagePlus size={22} />
+                  <span className="text-sm">Add cover art</span>
+                </>
+              )}
+            </button>
+            {coverPreview && (
               <button
                 type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  'w-24 h-24 rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1 transition-colors overflow-hidden',
-                  coverPreview
-                    ? 'border-transparent'
-                    : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground',
-                )}
+                onClick={removeCover}
+                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
               >
-                {coverPreview ? (
-                  <img src={coverPreview} alt="Cover preview" className="w-full h-full object-cover" />
-                ) : (
-                  <>
-                    <ImagePlus size={20} />
-                    <span className="text-xs">Cover art</span>
-                  </>
-                )}
+                <X size={12} />
               </button>
-              {coverPreview && (
-                <button
-                  type="button"
-                  onClick={removeCover}
-                  className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-foreground text-background flex items-center justify-center hover:bg-destructive transition-colors"
-                >
-                  <X size={10} />
-                </button>
-              )}
-            </div>
-
-            <div className="flex-1 space-y-3">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Title</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  required
-                  placeholder="e.g. Summer EP"
-                  autoFocus
-                  className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium">Type</label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {PROJECT_TYPES.map(({ value, label }) => (
-                    <button
-                      key={value}
-                      type="button"
-                      onClick={() => setProjectType(value)}
-                      className={cn(
-                        'py-1.5 rounded-md text-xs border transition-colors',
-                        projectType === value
-                          ? 'border-primary bg-primary/10 text-primary'
-                          : 'border-border text-muted-foreground hover:border-border/80 hover:text-foreground',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
+            )}
           </div>
 
           <input
@@ -142,6 +104,40 @@ export function NewProjectModal({
             className="hidden"
             onChange={handleCoverChange}
           />
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Title</label>
+            <input
+              type="text"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+              required
+              placeholder="e.g. Summer EP"
+              autoFocus
+              className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Type</label>
+            <div className="grid grid-cols-4 gap-2">
+              {PROJECT_TYPES.map(({ value, label }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setProjectType(value)}
+                  className={cn(
+                    'py-1.5 rounded-md text-sm border transition-colors',
+                    projectType === value
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border text-muted-foreground hover:border-border/80 hover:text-foreground',
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {createProject.error && (
             <p className="text-destructive text-sm">{(createProject.error as Error).message}</p>
