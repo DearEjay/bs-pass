@@ -33,7 +33,7 @@ export function ChatInput({
   }
 
   return (
-    <div className="sticky bottom-0 bg-background border-t border-border px-6 py-4">
+    <div className="shrink-0 bg-background border-t border-border px-6 py-4">
       <div className="flex gap-3 items-end max-w-3xl mx-auto">
         <textarea
           value={text}
