@@ -113,7 +113,7 @@ All server-side logic runs as Supabase Edge Functions — TypeScript on the Deno
 | Auth | Supabase JWT — auto-verified by Edge Function runtime |
 | Database access | Supabase service role client (bypasses RLS where needed for agent writes) |
 | LLM | Gemini REST API via fetch() — no SDK needed |
-| Email | SendGrid REST API via fetch() |
+| Email | Resend via `npm:resend@4` (Deno) |
 | Rate limiting | Upstash Redis rate-limit library (free tier) |
 
 ### 2.3 Infrastructure
@@ -123,7 +123,7 @@ All server-side logic runs as Supabase Edge Functions — TypeScript on the Deno
 | Vercel | Next.js hosting | Free (Hobby) |
 | Supabase | Everything backend | Free (up to 500MB DB, 1GB Storage, 2M Edge Function invocations/month) |
 | Gemini API | LLM for agent | Free tier to start |
-| SendGrid | Transactional email | Free (100 emails/day) |
+| Resend | Transactional email | Free (3,000 emails/month) |
 | PostHog | Product analytics | Free (1M events/month) |
 | Sentry | Error monitoring | Free (5K errors/month) |
 | Upstash Redis | Edge Function rate limiting | Free (10K requests/day) |
@@ -469,15 +469,15 @@ Supabase Edge Functions replace the FastAPI server. Each function is a small, fo
 supabase/functions/
 ├── agent-generate-roadmap/     # Called on project creation + manual regenerate
 ├── agent-process-event/        # Called after track status change, task complete, collab added/removed
-├── splits-request-signatures/  # Generates tokens + sends emails via SendGrid
+├── splits-request-signatures/  # Generates tokens + sends emails via Resend
 ├── splits-sign/                # Validates token, records signature, posts to chat
 ├── splits-generate-pdf/        # Generates PDF bytes, returns as download (no storage)
 ├── notifications-send-email/   # Sends transactional emails (invite, task digest)
 └── _shared/
     ├── auth.ts                 # JWT verification middleware
     ├── db.ts                   # Supabase service role client
-    ├── gemini.ts               # Gemini REST API wrapper
-    ├── sendgrid.ts             # SendGrid REST API wrapper
+    ├── gemini.ts               # Gemini REST API wrapper (gemini-2.0-flash)
+    ├── resend.ts               # Resend email wrapper
     └── project-status.ts       # compute_project_status() — shared pure function
 ```
 
@@ -686,32 +686,23 @@ GET  /api/auth/callback          → Supabase OAuth callback
 ### 6.1 Bucket Structure
 
 ```
-project-covers/          # public read; authenticated write
+covers/                  # public read; authenticated write
   {project_id}/cover.{ext}
 
-track-audio/             # authenticated read/write
+tracks/                  # authenticated read/write
   {project_id}/{track_id}/v{n}/{filename}
-
-track-versions/          # authenticated read/write
-  {project_id}/{track_id}/versions/{version_id}/{filename}
 
 stems/                   # authenticated read/write
   {project_id}/{track_id}/{stem_id}/v{n}/{filename}
-
-signatures/              # service role only (future: signed agreement receipts)
-  {project_id}/{track_id}/signature-receipt.json
-
-exports/                 # not used for PDFs (generated on-demand, no storage)
-  (reserved for Phase 2 ZIP exports)
 ```
 
 ### 6.2 File Size Limits
 
-| File Type | Max Size | Note |
+| File Type | Max Size | Allowed MIME types |
 |---|---|---|
-| Cover art | 10 MB | Warn at > 5 MB; compression in Phase 2 |
-| Individual stem / audio | 500 MB | WAV files at high sample rates |
-| Batch upload | 2 GB per session | Browser constraint |
+| Cover art | 5 MB | image/jpeg, image/png, image/webp |
+| Track audio | 500 MB | audio/mpeg, audio/wav, audio/flac, audio/aac, audio/ogg |
+| Stem audio | 500 MB | audio/mpeg, audio/wav, audio/flac, audio/aac, audio/ogg |
 
 ---
 
@@ -893,7 +884,7 @@ Enforced by: RLS policies (database layer) + Edge Function checks (service layer
    - Generates a UUID token per (split, collaborator) pair
    - Sets token_expires_at = now() + 7 days
    - Stores token in splits.signature_token
-   - Sends email via SendGrid with link:
+   - Sends email via Resend with link:
      https://musicapp.com/splits/sign/{token}
    - Posts to chat: "@[Collab1] @[Collab2] Review and sign splits for [Track]"
    - Writes to audit_logs
@@ -1047,8 +1038,8 @@ posthog.capture('stem_uploaded', { file_size_mb })
 │  - Edge Functions (Deno runtime)        │
 │  - Env (Edge Function secrets):         │
 │    GEMINI_API_KEY                       │
-│    SENDGRID_API_KEY                     │
-│    SENDGRID_FROM_EMAIL                  │
+│    RESEND_API_KEY                       │
+│    RESEND_FROM_EMAIL                    │
 │    APP_BASE_URL                         │
 │    UPSTASH_REDIS_REST_URL               │
 │    UPSTASH_REDIS_REST_TOKEN             │
@@ -1071,18 +1062,20 @@ GitHub Actions workflow:
 
 ### 13.3 Local Development
 
+This project uses a **remote Supabase project** for development. No local Docker stack is required.
+
 ```bash
-# Start local Supabase stack (DB, Auth, Storage, Edge Functions)
-supabase start
+# Start Next.js dev server (connects to remote Supabase via apps/web/.env.local)
+pnpm dev
 
-# Start Next.js dev server
-npm run dev
+# Apply schema migrations to remote DB
+pnpm supabase:push
 
-# Deploy Edge Functions locally for testing
-supabase functions serve
+# Serve Edge Functions locally against remote DB (Deno runtime required)
+pnpm supabase:functions:serve
 
-# Push schema migrations
-supabase db push
+# Deploy Edge Functions to remote Supabase
+pnpm supabase:functions:deploy
 ```
 
 ---
@@ -1126,13 +1119,13 @@ supabase db push
 
 **Goal:** Multi-collaborator projects, revenue splits, digital signatures
 
-- [ ] Collaborator invite flow (search registered users by name/email, select predefined role(s), SendGrid email with project link, accept redirects to app)
+- [ ] Collaborator invite flow (search registered users by name/email, select predefined role(s), Resend email with project link, accept redirects to app)
 - [ ] `agent-process-event` handles collaborator.added (role → task auto-reassign)
 - [ ] `agent-process-event` handles collaborator.removed (tasks → Unassigned)
 - [ ] Splits CRUD (agent auto-populate on project init, main artist override)
 - [ ] 100% sum validation in Edge Function
 - [ ] Split audit log (displayed in Splits tab)
-- [ ] `splits-request-signatures` Edge Function (tokens + SendGrid)
+- [ ] `splits-request-signatures` Edge Function (tokens + Resend)
 - [ ] Public signature page (`/splits/sign/[token]`)
 - [ ] `splits-sign` Edge Function (validate, record, post to chat)
 - [ ] Signature status badges (red/yellow/green)
@@ -1244,7 +1237,7 @@ supabase db push
 | No image compression | Warn user if cover > 5 MB | `browser-image-compression` (Phase 2) |
 | Edge Function cold starts | ~200–500ms on first call; acceptable for agent flows | Warm-up pings or move to persistent compute if needed |
 | No real-time task/split sync | Realtime subscription on tasks table; splits refresh on mutation | Already covered by Supabase Realtime subscription |
-| SendGrid free tier (100/day) | Fine for beta; upgrade when volume increases | SendGrid Essentials plan when needed |
+| Resend free tier (3,000/month) | Fine for beta; upgrade when volume increases | Resend paid plan when needed |
 
 ---
 
@@ -1274,7 +1267,7 @@ musicapp/
 │   │   ├── splits-sign/
 │   │   ├── splits-generate-pdf/
 │   │   ├── notifications-send-email/
-│   │   └── _shared/                  # auth.ts, db.ts, gemini.ts, sendgrid.ts, project-status.ts
+│   │   └── _shared/                  # auth.ts, db.ts, gemini.ts, resend.ts, project-status.ts
 │   ├── migrations/                   # SQL migration files (schema + RLS + indexes)
 │   └── seed.sql                      # roadmap templates + dev data
 ├── .github/
@@ -1292,7 +1285,7 @@ musicapp/
 |---|---|
 | Stem splitting scope | Manual uploads only. "Split Stems" button removed from MVP. Users upload pre-separated files. |
 | Collaborator login for signing | Token-only. No login required to sign. Reduces friction for collaborators who aren't yet users. |
-| Agent LLM model | Gemini 1.5 Flash. Faster, cheaper, sufficient for template customization. Upgrade to Pro if quality is insufficient. |
+| Agent LLM model | Gemini 2.0 Flash. Faster, cheaper, sufficient for template customization. Upgrade to Pro if quality is insufficient. |
 | Offline conflict strategy | "Sync conflict" banner on flush — list of conflicts, user resolves manually. No silent overwrites. |
 | Max collaborators enforcement | DB `CHECK` constraint + Edge Function 422 + frontend disabled invite button at 20. |
 | FastAPI vs Edge Functions | Edge Functions. One platform, no second server. Trade-off accepted: TypeScript over Python. |
