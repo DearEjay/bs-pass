@@ -106,6 +106,35 @@ export function useUpdateProject(projectId: string) {
   })
 }
 
+export function useUploadProjectCover(projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (file: File | null) => {
+      if (file === null) {
+        const { error } = await supabase.from('projects').update({ cover_url: null }).eq('id', projectId)
+        if (error) throw error
+        return null
+      }
+      const ext = file.name.split('.').pop() ?? 'jpg'
+      const path = `${projectId}/cover.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('covers')
+        .upload(path, file, { upsert: true, contentType: file.type })
+      if (uploadErr) throw uploadErr
+      const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(path)
+      const coverUrl = `${publicUrl}?t=${Date.now()}`
+      const { error: updateErr } = await supabase.from('projects').update({ cover_url: coverUrl }).eq('id', projectId)
+      if (updateErr) throw updateErr
+      return coverUrl
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project', projectId] })
+      qc.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+}
+
 export function useDeleteProject(userId: string) {
   const supabase = createClient()
   const qc = useQueryClient()

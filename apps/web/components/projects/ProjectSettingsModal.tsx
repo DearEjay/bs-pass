@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
-import { useUpdateProject, useDeleteProject } from '@/hooks/useProjects'
+import { useState, useRef } from 'react'
+import { useUpdateProject, useDeleteProject, useUploadProjectCover } from '@/hooks/useProjects'
 import { useRouter } from 'next/navigation'
-import { X } from 'lucide-react'
+import { X, ImagePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Database } from '@/types/database'
 
@@ -32,13 +32,32 @@ export function ProjectSettingsModal({
 }) {
   const router = useRouter()
   const updateProject = useUpdateProject(project.id)
+  const uploadCover = useUploadProjectCover(project.id)
   const deleteProject = useDeleteProject(userId)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [title, setTitle] = useState(project.title)
   const [projectType, setProjectType] = useState(project.project_type as typeof PROJECT_TYPES[number]['value'])
   const [genre, setGenre] = useState(project.genre ?? '')
   const [agentMode, setAgentMode] = useState(project.agent_mode as typeof AGENT_MODES[number]['value'])
   const [confirmDelete, setConfirmDelete] = useState(false)
+
+  // null = removed, undefined = unchanged, string = local preview URL, existing = project.cover_url
+  const [coverFile, setCoverFile] = useState<File | null | undefined>(undefined)
+  const [coverPreview, setCoverPreview] = useState<string | null>(project.cover_url ?? null)
+
+  function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setCoverFile(file)
+    setCoverPreview(URL.createObjectURL(file))
+  }
+
+  function removeCover() {
+    setCoverFile(null)
+    setCoverPreview(null)
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -48,6 +67,10 @@ export function ProjectSettingsModal({
       genre: genre || null,
       agent_mode: agentMode,
     })
+    // Upload new cover or clear it if explicitly removed
+    if (coverFile !== undefined) {
+      await uploadCover.mutateAsync(coverFile)
+    }
     onClose()
   }
 
@@ -68,6 +91,52 @@ export function ProjectSettingsModal({
         </div>
 
         <form onSubmit={handleSave} className="p-5 space-y-4">
+          {/* Cover art */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={cn(
+                'w-full aspect-[2/1] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors overflow-hidden group',
+                coverPreview
+                  ? 'border-transparent'
+                  : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground bg-muted/40',
+              )}
+            >
+              {coverPreview ? (
+                <>
+                  <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-sm">
+                    <ImagePlus size={16} />
+                    Change artwork
+                  </div>
+                </>
+              ) : (
+                <>
+                  <ImagePlus size={22} />
+                  <span className="text-sm">Add cover art</span>
+                </>
+              )}
+            </button>
+            {coverPreview && (
+              <button
+                type="button"
+                onClick={removeCover}
+                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={handleCoverChange}
+          />
+
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Title</label>
             <input
