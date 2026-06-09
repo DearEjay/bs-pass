@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.supabase
+
+# Next.js
+.next/
+build/
+dist/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Testing
+coverage/
+.nyc_output/
+
+# Logging
+*.log
+logs/
+npm-debug.log*
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+
+# OS
+Thumbs.db

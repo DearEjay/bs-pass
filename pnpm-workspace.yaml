@@ -1,0 +1,6 @@
+packages:
+  - 'apps/web'
+allowBuilds:
+  '@sentry/cli': true
+  core-js: true
+  unrs-resolver: true

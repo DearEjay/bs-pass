@@ -1,0 +1,7 @@
+# Supabase local dev
+.branches/
+.temp/
+seed.sql.local
+
+# Environment secrets
+.env.supabase
