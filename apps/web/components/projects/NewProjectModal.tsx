@@ -22,7 +22,6 @@ export function NewProjectModal({
   const createProject = useCreateProject(userId)
   const [title, setTitle] = useState('')
   const [projectType, setProjectType] = useState<typeof PROJECT_TYPES[number]['value']>('single')
-  const [genre, setGenre] = useState('')
   const [budgetLevel, setBudgetLevel] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
@@ -30,7 +29,6 @@ export function NewProjectModal({
     await createProject.mutateAsync({
       title,
       project_type: projectType,
-      genre: genre || null,
       budget_level: budgetLevel || null,
       agent_mode: 'moderate',
     })
@@ -80,17 +78,6 @@ export function NewProjectModal({
                 </button>
               ))}
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Genre <span className="text-muted-foreground font-normal">(optional)</span></label>
-            <input
-              type="text"
-              value={genre}
-              onChange={e => setGenre(e.target.value)}
-              placeholder="e.g. Hip-Hop, R&B"
-              className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
           </div>
 
           {createProject.error && (
