@@ -10,11 +10,11 @@ export function ChatMessage({
   isOwnMessage: boolean
 }) {
   const isAgent = message.sender_type === 'agent'
-  const senderName = isAgent ? 'BS-PASS AI' : (message.profiles?.full_name ?? 'Unknown')
+  const senderName = isAgent ? 'BS-PASS AI' : (message.profiles?.display_name ?? 'Unknown')
   const time = message.created_at
     ? formatDistanceToNow(new Date(message.created_at), { addSuffix: true })
     : ''
-  const initial = (message.profiles?.full_name?.[0] ?? '?').toUpperCase()
+  const initial = (message.profiles?.display_name?.[0] ?? '?').toUpperCase()
 
   if (isAgent) {
     return (
