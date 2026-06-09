@@ -12,10 +12,10 @@ type Project = Database['public']['Tables']['projects']['Row']
 
 const STATUS_COLOR: Record<string, string> = {
   in_pre_production: 'text-muted-foreground',
-  in_production: 'text-blue-400',
-  in_post_production: 'text-yellow-400',
-  ready_for_release: 'text-green-400',
-  released: 'text-purple-400',
+  in_production: 'text-blue-600',
+  in_post_production: 'text-amber-600',
+  ready_for_release: 'text-emerald-600',
+  released: 'text-violet-600',
 }
 
 const STATUS_LABEL: Record<string, string> = {
