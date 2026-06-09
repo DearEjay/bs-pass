@@ -1,4 +1,4 @@
-import { Resend } from 'resend'
+import { Resend } from 'npm:resend@4'
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY')!)
 const FROM = Deno.env.get('RESEND_FROM_EMAIL') ?? 'BS-PASS <noreply@bspass.com>'
