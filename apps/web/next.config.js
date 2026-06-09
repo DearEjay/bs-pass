@@ -1,8 +1,11 @@
+// @ts-check
+const { withSentryConfig } = require('@sentry/nextjs')
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   swcMinify: true,
-images: {
+  images: {
     unoptimized: true,
   },
   env: {
@@ -11,4 +14,10 @@ images: {
   },
 }
 
-module.exports = nextConfig
+module.exports = withSentryConfig(nextConfig, {
+  silent: true,
+  hideSourceMaps: true,
+  disableLogger: true,
+  tunnelRoute: '/monitoring',
+  widenClientFileUpload: true,
+})
