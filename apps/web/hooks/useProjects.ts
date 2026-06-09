@@ -44,7 +44,7 @@ export function useCreateProject(userId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: NewProject) => {
+    mutationFn: async ({ coverFile, ...input }: NewProject & { coverFile?: File }) => {
       // 1. Create project
       const { data: project, error: pErr } = await supabase
         .from('projects')
@@ -64,6 +64,20 @@ export function useCreateProject(userId: string) {
           status: 'active',
         })
       if (cErr) throw cErr
+
+      // 3. Upload cover art if provided
+      if (coverFile) {
+        const ext = coverFile.name.split('.').pop() ?? 'jpg'
+        const path = `${project.id}/cover.${ext}`
+        const { error: uploadErr } = await supabase.storage
+          .from('covers')
+          .upload(path, coverFile, { upsert: true, contentType: coverFile.type })
+        if (!uploadErr) {
+          const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(path)
+          await supabase.from('projects').update({ cover_url: publicUrl }).eq('id', project.id)
+          project.cover_url = publicUrl
+        }
+      }
 
       return project as Project
     },
