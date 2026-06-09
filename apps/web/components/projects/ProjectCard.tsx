@@ -15,8 +15,8 @@ const STATUS_LABEL: Record<string, string> = {
 const STATUS_COLOR: Record<string, string> = {
   in_pre_production: 'text-muted-foreground border-border',
   in_production: 'text-blue-600 border-blue-200 bg-blue-50',
-  in_post_production: 'text-amber-600 border-amber-200 bg-amber-50',
-  ready_for_release: 'text-emerald-600 border-emerald-200 bg-emerald-50',
+  in_post_production: 'text-orange-600 border-orange-200 bg-orange-50',
+  ready_for_release: 'text-sky-600 border-sky-200 bg-sky-50',
   released: 'text-violet-600 border-violet-200 bg-violet-50',
 }
 
