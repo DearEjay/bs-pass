@@ -1,8 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useCreateTrack } from '@/hooks/useTracks'
-import { X } from 'lucide-react'
+import { X, Upload, Music } from 'lucide-react'
+
+const ACCEPTED = '.mp3,.wav,.flac,.aac,.ogg'
+const ACCEPTED_MIME = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg', 'audio/x-wav']
+
+function fileToTitle(filename: string) {
+  return filename.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').trim()
+}
 
 export function AddTrackModal({
   projectId,
@@ -12,14 +19,32 @@ export function AddTrackModal({
   onClose: () => void
 }) {
   const createTrack = useCreateTrack(projectId)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [file, setFile] = useState<File | null>(null)
   const [title, setTitle] = useState('')
   const [bpm, setBpm] = useState('')
   const [key, setKey] = useState('')
+  const [dragOver, setDragOver] = useState(false)
+
+  function handleFile(f: File) {
+    if (!ACCEPTED_MIME.includes(f.type) && !f.name.match(/\.(mp3|wav|flac|aac|ogg)$/i)) return
+    setFile(f)
+    if (!title) setTitle(fileToTitle(f.name))
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const f = e.dataTransfer.files[0]
+    if (f) handleFile(f)
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    if (!file) return
     await createTrack.mutateAsync({
-      title,
+      file,
+      title: title || fileToTitle(file.name),
       bpm: bpm ? parseInt(bpm) : null,
       key: key || null,
     })
@@ -37,6 +62,42 @@ export function AddTrackModal({
         </div>
 
         <form onSubmit={handleSubmit} className="p-5 space-y-4">
+          {/* File drop zone */}
+          <div
+            onClick={() => inputRef.current?.click()}
+            onDrop={handleDrop}
+            onDragOver={e => { e.preventDefault(); setDragOver(true) }}
+            onDragLeave={() => setDragOver(false)}
+            className={`
+              relative cursor-pointer rounded-lg border-2 border-dashed p-6 text-center transition-colors
+              ${dragOver ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-accent/30'}
+            `}
+          >
+            <input
+              ref={inputRef}
+              type="file"
+              accept={ACCEPTED}
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
+            />
+            {file ? (
+              <div className="flex items-center gap-3 justify-center">
+                <Music size={20} className="text-primary shrink-0" />
+                <div className="text-left min-w-0">
+                  <p className="text-sm font-medium truncate">{file.name}</p>
+                  <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <Upload size={24} strokeWidth={1.5} />
+                <p className="text-sm">Drop an audio file or click to browse</p>
+                <p className="text-xs">MP3, WAV, FLAC, AAC, OGG</p>
+              </div>
+            )}
+          </div>
+
+          {/* Title */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Title</label>
             <input
@@ -44,12 +105,12 @@ export function AddTrackModal({
               value={title}
               onChange={e => setTitle(e.target.value)}
               required
-              placeholder="e.g. Intro, Track 1"
-              autoFocus
+              placeholder="Track title"
               className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
 
+          {/* BPM + Key */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <label className="text-sm font-medium">BPM <span className="text-muted-foreground font-normal">(optional)</span></label>
@@ -89,10 +150,10 @@ export function AddTrackModal({
             </button>
             <button
               type="submit"
-              disabled={createTrack.isPending}
+              disabled={!file || createTrack.isPending}
               className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              {createTrack.isPending ? 'Adding…' : 'Add track'}
+              {createTrack.isPending ? 'Uploading…' : 'Add track'}
             </button>
           </div>
         </form>

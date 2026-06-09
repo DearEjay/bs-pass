@@ -46,14 +46,46 @@ export function useCreateTrack(projectId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (input: Omit<NewTrack, 'project_id'>) => {
-      const { data, error } = await supabase
+    mutationFn: async ({ file, title, bpm, key }: {
+      file: File
+      title: string
+      bpm?: number | null
+      key?: string | null
+    }) => {
+      // 1. Create the track row first to get an ID
+      const { data: track, error: trackErr } = await supabase
         .from('tracks')
-        .insert({ ...input, project_id: projectId })
+        .insert({ title, bpm: bpm ?? null, key: key ?? null, project_id: projectId })
         .select()
         .single()
-      if (error) throw error
-      return data as Track
+      if (trackErr) throw trackErr
+
+      // 2. Upload file: tracks/{projectId}/{trackId}/{filename}
+      const ext = file.name.split('.').pop()
+      const storagePath = `${projectId}/${track.id}/original.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('tracks')
+        .upload(storagePath, file, { upsert: false })
+      if (uploadErr) throw uploadErr
+
+      // 3. Create the track_version record with the file path
+      const { data: version, error: versionErr } = await supabase
+        .from('track_versions')
+        .insert({ track_id: track.id, file_path: storagePath, version_label: 'v1', version_number: 1 })
+        .select()
+        .single()
+      if (versionErr) throw versionErr
+
+      // 4. Link the track to its first version
+      const { data: updated, error: linkErr } = await supabase
+        .from('tracks')
+        .update({ current_version_id: version.id })
+        .eq('id', track.id)
+        .select()
+        .single()
+      if (linkErr) throw linkErr
+
+      return updated as Track
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tracks', projectId] }),
   })

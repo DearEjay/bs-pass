@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { AppNav } from '@/components/shared/AppNav'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -9,9 +8,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect('/login')
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <AppNav />
-      <main className="flex-1 overflow-y-auto">
+    <div className="h-screen overflow-hidden">
+      <main className="h-full overflow-y-auto">
         {children}
       </main>
     </div>

@@ -53,7 +53,7 @@ export function TrackList({ projectId }: { projectId: string }) {
           </button>
         </div>
       ) : (
-        <div className="bg-card border border-border rounded-lg overflow-hidden">
+        <div className="bg-card border border-border rounded-lg">
           {tracks?.map(track => (
             <TrackItem key={track.id} track={track} projectId={projectId} />
           ))}

@@ -27,11 +27,11 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const TABS = [
-  { label: 'Tracks', path: 'tracks' },
   { label: 'Roadmap', path: 'roadmap' },
+  { label: 'Tracks', path: 'tracks' },
   { label: 'Stems', path: 'stems' },
-  { label: 'Chat', path: 'chat' },
   { label: 'Collaborators', path: 'collaborators' },
+  { label: 'Chat', path: 'chat' },
   { label: 'Splits', path: 'splits' },
 ]
 

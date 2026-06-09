@@ -49,8 +49,8 @@ export function TrackItem({ track, projectId }: { track: Track; projectId: strin
 
         {showStatusMenu && (
           <>
-            <div className="fixed inset-0 z-10" onClick={() => setShowStatusMenu(false)} />
-            <div className="absolute right-0 top-full mt-1 w-36 bg-card border border-border rounded-lg shadow-xl z-20 py-1 overflow-hidden">
+            <div className="fixed inset-0 z-40" onClick={() => setShowStatusMenu(false)} />
+            <div className="absolute right-0 top-full mt-1 w-36 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
               {TRACK_STATUSES.map(s => (
                 <button
                   key={s}

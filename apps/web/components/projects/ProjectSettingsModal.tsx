@@ -9,7 +9,12 @@ import type { Database } from '@/types/database'
 
 type Project = Database['public']['Tables']['projects']['Row']
 
-const PROJECT_TYPES = ['single', 'ep', 'album', 'mixtape'] as const
+const PROJECT_TYPES = [
+  { value: 'single', label: 'Single' },
+  { value: 'ep', label: 'EP' },
+  { value: 'album', label: 'Album' },
+  { value: 'mixtape', label: 'Mixtape' },
+] as const
 const AGENT_MODES = [
   { value: 'minimal', label: 'Minimal', desc: 'Only when asked' },
   { value: 'moderate', label: 'Moderate', desc: 'On key events' },
@@ -30,10 +35,8 @@ export function ProjectSettingsModal({
   const deleteProject = useDeleteProject(userId)
 
   const [title, setTitle] = useState(project.title)
-  const [projectType, setProjectType] = useState(project.project_type as typeof PROJECT_TYPES[number])
+  const [projectType, setProjectType] = useState(project.project_type as typeof PROJECT_TYPES[number]['value'])
   const [genre, setGenre] = useState(project.genre ?? '')
-  const [timelineStart, setTimelineStart] = useState(project.timeline_start ?? '')
-  const [timelineEnd, setTimelineEnd] = useState(project.timeline_end ?? '')
   const [agentMode, setAgentMode] = useState(project.agent_mode as typeof AGENT_MODES[number]['value'])
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -43,8 +46,6 @@ export function ProjectSettingsModal({
       title,
       project_type: projectType,
       genre: genre || null,
-      timeline_start: timelineStart || null,
-      timeline_end: timelineEnd || null,
       agent_mode: agentMode,
     })
     onClose()
@@ -81,19 +82,19 @@ export function ProjectSettingsModal({
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Type</label>
             <div className="grid grid-cols-4 gap-2">
-              {PROJECT_TYPES.map(type => (
+              {PROJECT_TYPES.map(({ value, label }) => (
                 <button
-                  key={type}
+                  key={value}
                   type="button"
-                  onClick={() => setProjectType(type)}
+                  onClick={() => setProjectType(value)}
                   className={cn(
-                    'py-1.5 rounded-md text-sm border capitalize transition-colors',
-                    projectType === type
+                    'py-1.5 rounded-md text-sm border transition-colors',
+                    projectType === value
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border text-muted-foreground hover:text-foreground',
                   )}
                 >
-                  {type}
+                  {label}
                 </button>
               ))}
             </div>
@@ -107,27 +108,6 @@ export function ProjectSettingsModal({
               onChange={e => setGenre(e.target.value)}
               className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Start date</label>
-              <input
-                type="date"
-                value={timelineStart}
-                onChange={e => setTimelineStart(e.target.value)}
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">End date</label>
-              <input
-                type="date"
-                value={timelineEnd}
-                onChange={e => setTimelineEnd(e.target.value)}
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
           </div>
 
           <div className="space-y-1.5">

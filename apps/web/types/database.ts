@@ -660,6 +660,7 @@ export type Database = {
           bpm: number | null
           created_at: string | null
           duration_secs: number | null
+          file_path: string | null
           id: string
           key: string | null
           notes: string | null
@@ -671,6 +672,7 @@ export type Database = {
           bpm?: number | null
           created_at?: string | null
           duration_secs?: number | null
+          file_path?: string | null
           id?: string
           key?: string | null
           notes?: string | null
@@ -682,6 +684,7 @@ export type Database = {
           bpm?: number | null
           created_at?: string | null
           duration_secs?: number | null
+          file_path?: string | null
           id?: string
           key?: string | null
           notes?: string | null

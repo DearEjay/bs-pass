@@ -5,12 +5,11 @@ import { useCreateProject } from '@/hooks/useProjects'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const PROJECT_TYPES = ['single', 'ep', 'album', 'mixtape'] as const
-const BUDGET_LEVELS = [
-  { value: 'indie', label: 'Indie' },
-  { value: 'independent', label: 'Independent' },
-  { value: 'mid_level', label: 'Mid-Level' },
-  { value: 'major', label: 'Major' },
+const PROJECT_TYPES = [
+  { value: 'single', label: 'Single' },
+  { value: 'ep', label: 'EP' },
+  { value: 'album', label: 'Album' },
+  { value: 'mixtape', label: 'Mixtape' },
 ] as const
 
 export function NewProjectModal({
@@ -22,11 +21,9 @@ export function NewProjectModal({
 }) {
   const createProject = useCreateProject(userId)
   const [title, setTitle] = useState('')
-  const [projectType, setProjectType] = useState<typeof PROJECT_TYPES[number]>('single')
+  const [projectType, setProjectType] = useState<typeof PROJECT_TYPES[number]['value']>('single')
   const [genre, setGenre] = useState('')
   const [budgetLevel, setBudgetLevel] = useState('')
-  const [timelineStart, setTimelineStart] = useState('')
-  const [timelineEnd, setTimelineEnd] = useState('')
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -35,8 +32,6 @@ export function NewProjectModal({
       project_type: projectType,
       genre: genre || null,
       budget_level: budgetLevel || null,
-      timeline_start: timelineStart || null,
-      timeline_end: timelineEnd || null,
       agent_mode: 'moderate',
     })
     onClose()
@@ -61,6 +56,7 @@ export function NewProjectModal({
               onChange={e => setTitle(e.target.value)}
               required
               placeholder="e.g. Summer EP"
+              autoFocus
               className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -68,19 +64,19 @@ export function NewProjectModal({
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Type</label>
             <div className="grid grid-cols-4 gap-2">
-              {PROJECT_TYPES.map(type => (
+              {PROJECT_TYPES.map(({ value, label }) => (
                 <button
-                  key={type}
+                  key={value}
                   type="button"
-                  onClick={() => setProjectType(type)}
+                  onClick={() => setProjectType(value)}
                   className={cn(
-                    'py-1.5 rounded-md text-sm border capitalize transition-colors',
-                    projectType === type
+                    'py-1.5 rounded-md text-sm border transition-colors',
+                    projectType === value
                       ? 'border-primary bg-primary/10 text-primary'
                       : 'border-border text-muted-foreground hover:border-border/80 hover:text-foreground',
                   )}
                 >
-                  {type}
+                  {label}
                 </button>
               ))}
             </div>
@@ -95,27 +91,6 @@ export function NewProjectModal({
               placeholder="e.g. Hip-Hop, R&B"
               className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Start date <span className="text-muted-foreground font-normal">(optional)</span></label>
-              <input
-                type="date"
-                value={timelineStart}
-                onChange={e => setTimelineStart(e.target.value)}
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">End date <span className="text-muted-foreground font-normal">(optional)</span></label>
-              <input
-                type="date"
-                value={timelineEnd}
-                onChange={e => setTimelineEnd(e.target.value)}
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
           </div>
 
           {createProject.error && (
