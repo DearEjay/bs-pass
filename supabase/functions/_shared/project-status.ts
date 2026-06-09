@@ -15,7 +15,6 @@ export type ProjectStatus =
   | 'ready_for_release'
   | 'released'
 
-// Ordered by completion — project status is driven by the least-advanced track
 const STAGE: Record<string, number> = {
   draft: 0,
   recording: 1,
@@ -33,18 +32,26 @@ export function computeProjectStatus(
 ): ProjectStatus {
   if (tracks.length === 0) return 'in_pre_production'
 
-  const minStage = Math.min(...tracks.map(t => STAGE[t.current_status] ?? 0))
+  const stages = tracks.map(t => STAGE[t.current_status] ?? 0)
 
-  if (minStage >= 7) return 'released'
+  // All tracks released
+  if (stages.every(s => s === 7)) return 'released'
 
-  if (minStage >= 6) {
+  // All tracks mastered or released — check splits
+  if (stages.every(s => s >= 6)) {
     const allSplitsSigned = splits.length === 0 || splits.every(s => s.signed_at !== null)
     return allSplitsSigned ? 'ready_for_release' : 'in_post_production'
   }
 
-  if (minStage >= 3) return 'in_post_production'
+  // All tracks still in draft — nothing has started
+  if (stages.every(s => s === 0)) return 'in_pre_production'
 
-  if (minStage >= 1) return 'in_production'
+  // Mix of draft and started tracks → project is actively in production
+  const hasDraft = stages.some(s => s === 0)
+  if (hasDraft) return 'in_production'
 
-  return 'in_pre_production'
+  // All tracks started — are they all in post-production stages (mixing+)?
+  if (stages.every(s => s >= 3)) return 'in_post_production'
+
+  return 'in_production'
 }

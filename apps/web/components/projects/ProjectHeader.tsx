@@ -20,7 +20,7 @@ const STATUS_COLOR: Record<string, string> = {
 
 const STATUS_LABEL: Record<string, string> = {
   in_pre_production: 'Pre-Production',
-  in_production: 'Production',
+  in_production: 'In Production',
   in_post_production: 'Post-Production',
   ready_for_release: 'Ready for Release',
   released: 'Released',

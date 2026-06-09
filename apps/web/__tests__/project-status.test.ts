@@ -10,6 +10,7 @@ function tracks(...statuses: string[]) {
 }
 
 describe('computeProjectStatus', () => {
+  // ── Pre-production ──────────────────────────────────────────────────────────
   it('returns in_pre_production with no tracks', () => {
     expect(computeProjectStatus([], noSplits)).toBe('in_pre_production')
   })
@@ -18,39 +19,46 @@ describe('computeProjectStatus', () => {
     expect(computeProjectStatus(tracks('draft', 'draft'), noSplits)).toBe('in_pre_production')
   })
 
-  it('returns in_pre_production when one track is recording but another is still draft', () => {
-    // draft is furthest from complete — project stays in pre-production
-    expect(computeProjectStatus(tracks('recording', 'draft'), noSplits)).toBe('in_pre_production')
-  })
-
-  it('returns in_production when all tracks are at least recording', () => {
+  // ── In production ───────────────────────────────────────────────────────────
+  it('returns in_production when any track is recording', () => {
     expect(computeProjectStatus(tracks('recording', 'recording'), noSplits)).toBe('in_production')
   })
 
-  it('returns in_production when any track is recorded', () => {
+  it('returns in_production when all tracks are recorded', () => {
     expect(computeProjectStatus(tracks('recorded', 'recorded'), noSplits)).toBe('in_production')
   })
 
-  it('reflects the least-advanced track: recording + mastered → in_production', () => {
-    expect(computeProjectStatus(tracks('recording', 'mastered'), noSplits)).toBe('in_production')
+  it('mix of released and draft → in_production (not pre-production)', () => {
+    // Key case: some work done, some not started — project is actively in production
+    expect(computeProjectStatus(tracks('released', 'draft'), noSplits)).toBe('in_production')
   })
 
-  it('reflects the least-advanced track: draft + mastered → in_pre_production', () => {
-    expect(computeProjectStatus(tracks('draft', 'mastered'), noSplits)).toBe('in_pre_production')
+  it('mix of recording and draft → in_production', () => {
+    expect(computeProjectStatus(tracks('recording', 'draft'), noSplits)).toBe('in_production')
   })
 
-  it('returns in_post_production when least advanced track is mixing', () => {
+  it('mix of mastered and draft → in_production', () => {
+    expect(computeProjectStatus(tracks('mastered', 'draft'), noSplits)).toBe('in_production')
+  })
+
+  it('mix of post-production and production stages → in_production', () => {
+    expect(computeProjectStatus(tracks('mixing', 'recording'), noSplits)).toBe('in_production')
+  })
+
+  // ── Post-production ─────────────────────────────────────────────────────────
+  it('returns in_post_production when all tracks are mixing', () => {
+    expect(computeProjectStatus(tracks('mixing', 'mixing'), noSplits)).toBe('in_post_production')
+  })
+
+  it('returns in_post_production when least advanced is mixing', () => {
     expect(computeProjectStatus(tracks('mixing', 'mastered'), noSplits)).toBe('in_post_production')
-  })
-
-  it('returns in_post_production when least advanced track is mixed', () => {
-    expect(computeProjectStatus(tracks('mixed', 'released'), noSplits)).toBe('in_post_production')
   })
 
   it('returns in_post_production when all mastered but splits unsigned', () => {
     expect(computeProjectStatus(tracks('mastered', 'mastered'), unsignedSplits)).toBe('in_post_production')
   })
 
+  // ── Ready for release ───────────────────────────────────────────────────────
   it('returns ready_for_release when all mastered and no splits exist', () => {
     expect(computeProjectStatus(tracks('mastered', 'mastered'), noSplits)).toBe('ready_for_release')
   })
@@ -63,6 +71,7 @@ describe('computeProjectStatus', () => {
     expect(computeProjectStatus(tracks('mastered', 'released'), signedSplits)).toBe('ready_for_release')
   })
 
+  // ── Released ────────────────────────────────────────────────────────────────
   it('returns released when all tracks are released', () => {
     expect(computeProjectStatus(tracks('released', 'released'), signedSplits)).toBe('released')
   })
