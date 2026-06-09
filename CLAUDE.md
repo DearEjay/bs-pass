@@ -42,14 +42,14 @@ All written in TypeScript on the Deno runtime. Each function is a focused module
 
 - `agent-generate-roadmap` — project creation / manual regenerate: loads project context + user preferences → builds Gemini prompt from a seeded roadmap template → inserts tasks → posts to chat
 - `agent-process-event` — called asynchronously after domain events (`track.status_changed`, `task.completed`, `collaborator.added`, `collaborator.removed`); agent creates follow-up tasks, reassigns, posts to chat
-- `splits-request-signatures` — generates UUID tokens per split, stores them, sends emails via SendGrid
+- `splits-request-signatures` — generates UUID tokens per split, stores them, sends emails via Resend
 - `splits-sign` — validates token ownership, records `signed_at`/`signed_ip`, nullifies token (single-use)
 - `splits-generate-pdf` — generates PDF bytes on-demand and streams the download; **not stored**
-- `notifications-send-email` — transactional emails (invite, task digest) via SendGrid
+- `notifications-send-email` — transactional emails (invite, task digest) via Resend
 - `_shared/auth.ts` — JWT verification middleware
 - `_shared/db.ts` — Supabase service role client (bypasses RLS for agent writes)
 - `_shared/gemini.ts` — Gemini REST API wrapper (Gemini 1.5 Flash)
-- `_shared/sendgrid.ts` — SendGrid REST API wrapper
+- `_shared/resend.ts` — Resend email wrapper (`sendEmail()`)
 - `_shared/project-status.ts` — `computeProjectStatus()` pure function
 
 The LLM is **Gemini** (not Claude/OpenAI). The agent never invents a roadmap from scratch — it customizes seeded templates from the `roadmap_templates` DB table. Agent guardrails: max 5 tasks per trigger, 30-second debounce per project, no destructive actions, all writes go to `audit_logs`.
@@ -104,7 +104,7 @@ NEXT_PUBLIC_SENTRY_DSN
 NEXT_PUBLIC_APP_URL
 ```
 
-Edge Function secrets (set in Supabase dashboard, not `.env`): `GEMINI_API_KEY`, `SENDGRID_API_KEY`, `SENDGRID_FROM_EMAIL`, `APP_BASE_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
+Edge Function secrets (set in Supabase dashboard, not `.env`): `GEMINI_API_KEY`, `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `APP_BASE_URL`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`
 
 ## Key shared logic
 

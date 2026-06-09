@@ -41,7 +41,7 @@ TypeScript functions in `functions/`, Deno runtime.
 - `splits-sign/` — Validate token and record signature
 - `splits-generate-pdf/` — Generate PDF on-demand
 - `notifications-send-email/` — Transactional email dispatch
-- `_shared/` — Shared utilities (auth, db, Gemini, SendGrid)
+- `_shared/` — Shared utilities (auth, db, Gemini, Resend)
 
 Deploy all functions to remote:
 ```bash
@@ -66,8 +66,8 @@ supabase db push --include-seed
 Edge Function secrets are set in the **Supabase dashboard** (Project Settings → Edge Functions), not locally:
 
 - `GEMINI_API_KEY`
-- `SENDGRID_API_KEY`
-- `SENDGRID_FROM_EMAIL`
+- `RESEND_API_KEY`
+- `RESEND_FROM_EMAIL`
 - `APP_BASE_URL` (base URL for signature links, e.g. `https://app.bspass.com`)
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
