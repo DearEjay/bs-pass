@@ -10,14 +10,16 @@ AI-powered music project management for independent artists.
 # Install dependencies
 pnpm install
 
-# Start local Supabase stack
-pnpm supabase:start
+# Copy env file and fill in your remote Supabase credentials
+cp apps/web/.env.local.example apps/web/.env.local
 
-# Run frontend dev server
+# Run frontend dev server (points to remote Supabase)
 pnpm dev
 
 # Visit http://localhost:3000
 ```
+
+> **Note:** This project uses a **remote Supabase project** for development. No local Supabase stack is required. Set `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in `apps/web/.env.local` to your project's API credentials.
 
 ## Documentation
 
@@ -37,15 +39,14 @@ docs/               → Product, design, research, legal docs
 ## Development
 
 ```bash
-# Supabase
-pnpm supabase:start          # Start local DB + functions
-pnpm supabase:push           # Apply migrations
-pnpm supabase:functions:serve # Serve Edge Functions locally
-
 # Frontend
-pnpm dev              # Start Next.js dev server
+pnpm dev              # Start Next.js dev server (uses remote Supabase)
 pnpm type-check       # Check TypeScript
 pnpm lint            # Run ESLint
+
+# Supabase (schema/functions — targets the remote project)
+pnpm supabase:push           # Apply migrations to remote DB
+pnpm supabase:functions:deploy # Deploy Edge Functions to remote
 ```
 
 ## Deployment

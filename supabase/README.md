@@ -2,34 +2,38 @@
 
 PostgreSQL database + Deno Edge Functions for BS-PASS.
 
+This project uses a **remote Supabase project** — no local stack required.
+
 ## Setup
 
 ```bash
 # Install Supabase CLI
 brew install supabase/tap/supabase
 
-# Link to your Supabase project (optional for MVP dev)
-supabase link --project-ref <your-project-ref>
+# Authenticate with Supabase
+supabase login
 
-# Start local dev environment
-supabase start
-
-# Stop local environment
-supabase stop
+# Link to the remote project (already done — supabase/.temp/linked-project.json tracks this)
+supabase link --project-ref qbfmotconogcybnmoqbd
 ```
 
 ## Migrations
 
-All schema changes live in `migrations/` folder. Files are auto-numbered (e.g., `20260607_init.sql`).
+Schema changes live in `migrations/`. Files are auto-numbered (e.g., `20260607_init.sql`).
 
-Apply migrations:
+Apply to remote:
 ```bash
-supabase db push
+pnpm supabase:push   # runs: supabase db push
+```
+
+Dry-run (safe to run anytime, used in CI):
+```bash
+supabase db push --dry-run
 ```
 
 ## Edge Functions
 
-TypeScript functions in `functions/` folder.
+TypeScript functions in `functions/`, Deno runtime.
 
 - `agent-generate-roadmap/` — Generate roadmap from template + Gemini
 - `agent-process-event/` — React to domain events (track status, task complete, etc.)
@@ -39,31 +43,31 @@ TypeScript functions in `functions/` folder.
 - `notifications-send-email/` — Transactional email dispatch
 - `_shared/` — Shared utilities (auth, db, Gemini, SendGrid)
 
-Deploy:
+Deploy all functions to remote:
+```bash
+pnpm supabase:functions:deploy   # runs: supabase functions deploy
+```
+
+Deploy a single function:
 ```bash
 supabase functions deploy <function-name>
 ```
 
-Serve locally:
-```bash
-supabase functions serve
-```
-
 ## Seeding
 
-Dev data (roadmap templates, role definitions) in `seed.sql`.
+Initial data (roadmap templates, collaborator role definitions) in `seed.sql`.
 
-Apply:
 ```bash
-supabase db push --seed
+supabase db push --include-seed
 ```
 
 ## Environment Variables
 
-Edge Function secrets (in Supabase dashboard or `.env.supabase`):
+Edge Function secrets are set in the **Supabase dashboard** (Project Settings → Edge Functions), not locally:
+
 - `GEMINI_API_KEY`
 - `SENDGRID_API_KEY`
 - `SENDGRID_FROM_EMAIL`
-- `APP_BASE_URL` (for signature links)
+- `APP_BASE_URL` (base URL for signature links, e.g. `https://app.bspass.com`)
 - `UPSTASH_REDIS_REST_URL`
 - `UPSTASH_REDIS_REST_TOKEN`
