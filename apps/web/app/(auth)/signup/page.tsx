@@ -23,7 +23,7 @@ export default function SignupPage() {
       email,
       password,
       options: {
-        data: { display_name: displayName },
+        data: { full_name: displayName },
         emailRedirectTo: `${window.location.origin}/api/auth/callback`,
       },
     })
