@@ -27,7 +27,6 @@ interface EventPayload {
   metadata?: Record<string, unknown>
 }
 
-// 30-second debounce key: only one agent action per project per 30s window
 const recentProjectEvents = new Map<string, number>()
 
 Deno.serve(async (req) => {
@@ -44,7 +43,6 @@ Deno.serve(async (req) => {
 
     const supabase = db()
 
-    // ── Verify caller is a collaborator ───────────────────────────────────
     const { data: collab } = await supabase
       .from('collaborators')
       .select('id')
@@ -55,7 +53,6 @@ Deno.serve(async (req) => {
 
     if (!collab) return json({ error: 'Forbidden' }, 403)
 
-    // ── 30-second debounce ────────────────────────────────────────────────
     const debounceKey = `${projectId}:${event}`
     const lastFired = recentProjectEvents.get(debounceKey) ?? 0
     const now = Date.now()
@@ -64,7 +61,6 @@ Deno.serve(async (req) => {
     }
     recentProjectEvents.set(debounceKey, now)
 
-    // ── Load project + current tasks (for context) ────────────────────────
     const { data: project } = await supabase
       .from('projects')
       .select('id,title,project_type,agent_mode,auto_tasks_enabled')
@@ -75,6 +71,203 @@ Deno.serve(async (req) => {
     if (!project.auto_tasks_enabled) return json({ skipped: true, reason: 'auto_tasks_disabled' })
     if (project.agent_mode === 'off') return json({ skipped: true, reason: 'agent_off' })
 
+    // ── Handle collaborator.removed deterministically (no LLM needed) ──────
+    if (event === 'collaborator.removed') {
+      const collaboratorId = entityId
+
+      // Unassign all tasks currently assigned to the removed collaborator
+      const { data: affected } = await supabase
+        .from('tasks')
+        .update({ assignee_id: null })
+        .eq('project_id', projectId)
+        .eq('assignee_id', collaboratorId)
+        .is('deleted_at', null)
+        .neq('status', 'complete')
+        .select('id,title')
+
+      const unassignedCount = affected?.length ?? 0
+      const collaboratorName = (metadata?.display_name as string) ?? 'A collaborator'
+
+      if (unassignedCount > 0) {
+        await supabase.from('chat_messages').insert({
+          project_id: projectId,
+          sender_type: 'agent',
+          body: `${collaboratorName} was removed from the project. ${unassignedCount} task${unassignedCount !== 1 ? 's have' : ' has'} been unassigned and moved back to the backlog.`,
+        })
+      } else {
+        await supabase.from('chat_messages').insert({
+          project_id: projectId,
+          sender_type: 'agent',
+          body: `${collaboratorName} was removed from the project.`,
+        })
+      }
+
+      await supabase.from('audit_logs').insert({
+        project_id: projectId,
+        actor_type: 'agent',
+        entity_type: 'collaborators',
+        entity_id: collaboratorId,
+        action: 'collaborator_removed_tasks_unassigned',
+        diff: { tasks_unassigned: unassignedCount },
+      })
+
+      return json({ success: true, tasks_unassigned: unassignedCount })
+    }
+
+    // ── Handle collaborator.added — role-based task reassignment ────────────
+    if (event === 'collaborator.added') {
+      const collaboratorId = entityId
+
+      const { data: newCollab } = await supabase
+        .from('collaborators')
+        .select('id,roles,user_id,profiles:user_id(display_name)')
+        .eq('id', collaboratorId)
+        .maybeSingle()
+
+      if (!newCollab) return json({ error: 'Collaborator not found' }, 404)
+
+      const collabName = (newCollab.profiles as { display_name: string } | null)?.display_name ?? 'New collaborator'
+      const roles: string[] = Array.isArray(newCollab.roles) ? newCollab.roles : []
+
+      // Role → keyword mapping for fuzzy task matching
+      const ROLE_KEYWORDS: Record<string, string[]> = {
+        mixing_engineer:      ['mix', 'mixing'],
+        mastering_engineer:   ['master', 'mastering'],
+        recording_engineer:   ['record', 'recording', 'engineer'],
+        producer:             ['produce', 'production', 'producer'],
+        co_producer:          ['produce', 'production', 'producer'],
+        songwriter:           ['song', 'write', 'writing', 'lyrics', 'lyric'],
+        graphic_designer:     ['design', 'artwork', 'cover', 'art'],
+        video_director:       ['video', 'visual', 'shoot', 'film'],
+        marketing:            ['market', 'promo', 'promotion', 'campaign'],
+        manager:              ['manage', 'coordinate'],
+        featured_artist:      ['feature', 'vocal', 'verse', 'hook'],
+        background_vocalist:  ['background', 'backing', 'vocal', 'choir'],
+        session_musician:     ['session', 'instrument', 'play', 'record'],
+        ar:                   ['pitch', 'label', 'distribution', 'a&r'],
+      }
+
+      const keywords = roles.flatMap(r => ROLE_KEYWORDS[r] ?? [])
+
+      let reassignedCount = 0
+      if (keywords.length > 0) {
+        // Find unassigned tasks that match the collaborator's role keywords
+        const { data: unassigned } = await supabase
+          .from('tasks')
+          .select('id,title')
+          .eq('project_id', projectId)
+          .is('assignee_id', null)
+          .is('deleted_at', null)
+          .neq('status', 'complete')
+
+        if (unassigned && unassigned.length > 0) {
+          const matched = unassigned.filter(t =>
+            keywords.some(kw => t.title.toLowerCase().includes(kw))
+          ).slice(0, 5)
+
+          if (matched.length > 0) {
+            await supabase
+              .from('tasks')
+              .update({ assignee_id: newCollab.user_id })
+              .in('id', matched.map(t => t.id))
+
+            reassignedCount = matched.length
+          }
+        }
+      }
+
+      // Load current tasks for AI context
+      const { data: tasks } = await supabase
+        .from('tasks')
+        .select('id,title,status,assignee_id,priority')
+        .eq('project_id', projectId)
+        .is('deleted_at', null)
+        .order('sort_order', { ascending: true })
+
+      const taskSummary = (tasks ?? []).map(t => `- [${t.status}] ${t.title}`).join('\n')
+
+      // Ask AI if any follow-up tasks should be created
+      const maxNew = project.agent_mode === 'minimal' ? 1 : 3
+      const prompt = `You are an AI music project manager. A new collaborator just joined.
+
+PROJECT: "${project.title}" (${project.project_type})
+NEW COLLABORATOR: ${collabName}
+ROLES: ${roles.join(', ') || 'unspecified'}
+TASKS ALREADY REASSIGNED TO THEM: ${reassignedCount}
+
+CURRENT TASKS:
+${taskSummary || '(none yet)'}
+
+Based on their roles, decide if any NEW tasks should be created (max ${maxNew}).
+Only create tasks that are clearly needed for their role and don't already exist.
+
+Return ONLY valid JSON (no markdown):
+{
+  "new_tasks": [
+    { "title": string, "description": string|null, "priority": "high"|"medium"|"low" }
+  ],
+  "chat_message": string
+}
+
+Rules:
+- chat_message is required (1-2 sentences welcoming them and noting what was assigned)
+- Only create tasks if genuinely needed — empty array is fine`
+
+      let aiResult: { new_tasks: Array<{ title: string; description: string | null; priority: string }>; chat_message: string } = {
+        new_tasks: [],
+        chat_message: reassignedCount > 0
+          ? `Welcome ${collabName}! I've assigned ${reassignedCount} task${reassignedCount !== 1 ? 's' : ''} that match${reassignedCount !== 1 ? '' : 'es'} their role.`
+          : `Welcome ${collabName} to the project!`,
+      }
+
+      try {
+        const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }])
+        const cleaned = raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim()
+        const parsed = JSON.parse(cleaned)
+        if (Array.isArray(parsed.new_tasks)) aiResult.new_tasks = parsed.new_tasks
+        if (typeof parsed.chat_message === 'string') aiResult.chat_message = parsed.chat_message
+      } catch (e) {
+        console.warn('Gemini parse failed for collaborator.added:', e)
+      }
+
+      aiResult.new_tasks = aiResult.new_tasks.slice(0, maxNew)
+
+      let createdCount = 0
+      if (aiResult.new_tasks.length > 0) {
+        const currentLen = tasks?.length ?? 0
+        const { data: inserted } = await supabase.from('tasks').insert(
+          aiResult.new_tasks.map((t, i) => ({
+            project_id: projectId,
+            title: String(t.title).slice(0, 200),
+            description: t.description ?? null,
+            priority: ['high', 'medium', 'low'].includes(t.priority) ? t.priority : 'medium',
+            assignee_id: newCollab.user_id,
+            created_by: 'agent',
+            sort_order: currentLen + i,
+          }))
+        ).select('id')
+        createdCount = inserted?.length ?? 0
+      }
+
+      await supabase.from('chat_messages').insert({
+        project_id: projectId,
+        sender_type: 'agent',
+        body: aiResult.chat_message,
+      })
+
+      await supabase.from('audit_logs').insert({
+        project_id: projectId,
+        actor_type: 'agent',
+        entity_type: 'collaborators',
+        entity_id: collaboratorId,
+        action: 'collaborator_added_tasks_assigned',
+        diff: { tasks_reassigned: reassignedCount, tasks_created: createdCount },
+      })
+
+      return json({ success: true, tasks_reassigned: reassignedCount, tasks_created: createdCount })
+    }
+
+    // ── All other events: use AI for follow-up actions ──────────────────────
     const { data: tasks } = await supabase
       .from('tasks')
       .select('id,title,status,assignee_id,priority')
@@ -84,7 +277,6 @@ Deno.serve(async (req) => {
 
     const taskSummary = (tasks ?? []).map(t => `- [${t.status}] ${t.title}`).join('\n')
 
-    // ── Build event-specific context ──────────────────────────────────────
     let eventContext = ''
     let entityDetails: Record<string, unknown> = {}
 
@@ -113,27 +305,8 @@ Deno.serve(async (req) => {
         }
         break
       }
-      case 'collaborator.added': {
-        const { data: c } = await supabase
-          .from('collaborators')
-          .select('id,roles,profiles:user_id(display_name)')
-          .eq('id', entityId)
-          .maybeSingle()
-        if (c) {
-          const name = (c.profiles as { display_name: string } | null)?.display_name ?? 'A collaborator'
-          entityDetails = { name, roles: c.roles }
-          eventContext = `${name} (roles: ${(c.roles ?? []).join(', ')}) just joined the project.`
-        }
-        break
-      }
-      case 'collaborator.removed': {
-        entityDetails = { collaborator_id: entityId, ...metadata }
-        eventContext = `A collaborator was removed from the project.`
-        break
-      }
     }
 
-    // ── Call Gemini for follow-up actions ─────────────────────────────────
     const maxNew = project.agent_mode === 'minimal' ? 2 : 5
     const prompt = `You are an AI music project manager. A domain event just occurred.
 
@@ -159,7 +332,7 @@ Return ONLY valid JSON (no markdown):
 
 Rules:
 - Only create tasks that are clearly implied by this event and don't already exist
-- Don't duplicate existing tasks (check CURRENT TASKS list)
+- Don't duplicate existing tasks
 - chat_message should be 1-2 sentences max; null if nothing meaningful to say
 - If no actions are needed, return { "new_tasks": [], "chat_message": null }`
 
@@ -179,7 +352,6 @@ Rules:
 
     aiResult.new_tasks = aiResult.new_tasks.slice(0, maxNew)
 
-    // ── Insert follow-up tasks ────────────────────────────────────────────
     let createdCount = 0
     if (aiResult.new_tasks.length > 0) {
       const { data: inserted } = await supabase.from('tasks').insert(
@@ -195,7 +367,6 @@ Rules:
       createdCount = inserted?.length ?? 0
     }
 
-    // ── Post to chat ──────────────────────────────────────────────────────
     if (aiResult.chat_message) {
       await supabase.from('chat_messages').insert({
         project_id: projectId,
@@ -204,7 +375,6 @@ Rules:
       })
     }
 
-    // ── Audit log ─────────────────────────────────────────────────────────
     await supabase.from('audit_logs').insert({
       project_id: projectId,
       actor_type: 'agent',

@@ -164,6 +164,7 @@ export type Database = {
           accepted_at: string | null
           created_at: string | null
           id: string
+          invite_token: string | null
           invited_at: string | null
           is_main_artist: boolean
           muted_user_ids: string[] | null
@@ -179,6 +180,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string | null
           id?: string
+          invite_token?: string | null
           invited_at?: string | null
           is_main_artist?: boolean
           muted_user_ids?: string[] | null
@@ -194,6 +196,7 @@ export type Database = {
           accepted_at?: string | null
           created_at?: string | null
           id?: string
+          invite_token?: string | null
           invited_at?: string | null
           is_main_artist?: boolean
           muted_user_ids?: string[] | null
@@ -263,6 +266,57 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      pending_invites: {
+        Row: {
+          accepted_at: string | null
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          invite_token: string
+          invited_by: string
+          project_id: string
+          roles: string[]
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email: string
+          expires_at?: string
+          id?: string
+          invite_token?: string
+          invited_by: string
+          project_id: string
+          roles?: string[]
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          invite_token?: string
+          invited_by?: string
+          project_id?: string
+          roles?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pending_invites_invited_by_fkey"
+            columns: ["invited_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pending_invites_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -389,6 +443,7 @@ export type Database = {
           signature_token: string | null
           signed_at: string | null
           signed_ip: string | null
+          split_status: string
           token_expires_at: string | null
           track_id: string
           updated_at: string | null
@@ -401,6 +456,7 @@ export type Database = {
           signature_token?: string | null
           signed_at?: string | null
           signed_ip?: string | null
+          split_status?: string
           token_expires_at?: string | null
           track_id: string
           updated_at?: string | null
@@ -413,6 +469,7 @@ export type Database = {
           signature_token?: string | null
           signed_at?: string | null
           signed_ip?: string | null
+          split_status?: string
           token_expires_at?: string | null
           track_id?: string
           updated_at?: string | null
@@ -815,6 +872,7 @@ export type Database = {
           project_id: string
           release_date: string | null
           sort_order: number | null
+          splits_agent_locked: boolean
           title: string
           track_cover_url: string | null
           updated_at: string | null
@@ -832,6 +890,7 @@ export type Database = {
           project_id: string
           release_date?: string | null
           sort_order?: number | null
+          splits_agent_locked?: boolean
           title: string
           track_cover_url?: string | null
           updated_at?: string | null
@@ -849,6 +908,7 @@ export type Database = {
           project_id?: string
           release_date?: string | null
           sort_order?: number | null
+          splits_agent_locked?: boolean
           title?: string
           track_cover_url?: string | null
           updated_at?: string | null
@@ -919,6 +979,9 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_invite_by_token: { Args: { p_token: string }; Returns: Json }
+      get_split_by_token: { Args: { p_token: string }; Returns: Json }
+      get_user_id_by_email: { Args: { p_email: string }; Returns: string }
       is_project_main_artist: {
         Args: { p_project_id: string }
         Returns: boolean

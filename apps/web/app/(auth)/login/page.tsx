@@ -1,10 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export default function LoginPage() {
+function LoginForm() {
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next') ?? '/projects'
+
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -25,8 +29,7 @@ export default function LoginPage() {
         return
       }
 
-      // Hard redirect so middleware picks up the new session cookie cleanly
-      window.location.href = '/projects'
+      window.location.href = next
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setLoading(false)
@@ -80,10 +83,18 @@ export default function LoginPage() {
 
       <p className="text-center text-sm text-muted-foreground mt-6">
         Don&apos;t have an account?{' '}
-        <Link href="/signup" className="text-foreground underline underline-offset-4">
+        <Link href={`/signup${next !== '/projects' ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-foreground underline underline-offset-4">
           Sign up
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

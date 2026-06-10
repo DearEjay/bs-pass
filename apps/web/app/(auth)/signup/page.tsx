@@ -1,10 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-export default function SignupPage() {
+function SignupForm() {
+  const searchParams = useSearchParams()
+  const next = searchParams.get('next') ?? '/projects'
+
   const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -22,7 +26,7 @@ export default function SignupPage() {
       password,
       options: {
         data: { full_name: displayName },
-        emailRedirectTo: `${window.location.origin}/api/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(next)}`,
       },
     })
 
@@ -32,7 +36,7 @@ export default function SignupPage() {
       return
     }
 
-    window.location.href = '/projects'
+    window.location.href = next
   }
 
   return (
@@ -96,10 +100,18 @@ export default function SignupPage() {
 
       <p className="text-center text-sm text-muted-foreground mt-6">
         Already have an account?{' '}
-        <Link href="/login" className="text-foreground underline underline-offset-4">
+        <Link href={`/login${next !== '/projects' ? `?next=${encodeURIComponent(next)}` : ''}`} className="text-foreground underline underline-offset-4">
           Sign in
         </Link>
       </p>
     </div>
+  )
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense>
+      <SignupForm />
+    </Suspense>
   )
 }
