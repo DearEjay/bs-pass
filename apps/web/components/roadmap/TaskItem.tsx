@@ -12,10 +12,10 @@ const PRIORITY_CONFIG: Record<Priority, { label: string; dot: string }> = {
 }
 
 const STATUS_ICON = {
-  done: <CheckCircle2 size={16} className="text-primary shrink-0" />,
+  complete: <CheckCircle2 size={16} className="text-primary shrink-0" />,
   in_progress: <Clock size={16} className="text-amber-400 shrink-0" />,
   blocked: <AlertCircle size={16} className="text-destructive shrink-0" />,
-  todo: <Circle size={16} className="text-muted-foreground shrink-0" />,
+  not_started: <Circle size={16} className="text-muted-foreground shrink-0" />,
 }
 
 interface Props {
@@ -50,7 +50,7 @@ export function TaskItem({
   const [titleDraft, setTitleDraft] = useState('')
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  const isDone = task.status === 'done'
+  const isDone = task.status === 'complete'
   const effectiveStatus = isBlocked && !isDone ? 'blocked' : task.status as keyof typeof STATUS_ICON
   const priority = (task.priority as Priority) ?? 'medium'
 
@@ -91,7 +91,7 @@ export function TaskItem({
         className="mt-0.5 shrink-0 disabled:cursor-not-allowed"
         title={isBlocked ? `Blocked by: ${blockerTitles.join(', ')}` : isDone ? 'Mark as incomplete' : 'Mark as done'}
       >
-        {STATUS_ICON[effectiveStatus] ?? STATUS_ICON.todo}
+        {STATUS_ICON[effectiveStatus] ?? STATUS_ICON.not_started}
       </button>
 
       {/* Title + meta */}

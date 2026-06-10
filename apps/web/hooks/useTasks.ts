@@ -7,7 +7,7 @@ import type { Database } from '@/types/database'
 type Task = Database['public']['Tables']['tasks']['Row']
 type TaskDependency = Database['public']['Tables']['task_dependencies']['Row']
 type Priority = 'high' | 'medium' | 'low'
-type TaskStatus = 'todo' | 'in_progress' | 'done' | 'blocked'
+type TaskStatus = 'not_started' | 'in_progress' | 'complete'
 
 export type { Task, TaskStatus, Priority }
 
@@ -145,7 +145,7 @@ export function useCompleteTask(projectId: string) {
       const { error } = await supabase
         .from('tasks')
         .update({
-          status: 'done',
+          status: 'complete',
           completed_at: new Date().toISOString(),
           completed_by: userId,
         })
@@ -163,7 +163,7 @@ export function useReopenTask(projectId: string) {
     mutationFn: async (taskId: string) => {
       const { error } = await supabase
         .from('tasks')
-        .update({ status: 'todo', completed_at: null, completed_by: null })
+        .update({ status: 'not_started', completed_at: null, completed_by: null })
         .eq('id', taskId)
       if (error) throw error
     },
@@ -243,6 +243,6 @@ export function isTaskBlocked(task: TaskWithDeps, allTasks: TaskWithDeps[]): boo
   if (task.dependencies.length === 0) return false
   return task.dependencies.some(depId => {
     const dep = allTasks.find(t => t.id === depId)
-    return dep ? dep.status !== 'done' : false
+    return dep ? dep.status !== 'complete' : false
   })
 }

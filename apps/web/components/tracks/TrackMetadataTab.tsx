@@ -8,17 +8,27 @@ import type { Database } from '@/types/database'
 
 type Track = Database['public']['Tables']['tracks']['Row']
 
-const COMMON_KEYS = [
-  'C', 'C#', 'Db', 'D', 'D#', 'Eb', 'E', 'F', 'F#', 'Gb', 'G', 'G#', 'Ab', 'A', 'A#', 'Bb', 'B',
-  'Cm', 'C#m', 'Dm', 'D#m', 'Em', 'Fm', 'F#m', 'Gm', 'G#m', 'Am', 'A#m', 'Bm',
-]
+const KEY_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+const KEY_QUALITIES = ['Major', 'Minor']
+
+function parseKey(value: string): { note: string; quality: string } {
+  const parts = value.split(' ')
+  if (parts.length === 2 && KEY_QUALITIES.includes(parts[1])) {
+    return { note: parts[0], quality: parts[1] }
+  }
+  // Legacy format (e.g. "Am", "C#m")
+  if (value.endsWith('m')) return { note: value.slice(0, -1), quality: 'Minor' }
+  return { note: value, quality: 'Major' }
+}
 
 export function TrackMetadataTab({ track, projectId }: { track: Track; projectId: string }) {
   const saveMetadata = useSaveTrackMetadata(track.id, projectId)
   const supabase = createClient()
 
   const [bpm, setBpm] = useState(track.bpm?.toString() ?? '')
-  const [key, setKey] = useState(track.key ?? '')
+  const parsedKey = track.key ? parseKey(track.key) : { note: '', quality: 'Major' }
+  const [keyNote, setKeyNote] = useState(parsedKey.note)
+  const [keyQuality, setKeyQuality] = useState(parsedKey.quality)
   const [releaseDate, setReleaseDate] = useState(
     (track as Track & { release_date?: string | null }).release_date ?? ''
   )
@@ -33,9 +43,9 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
     if (value !== track.bpm) await saveMetadata.mutateAsync({ bpm: value })
   }
 
-  async function handleKeyChange(value: string) {
-    setKey(value)
-    await saveMetadata.mutateAsync({ key: value || null })
+  async function handleKeyChange(note: string, quality: string) {
+    const value = note ? `${note} ${quality}` : null
+    await saveMetadata.mutateAsync({ key: value })
   }
 
   async function handleReleaseDateBlur() {
@@ -93,14 +103,24 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
         {/* Key */}
         <div className="space-y-1.5">
           <label className="text-xs text-muted-foreground">Key</label>
-          <select
-            value={key}
-            onChange={e => handleKeyChange(e.target.value)}
-            className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          >
-            <option value="">Select key</option>
-            {COMMON_KEYS.map(k => <option key={k} value={k}>{k}</option>)}
-          </select>
+          <div className="flex gap-1.5">
+            <select
+              value={keyNote}
+              onChange={e => { setKeyNote(e.target.value); handleKeyChange(e.target.value, keyQuality) }}
+              className="flex-1 px-2 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            >
+              <option value="">—</option>
+              {KEY_NOTES.map(n => <option key={n} value={n}>{n}</option>)}
+            </select>
+            <select
+              value={keyQuality}
+              onChange={e => { setKeyQuality(e.target.value); handleKeyChange(keyNote, e.target.value) }}
+              disabled={!keyNote}
+              className="flex-1 px-2 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
+            >
+              {KEY_QUALITIES.map(q => <option key={q} value={q}>{q}</option>)}
+            </select>
+          </div>
         </div>
 
         {/* Release date */}
