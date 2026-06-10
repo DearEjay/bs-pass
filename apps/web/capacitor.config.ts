@@ -5,8 +5,8 @@ const config: CapacitorConfig = {
   appName: 'BS-PASS',
   webDir: 'public',
   server: {
-    url: 'http://localhost:3000',
-    cleartext: true,
+    url: 'https://web-mu-eight-3mnghq5p7b.vercel.app',
+    cleartext: false,
   },
 }
 
