@@ -16,18 +16,23 @@ function highlightSearch(text: string, query: string): React.ReactNode {
   )
 }
 
-// Renders body text, highlighting @[Name] mentions and bare @word mentions
+// Renders body text, highlighting mentions and bare @word mentions.
+// Handles three formats:
+//   @[Name]   — legacy bracket format (already stored in DB)
+//   @Name‌    — new format: ZWNJ (U+200C) marks end of mention, no visible brackets
+//   @word     — bare single-word mention (@here, @manager)
 function renderBody(body: string, searchQuery?: string): React.ReactNode {
-  // Split on @[Name] or @word patterns
-  const parts = body.split(/(@\[[^\]]+\]|@[\w]+)/g)
+  const parts = body.split(/(@\[[^\]]+\]|@[^@‌\n]+‌|@[\w]+)/g)
   return parts.map((part, i) => {
     if (/^@\[([^\]]+)\]$/.test(part)) {
-      // @[Display Name] → render as @Display Name bold
       const name = part.slice(2, -1)
       return <span key={i} className="text-primary font-semibold">@{name}</span>
     }
+    if (part.startsWith('@') && part.endsWith('‌')) {
+      const name = part.slice(1, -1)
+      return <span key={i} className="text-primary font-semibold">@{name}</span>
+    }
     if (/^@[\w]+$/.test(part)) {
-      // bare @word (legacy or @here/@manager)
       return <span key={i} className="text-primary font-semibold">{part}</span>
     }
     return <span key={i}>{searchQuery ? highlightSearch(part, searchQuery) : part}</span>
@@ -71,29 +76,18 @@ export function ChatMessage({
   // ── Own message (right-aligned) ──────────────────────────────────────────
   if (isOwnMessage) {
     return (
-      <div className={cn('flex items-start justify-end gap-2.5', marginTop)}>
+      <div className={cn('flex justify-end', marginTop)}>
         <div className="flex flex-col items-end max-w-[72%]">
-          {isFirst && (
-            <div className="flex items-baseline gap-2 mb-1 justify-end">
-              <span className="text-[11px] text-muted-foreground">{time}</span>
-              <span className="text-xs font-semibold">You</span>
-            </div>
-          )}
-          <div className={cn(
-            'bg-primary text-primary-foreground px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words',
-            isFirst && isLast  ? 'rounded-2xl rounded-tr-sm' :
-            isFirst            ? 'rounded-2xl rounded-tr-sm rounded-br-md' :
-            isLast             ? 'rounded-2xl rounded-tr-md rounded-br-sm' :
-                                 'rounded-2xl rounded-r-md',
-          )}>
-            {body}
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-[11px] text-muted-foreground">{time}</span>
+            <span className="text-xs font-semibold">You</span>
           </div>
-        </div>
-        {/* Avatar column — always reserves space, shows avatar on first message */}
-        <div className="w-8 shrink-0 mt-0.5">
-          {isFirst && (
+          <div className="flex items-end gap-1.5">
+            <div className="bg-primary text-primary-foreground px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm">
+              {body}
+            </div>
             <Avatar name={senderName} avatarUrl={avatarUrl} />
-          )}
+          </div>
         </div>
       </div>
     )
@@ -102,29 +96,19 @@ export function ChatMessage({
   // ── AI Agent (left-aligned) ──────────────────────────────────────────────
   if (isAgent) {
     return (
-      <div className={cn('flex items-start gap-2.5', marginTop)}>
-        <div className="w-8 shrink-0 mt-0.5">
-          {isFirst && (
-            <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
+      <div className={cn('flex justify-start', marginTop)}>
+        <div className="flex flex-col items-start max-w-[72%]">
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-xs font-semibold text-primary">{senderName}</span>
+            <span className="text-[11px] text-muted-foreground">{time}</span>
+          </div>
+          <div className="flex items-end gap-1.5">
+            <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
               <Bot size={14} className="text-primary" />
             </div>
-          )}
-        </div>
-        <div className="flex-1 min-w-0 max-w-[72%]">
-          {isFirst && (
-            <div className="flex items-baseline gap-2 mb-1">
-              <span className="text-xs font-semibold text-primary">{senderName}</span>
-              <span className="text-[11px] text-muted-foreground">{time}</span>
+            <div className="bg-muted px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm inline-block">
+              {body}
             </div>
-          )}
-          <div className={cn(
-            'bg-muted px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words inline-block max-w-full',
-            isFirst && isLast  ? 'rounded-2xl rounded-tl-sm' :
-            isFirst            ? 'rounded-2xl rounded-tl-sm rounded-bl-md' :
-            isLast             ? 'rounded-2xl rounded-tl-md rounded-bl-sm' :
-                                 'rounded-2xl rounded-l-md',
-          )}>
-            {body}
           </div>
         </div>
       </div>
@@ -133,25 +117,17 @@ export function ChatMessage({
 
   // ── Other collaborator (left-aligned) ────────────────────────────────────
   return (
-    <div className={cn('flex items-start gap-2.5', marginTop)}>
-      <div className="w-8 shrink-0 mt-0.5">
-        {isFirst && <Avatar name={senderName} avatarUrl={avatarUrl} />}
-      </div>
-      <div className="min-w-0 max-w-[72%]">
-        {isFirst && (
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-xs font-semibold">{senderName}</span>
-            <span className="text-[11px] text-muted-foreground">{time}</span>
+    <div className={cn('flex justify-start', marginTop)}>
+      <div className="flex flex-col items-start max-w-[72%]">
+        <div className="flex items-baseline gap-2 mb-1">
+          <span className="text-xs font-semibold">{senderName}</span>
+          <span className="text-[11px] text-muted-foreground">{time}</span>
+        </div>
+        <div className="flex items-end gap-1.5">
+          <Avatar name={senderName} avatarUrl={avatarUrl} />
+          <div className="bg-card border border-border px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm inline-block">
+            {body}
           </div>
-        )}
-        <div className={cn(
-          'bg-card border border-border px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words inline-block max-w-full',
-          isFirst && isLast  ? 'rounded-2xl rounded-tl-sm' :
-          isFirst            ? 'rounded-2xl rounded-tl-sm rounded-bl-md' :
-          isLast             ? 'rounded-2xl rounded-tl-md rounded-bl-sm' :
-                               'rounded-2xl rounded-l-md',
-        )}>
-          {body}
         </div>
       </div>
     </div>

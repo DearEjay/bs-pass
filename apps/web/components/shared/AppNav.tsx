@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { LayoutGrid, LogOut } from 'lucide-react'
+import { LayoutGrid, LogOut, User } from 'lucide-react'
 
 export function AppNav() {
   const pathname = usePathname()
@@ -17,34 +17,78 @@ export function AppNav() {
     router.refresh()
   }
 
-  return (
-    <nav className="w-56 h-screen flex flex-col border-r border-border bg-card px-3 py-4 shrink-0">
-      <div className="mb-6 px-2">
-        <span className="text-lg font-bold tracking-tight">BS-PASS</span>
-      </div>
+  const onProjects = pathname.startsWith('/projects')
+  const onProfile = pathname.startsWith('/profile')
 
-      <div className="flex-1 space-y-1">
+  return (
+    <>
+      {/* ── Desktop sidebar (md+) ───────────────────────────── */}
+      <nav className="hidden md:flex w-56 h-screen flex-col border-r border-border bg-card px-3 py-4 shrink-0">
+        <div className="mb-6 px-2">
+          <span className="text-lg font-bold tracking-tight">BS-PASS</span>
+        </div>
+
+        <div className="flex-1 space-y-1">
+          <Link
+            href="/projects"
+            className={cn(
+              'flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors',
+              onProjects
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+            )}
+          >
+            <LayoutGrid size={16} />
+            Projects
+          </Link>
+
+          <Link
+            href="/profile"
+            className={cn(
+              'flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors',
+              onProfile
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+            )}
+          >
+            <User size={16} />
+            Profile
+          </Link>
+        </div>
+
+        <button
+          onClick={signOut}
+          className="flex items-center gap-2.5 px-2 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors w-full"
+        >
+          <LogOut size={16} />
+          Sign out
+        </button>
+      </nav>
+
+      {/* ── Mobile bottom nav (<md) ─────────────────────────── */}
+      <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-card border-t border-border flex items-center justify-around px-6 pt-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <Link
           href="/projects"
           className={cn(
-            'flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors',
-            pathname.startsWith('/projects')
-              ? 'bg-accent text-foreground'
-              : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+            'flex flex-col items-center gap-0.5 px-4 py-1 rounded-md text-xs transition-colors',
+            onProjects ? 'text-primary' : 'text-muted-foreground',
           )}
         >
-          <LayoutGrid size={16} />
-          Projects
+          <LayoutGrid size={22} />
+          <span>Projects</span>
         </Link>
-      </div>
 
-      <button
-        onClick={signOut}
-        className="flex items-center gap-2.5 px-2 py-2 rounded-md text-sm text-muted-foreground hover:text-foreground hover:bg-accent transition-colors w-full"
-      >
-        <LogOut size={16} />
-        Sign out
-      </button>
-    </nav>
+        <Link
+          href="/profile"
+          className={cn(
+            'flex flex-col items-center gap-0.5 px-4 py-1 rounded-md text-xs transition-colors',
+            onProfile ? 'text-primary' : 'text-muted-foreground',
+          )}
+        >
+          <User size={22} />
+          <span>Profile</span>
+        </Link>
+      </nav>
+    </>
   )
 }

@@ -67,7 +67,7 @@ export function AgentSection({ userId }: { userId: string }) {
       {/* Agent mode */}
       <div className="mb-5">
         <p className="text-sm font-medium mb-2">Agent mode</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {AGENT_MODES.map(mode => (
             <button
               key={mode.value}

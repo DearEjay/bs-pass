@@ -23,12 +23,10 @@ function DateSeparator({ date }: { date: Date }) {
 function buildGroups(messages: ChatMessageType[]) {
   return messages.map((msg, i) => {
     const prev = messages[i - 1]
-    const next = messages[i + 1]
     const currDate = new Date(msg.created_at!)
     const showDateSeparator = !prev || !isSameDay(new Date(prev.created_at!), currDate)
-    const samePrev = prev && prev.sender_id === msg.sender_id && prev.sender_type === msg.sender_type && !showDateSeparator
-    const sameNext = next && next.sender_id === msg.sender_id && next.sender_type === msg.sender_type && isSameDay(currDate, new Date(next.created_at!))
-    return { message: msg, isFirst: !samePrev, isLast: !sameNext, showDateSeparator }
+    // Always treat each message as its own group — avatar + name + time on every message
+    return { message: msg, isFirst: true, isLast: true, showDateSeparator }
   })
 }
 
@@ -106,7 +104,7 @@ export function ChatFeed({
 
       {/* Messages */}
       <div ref={scrollAreaRef} className="flex-1 overflow-y-auto">
-        <div className="flex flex-col justify-end min-h-full px-4 pt-4 pb-2 max-w-3xl mx-auto">
+        <div className="flex flex-col justify-end min-h-full px-3 sm:px-4 pt-3 sm:pt-4 pb-2 max-w-3xl mx-auto">
           {isLoading && (
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (

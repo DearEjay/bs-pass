@@ -12,10 +12,11 @@ const SPECIAL_MENTIONS: MentionOption[] = [
   { name: 'manager', display: '@manager', subtitle: 'Trigger the AI Roadmap Agent' },
 ]
 
-// Detect an in-progress @mention at the cursor (stops at @ or [ so completed @[...] won't re-trigger)
+// Detect an in-progress @mention at the cursor.
+// ‌ (ZWNJ) marks the end of a completed mention so we don't re-trigger on it.
 function getMentionQuery(text: string, cursorPos: number): string | null {
   const before = text.slice(0, cursorPos)
-  const match = before.match(/@(?!\[)([^@[]*)$/)
+  const match = before.match(/@([^@‌]*)$/)
   return match ? match[1] : null
 }
 
@@ -75,10 +76,10 @@ export function ChatInput({
     const pos = textareaRef.current?.selectionStart ?? text.length
     const before = text.slice(0, pos)
     const after = text.slice(pos)
-    const match = before.match(/@(?!\[)[^@[]*$/)
+    const match = before.match(/@([^@‌]*)$/)
     const atIdx = match ? before.length - match[0].length : before.length
-    // Store as @[Name] so spaces are preserved unambiguously
-    const inserted = `@[${name}] `
+    // ZWNJ (‌) marks end of mention so spaces in names are preserved without brackets
+    const inserted = `@${name}‌ `
     const newText = before.slice(0, atIdx) + inserted + after
     setText(newText)
     setMentionQuery(null)
@@ -148,7 +149,7 @@ export function ChatInput({
         </div>
       )}
 
-      <div className="flex gap-2 items-end px-6 py-4 max-w-3xl mx-auto">
+      <div className="flex gap-2 items-end px-3 sm:px-6 py-3 sm:py-4 max-w-3xl mx-auto">
         {onSearchOpen && (
           <button
             type="button"

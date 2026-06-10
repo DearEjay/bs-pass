@@ -43,7 +43,7 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
 
   return (
     <>
-      <div className="border-b border-border bg-card px-6 pt-4 pb-0">
+      <div className="border-b border-border bg-card px-4 sm:px-6 pt-4 pb-0">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
             <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
@@ -69,7 +69,7 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
           </button>
         </div>
 
-        <nav className="flex gap-1 -mb-px">
+        <nav className="flex gap-1 -mb-px overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
           {TABS.map(tab => (
             <Link
               key={tab.path}
