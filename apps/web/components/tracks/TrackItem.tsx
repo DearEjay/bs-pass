@@ -203,11 +203,10 @@ export function TrackItem({
         <div className="relative">
           <button
             onClick={() => setShowStatusMenu(v => !v)}
-            className="flex items-center gap-1 hover:opacity-80 transition-opacity"
+            className="hover:opacity-80 transition-opacity"
             disabled={updateStatus.isPending}
           >
             <TrackStatusBadge status={track.current_status as TrackStatus} />
-            <ChevronDown size={12} className="text-muted-foreground" />
           </button>
 
           {showStatusMenu && (
