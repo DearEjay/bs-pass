@@ -271,9 +271,6 @@ export function TrackItem({
                 >
                   <Trash2 size={13} className="text-muted-foreground shrink-0" />
                   Delete current version
-                  {versions.length <= 1 && currentVersion && (
-                    <span className="ml-auto text-muted-foreground/60">(only one)</span>
-                  )}
                 </button>
 
                 {/* Restore from previous */}
