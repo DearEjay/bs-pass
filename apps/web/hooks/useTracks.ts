@@ -39,6 +39,31 @@ export function useTracks(projectId: string) {
   })
 }
 
+// Fetch splits from DB, compute new project status, update cache + DB.
+// Cache is updated synchronously first so the UI reacts immediately.
+async function syncProjectStatus(
+  projectId: string,
+  supabase: ReturnType<typeof createClient>,
+  qc: ReturnType<typeof useQueryClient>,
+  tracks: Track[],
+) {
+  // Must read splits from DB — they're cached per-track not per-project
+  const { data: splits = [] } = await supabase
+    .from('splits')
+    .select('signed_at, track_id, tracks!inner(project_id)')
+    .eq('tracks.project_id', projectId)
+
+  const newStatus = computeProjectStatus(tracks, splits as { signed_at: string | null }[])
+
+  // Update cache immediately for instant UI
+  qc.setQueryData<Project>(['project', projectId], old =>
+    old ? { ...old, status: newStatus } : old
+  )
+
+  // Persist to DB (awaited so navigation doesn't drop the write)
+  await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
+}
+
 export function useProjectStatus(projectId: string, initialProject: Project) {
   const supabase = createClient()
   return useQuery({
@@ -102,12 +127,7 @@ export function useCreateTrack(projectId: string) {
     onSuccess: async (newTrack) => {
       qc.setQueryData<Track[]>(['tracks', projectId], old => [...(old ?? []), newTrack])
       const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
-      const splits = qc.getQueryData<Split[]>(['splits', projectId]) ?? []
-      const newStatus = computeProjectStatus(tracks, splits)
-      qc.setQueryData<Project>(['project', projectId], old =>
-        old ? { ...old, status: newStatus } : old
-      )
-      supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
+      await syncProjectStatus(projectId, supabase, qc, tracks)
     },
   })
 }
@@ -149,21 +169,11 @@ export function useUpdateTrackStatus(projectId: string) {
       return data as Track
     },
     onSuccess: async (updatedTrack) => {
-      // Apply track update to local cache immediately
       qc.setQueryData<Track[]>(['tracks', projectId], old =>
         old?.map(t => (t.id === updatedTrack.id ? updatedTrack : t)) ?? []
       )
-
-      // Derive new project status from updated tracks + any cached splits
       const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
-      const splits = qc.getQueryData<Split[]>(['splits', projectId]) ?? []
-      const newStatus = computeProjectStatus(tracks, splits)
-
-      // Update UI immediately, persist to DB in background
-      qc.setQueryData<Project>(['project', projectId], old =>
-        old ? { ...old, status: newStatus } : old
-      )
-      supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
+      await syncProjectStatus(projectId, supabase, qc, tracks)
     },
   })
 }
@@ -179,17 +189,12 @@ export function useDeleteTrack(projectId: string) {
         .eq('id', trackId)
       if (error) throw error
     },
-    onSuccess: (_, trackId) => {
+    onSuccess: async (_, trackId) => {
       qc.setQueryData<Track[]>(['tracks', projectId], old =>
         old?.filter(t => t.id !== trackId) ?? []
       )
       const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
-      const splits = qc.getQueryData<Split[]>(['splits', projectId]) ?? []
-      const newStatus = computeProjectStatus(tracks, splits)
-      qc.setQueryData<Project>(['project', projectId], old =>
-        old ? { ...old, status: newStatus } : old
-      )
-      supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
+      await syncProjectStatus(projectId, supabase, qc, tracks)
     },
   })
 }
