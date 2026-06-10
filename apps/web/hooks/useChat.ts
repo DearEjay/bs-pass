@@ -1,12 +1,19 @@
 'use client'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
 
 type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row']
 
 export type ChatMessage = ChatMessageRow & {
+  profiles: { display_name: string | null; avatar_url: string | null } | null
+}
+
+export type Collaborator = {
+  user_id: string
+  is_main_artist: boolean
   profiles: { display_name: string | null; avatar_url: string | null } | null
 }
 
@@ -45,4 +52,71 @@ export function useSendMessage(projectId: string) {
       qc.setQueryData<ChatMessage[]>(['chat', projectId], old => [...(old ?? []), newMessage])
     },
   })
+}
+
+export function useProjectCollaborators(projectId: string) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['collaborators', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('collaborators')
+        .select('user_id, is_main_artist, profiles:user_id(display_name, avatar_url)')
+        .eq('project_id', projectId)
+        .eq('status', 'active')
+        .is('removed_at', null)
+      if (error) throw error
+      return data as Collaborator[]
+    },
+  })
+}
+
+export function useTypingPresence(projectId: string, currentUserId: string, displayName: string) {
+  const supabase = createClient()
+  const [typers, setTypers] = useState<Record<string, { name: string; ts: number }>>({})
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  const lastSentRef = useRef<number>(0)
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`chat-typing-${projectId}`)
+      .on('broadcast', { event: 'typing' }, ({ payload }: { payload: { userId: string; name: string } }) => {
+        if (payload.userId === currentUserId) return
+        setTypers(prev => ({ ...prev, [payload.userId]: { name: payload.name, ts: Date.now() } }))
+      })
+      .subscribe()
+
+    channelRef.current = channel
+
+    const interval = setInterval(() => {
+      const now = Date.now()
+      setTypers(prev => {
+        const stale = Object.keys(prev).filter(k => now - prev[k].ts > 3000)
+        if (stale.length === 0) return prev
+        const next = { ...prev }
+        stale.forEach(k => delete next[k])
+        return next
+      })
+    }, 1000)
+
+    return () => {
+      clearInterval(interval)
+      supabase.removeChannel(channel)
+      channelRef.current = null
+    }
+  }, [projectId, currentUserId])
+
+  function broadcastTyping() {
+    const now = Date.now()
+    if (now - lastSentRef.current < 2000) return
+    lastSentRef.current = now
+    channelRef.current?.send({
+      type: 'broadcast',
+      event: 'typing',
+      payload: { userId: currentUserId, name: displayName },
+    })
+  }
+
+  const typerNames = Object.values(typers).map(t => t.name)
+  return { typerNames, broadcastTyping }
 }

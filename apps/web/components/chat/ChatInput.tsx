@@ -1,23 +1,108 @@
 'use client'
 
-import { useState } from 'react'
-import { Send } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { Send, Search } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import type { Collaborator } from '@/hooks/useChat'
+
+const SPECIAL_MENTIONS = [
+  { id: '@here', display: '@here', subtitle: 'Notify everyone in this project' },
+  { id: '@AI', display: '@AI', subtitle: 'Ask the BS-PASS agent' },
+]
+
+function mentionSlug(displayName: string) {
+  return displayName.replace(/\s+/g, '')
+}
+
+function getMentionQuery(text: string, cursorPos: number): string | null {
+  const before = text.slice(0, cursorPos)
+  const match = before.match(/@([\w]*)$/)
+  return match ? match[1] : null
+}
 
 export function ChatInput({
   onSend,
   disabled,
+  onTyping,
+  collaborators = [],
+  onSearchOpen,
 }: {
   onSend: (body: string) => Promise<void>
   disabled?: boolean
+  onTyping?: () => void
+  collaborators?: Collaborator[]
+  onSearchOpen?: () => void
 }) {
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null)
+  const [mentionIndex, setMentionIndex] = useState(0)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const dropupRef = useRef<HTMLDivElement>(null)
+
+  const collabOptions = collaborators
+    .filter(c => c.profiles?.display_name)
+    .map(c => ({
+      id: mentionSlug(c.profiles!.display_name!),
+      display: `@${c.profiles!.display_name!}`,
+      subtitle: c.is_main_artist ? 'Main artist' : 'Collaborator',
+    }))
+
+  const allMentions = [...SPECIAL_MENTIONS, ...collabOptions]
+
+  const filteredMentions =
+    mentionQuery === null
+      ? []
+      : allMentions.filter(m =>
+          m.display.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+          m.id.toLowerCase().includes(mentionQuery.toLowerCase()),
+        )
+
+  useEffect(() => { setMentionIndex(0) }, [mentionQuery])
+
+  function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    setText(val)
+
+    // Auto-grow
+    const el = e.target
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 160)}px`
+
+    // Typing broadcast
+    if (onTyping && val.trim()) onTyping()
+
+    // Mention detection
+    const pos = el.selectionStart ?? val.length
+    setMentionQuery(getMentionQuery(val, pos))
+  }
+
+  function insertMention(slug: string) {
+    const pos = textareaRef.current?.selectionStart ?? text.length
+    const before = text.slice(0, pos)
+    const after = text.slice(pos)
+    const atIdx = before.lastIndexOf('@')
+    const newText = before.slice(0, atIdx) + `@${slug} ` + after
+    setText(newText)
+    setMentionQuery(null)
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const newPos = atIdx + slug.length + 2
+        textareaRef.current.setSelectionRange(newPos, newPos)
+        textareaRef.current.focus()
+        textareaRef.current.style.height = 'auto'
+        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`
+      }
+    }, 0)
+  }
 
   async function handleSend() {
     const trimmed = text.trim()
     if (!trimmed || sending) return
     setSending(true)
     setText('')
+    if (textareaRef.current) textareaRef.current.style.height = 'auto'
+    setMentionQuery(null)
     try {
       await onSend(trimmed)
     } finally {
@@ -26,6 +111,12 @@ export function ChatInput({
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (filteredMentions.length > 0) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => (i + 1) % filteredMentions.length); return }
+      if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIndex(i => (i - 1 + filteredMentions.length) % filteredMentions.length); return }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filteredMentions[mentionIndex].id); return }
+      if (e.key === 'Escape') { setMentionQuery(null); return }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
       handleSend()
@@ -33,22 +124,55 @@ export function ChatInput({
   }
 
   return (
-    <div className="shrink-0 bg-background border-t border-border px-6 py-4">
-      <div className="flex gap-3 items-end max-w-3xl mx-auto">
+    <div className="shrink-0 border-t border-border bg-background">
+      {/* @mention dropup */}
+      {filteredMentions.length > 0 && (
+        <div
+          ref={dropupRef}
+          className="mx-6 mb-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden"
+        >
+          {filteredMentions.map((m, i) => (
+            <button
+              key={m.id}
+              type="button"
+              onMouseDown={e => { e.preventDefault(); insertMention(m.id) }}
+              className={cn(
+                'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+                i === mentionIndex ? 'bg-accent' : 'hover:bg-accent/50',
+              )}
+            >
+              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+                @
+              </div>
+              <div>
+                <p className="text-sm font-medium">{m.display}</p>
+                <p className="text-xs text-muted-foreground">{m.subtitle}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <div className="flex gap-2 items-end px-6 py-4 max-w-3xl mx-auto">
+        {onSearchOpen && (
+          <button
+            type="button"
+            onClick={onSearchOpen}
+            className="w-9 h-9 rounded-full border border-border flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors shrink-0"
+          >
+            <Search size={15} />
+          </button>
+        )}
         <textarea
+          ref={textareaRef}
           value={text}
-          onChange={e => setText(e.target.value)}
+          onChange={handleChange}
           onKeyDown={handleKeyDown}
           disabled={disabled || sending}
-          placeholder="Message project chat… (Enter to send, Shift+Enter for newline)"
+          placeholder="Message… (@ to mention, Enter to send)"
           rows={1}
           className="flex-1 resize-none px-4 py-2.5 rounded-2xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 placeholder:text-muted-foreground leading-relaxed"
-          style={{ minHeight: '42px', maxHeight: '120px' }}
-          onInput={e => {
-            const el = e.currentTarget
-            el.style.height = 'auto'
-            el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-          }}
+          style={{ minHeight: '42px', maxHeight: '160px' }}
         />
         <button
           onClick={handleSend}

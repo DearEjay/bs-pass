@@ -3,16 +3,40 @@ import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import type { ChatMessage as ChatMessageType } from '@/hooks/useChat'
 
+function highlightSearch(text: string, query: string): React.ReactNode {
+  if (!query) return text
+  const idx = text.toLowerCase().indexOf(query.toLowerCase())
+  if (idx === -1) return text
+  return (
+    <>
+      {text.slice(0, idx)}
+      <mark className="bg-yellow-200 text-yellow-900 rounded-sm px-0.5">{text.slice(idx, idx + query.length)}</mark>
+      {text.slice(idx + query.length)}
+    </>
+  )
+}
+
+function renderBody(body: string, searchQuery?: string) {
+  const parts = body.split(/(@[\w]+)/g)
+  return parts.map((part, i) =>
+    /^@[\w]+$/.test(part)
+      ? <span key={i} className="text-primary font-medium">{part}</span>
+      : <span key={i}>{searchQuery ? highlightSearch(part, searchQuery) : part}</span>
+  )
+}
+
 export function ChatMessage({
   message,
   isOwnMessage,
   isFirst = true,
   isLast = true,
+  searchQuery = '',
 }: {
   message: ChatMessageType
   isOwnMessage: boolean
   isFirst?: boolean
   isLast?: boolean
+  searchQuery?: string
 }) {
   const isAgent = message.sender_type === 'agent'
   const senderName = isAgent ? 'BS-PASS AI' : (message.profiles?.display_name ?? 'Unknown')
@@ -36,7 +60,7 @@ export function ChatMessage({
             isLast             ? 'rounded-2xl rounded-tr-md rounded-br-sm' :
                                  'rounded-2xl rounded-r-md',
           )}>
-            {message.body}
+            {renderBody(message.body ?? '', searchQuery)}
           </div>
         </div>
       </div>
@@ -64,7 +88,7 @@ export function ChatMessage({
             isLast             ? 'rounded-2xl rounded-tl-md rounded-bl-sm' :
                                  'rounded-2xl rounded-l-md',
           )}>
-            {message.body}
+            {renderBody(message.body ?? '', searchQuery)}
           </div>
           {isLast && (
             <span className="text-[11px] text-muted-foreground mt-1 ml-1 block">{time}</span>
@@ -95,7 +119,7 @@ export function ChatMessage({
           isLast             ? 'rounded-2xl rounded-tl-md rounded-bl-sm' :
                                'rounded-2xl rounded-l-md',
         )}>
-          {message.body}
+          {renderBody(message.body ?? '', searchQuery)}
         </div>
         {isLast && (
           <span className="text-[11px] text-muted-foreground mt-1 ml-1 block">{time}</span>

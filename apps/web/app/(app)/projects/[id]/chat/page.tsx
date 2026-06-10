@@ -8,5 +8,17 @@ export default async function ChatPage({ params }: { params: Promise<{ id: strin
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  return <ChatFeed projectId={id} userId={user.id} />
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('display_name')
+    .eq('id', user.id)
+    .single()
+
+  return (
+    <ChatFeed
+      projectId={id}
+      userId={user.id}
+      displayName={profile?.display_name ?? 'Someone'}
+    />
+  )
 }
