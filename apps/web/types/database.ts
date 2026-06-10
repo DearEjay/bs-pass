@@ -713,6 +713,44 @@ export type Database = {
           },
         ]
       }
+      track_credits: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          role: string
+          sort_order: number | null
+          track_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          role?: string
+          sort_order?: number | null
+          track_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          role?: string
+          sort_order?: number | null
+          track_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "track_credits_track_id_fkey"
+            columns: ["track_id"]
+            isOneToOne: false
+            referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       track_versions: {
         Row: {
           bpm: number | null
@@ -770,9 +808,12 @@ export type Database = {
           duration_secs: number | null
           id: string
           key: string | null
+          lyrics: string | null
           project_id: string
+          release_date: string | null
           sort_order: number | null
           title: string
+          track_cover_url: string | null
           updated_at: string | null
         }
         Insert: {
@@ -784,9 +825,12 @@ export type Database = {
           duration_secs?: number | null
           id?: string
           key?: string | null
+          lyrics?: string | null
           project_id: string
+          release_date?: string | null
           sort_order?: number | null
           title: string
+          track_cover_url?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -798,9 +842,12 @@ export type Database = {
           duration_secs?: number | null
           id?: string
           key?: string | null
+          lyrics?: string | null
           project_id?: string
+          release_date?: string | null
           sort_order?: number | null
           title?: string
+          track_cover_url?: string | null
           updated_at?: string | null
         }
         Relationships: [

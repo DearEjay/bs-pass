@@ -19,6 +19,9 @@ import { TrackStatusBadge, STATUS_CONFIG } from './TrackStatusBadge'
 import { AudioPlayer, type AudioMarker, type AudioPlayerHandle } from './AudioPlayer'
 import { TrackComments } from './TrackComments'
 import { TrackVersionsPanel } from './TrackVersionsPanel'
+import { TrackLyricsTab } from './TrackLyricsTab'
+import { TrackCreditsTab } from './TrackCreditsTab'
+import { TrackMetadataTab } from './TrackMetadataTab'
 import { VersionUploadModal } from './VersionUploadModal'
 import {
   GripVertical,
@@ -35,7 +38,7 @@ import { cn } from '@/lib/utils'
 import type { Database } from '@/types/database'
 
 type Track = Database['public']['Tables']['tracks']['Row']
-type ActiveTab = 'player' | 'versions'
+type ActiveTab = 'player' | 'versions' | 'lyrics' | 'credits' | 'metadata'
 
 interface TrackItemProps {
   track: Track
@@ -326,32 +329,27 @@ export function TrackItem({
       {isExpanded && (
         <div className="border-t border-border/50 bg-accent/10">
           {/* Tab switcher */}
-          <div className="flex border-b border-border/50">
-            <button
-              onClick={() => setActiveTab('player')}
-              className={cn(
-                'px-4 py-2 text-xs font-medium transition-colors',
-                activeTab === 'player'
-                  ? 'text-foreground border-b-2 border-primary -mb-px'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Player
-            </button>
-            <button
-              onClick={() => setActiveTab('versions')}
-              className={cn(
-                'px-4 py-2 text-xs font-medium transition-colors flex items-center gap-1.5',
-                activeTab === 'versions'
-                  ? 'text-foreground border-b-2 border-primary -mb-px'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              Versions
-              {versions.length > 0 && (
-                <span className="text-muted-foreground/60">({versions.length})</span>
-              )}
-            </button>
+          <div className="flex border-b border-border/50 overflow-x-auto">
+            {([
+              { id: 'player', label: 'Player' },
+              { id: 'versions', label: `Versions${versions.length > 0 ? ` (${versions.length})` : ''}` },
+              { id: 'lyrics', label: 'Lyrics' },
+              { id: 'credits', label: 'Credits' },
+              { id: 'metadata', label: 'Metadata' },
+            ] as { id: ActiveTab; label: string }[]).map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'px-4 py-2 text-xs font-medium transition-colors shrink-0 whitespace-nowrap',
+                  activeTab === tab.id
+                    ? 'text-foreground border-b-2 border-primary -mb-px'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
           </div>
 
           {activeTab === 'player' && (
@@ -387,6 +385,18 @@ export function TrackItem({
 
           {activeTab === 'versions' && (
             <TrackVersionsPanel track={track} projectId={projectId} />
+          )}
+
+          {activeTab === 'lyrics' && (
+            <TrackLyricsTab track={track} projectId={projectId} />
+          )}
+
+          {activeTab === 'credits' && (
+            <TrackCreditsTab trackId={track.id} />
+          )}
+
+          {activeTab === 'metadata' && (
+            <TrackMetadataTab track={track} projectId={projectId} />
           )}
         </div>
       )}

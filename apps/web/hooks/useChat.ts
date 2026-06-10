@@ -19,7 +19,9 @@ export type Collaborator = {
 
 export function useMessages(projectId: string) {
   const supabase = createClient()
-  return useQuery({
+  const qc = useQueryClient()
+
+  const query = useQuery({
     queryKey: ['chat', projectId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -31,8 +33,37 @@ export function useMessages(projectId: string) {
       if (error) throw error
       return data as ChatMessage[]
     },
-    refetchInterval: 3000,
+    staleTime: Infinity, // realtime keeps it fresh
   })
+
+  useEffect(() => {
+    const channel = supabase
+      .channel(`chat-messages-${projectId}`)
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `project_id=eq.${projectId}` },
+        async (payload) => {
+          const newId = (payload.new as { id: string }).id
+          // Fetch with the profile join so the message shape is complete
+          const { data } = await supabase
+            .from('chat_messages')
+            .select('*, profiles:sender_id(display_name, avatar_url)')
+            .eq('id', newId)
+            .single()
+          if (!data) return
+          qc.setQueryData<ChatMessage[]>(['chat', projectId], old => {
+            const existing = old ?? []
+            if (existing.some(m => m.id === newId)) return existing
+            return [...existing, data as ChatMessage]
+          })
+        },
+      )
+      .subscribe()
+
+    return () => { supabase.removeChannel(channel) }
+  }, [projectId, supabase, qc])
+
+  return query
 }
 
 export function useSendMessage(projectId: string) {

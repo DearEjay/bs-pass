@@ -1,5 +1,6 @@
-export default function Page() {
-  return (
-    <div className="p-4 sm:p-6 text-muted-foreground text-sm">Coming soon.</div>
-  )
+import { RoadmapView } from '@/components/roadmap/RoadmapView'
+
+export default async function RoadmapPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <RoadmapView projectId={id} />
 }
