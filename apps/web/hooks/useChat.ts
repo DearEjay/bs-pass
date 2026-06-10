@@ -88,13 +88,12 @@ export function useSendMessage(projectId: string) {
 export function useProjectCollaborators(projectId: string) {
   const supabase = createClient()
   return useQuery({
-    queryKey: ['collaborators', projectId],
+    queryKey: ['chat-collaborators', projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('collaborators')
         .select('user_id, is_main_artist, profiles:user_id(display_name, avatar_url)')
         .eq('project_id', projectId)
-        .eq('status', 'active')
         .is('removed_at', null)
       if (error) throw error
       return data as Collaborator[]

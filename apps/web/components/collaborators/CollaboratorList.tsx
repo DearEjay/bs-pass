@@ -77,19 +77,19 @@ function CollaboratorRow({
         <div className="relative">
           <button
             onClick={() => setOpen(o => !o)}
-            className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+            className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded opacity-0 group-hover:opacity-100 focus:opacity-100"
           >
-            <MoreHorizontal size={16} />
+            <MoreHorizontal size={15} />
           </button>
           {open && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-              <div className="absolute right-0 top-8 z-20 bg-popover border border-border rounded-lg shadow-lg py-1 w-36">
+              <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+              <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
                 <button
                   onClick={() => { setOpen(false); onRemove(collab) }}
-                  className="w-full px-3 py-2 text-sm text-destructive hover:bg-accent text-left transition-colors"
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-destructive/10 text-destructive transition-colors text-left"
                 >
-                  Remove
+                  Remove collaborator
                 </button>
               </div>
             </>
@@ -134,30 +134,31 @@ function PendingInviteRow({
       <div className="relative">
         <button
           onClick={() => setOpen(o => !o)}
-          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
+          className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded opacity-0 group-hover:opacity-100 focus:opacity-100"
         >
-          {(resend.isPending || cancel.isPending) ? <Loader2 size={16} className="animate-spin" /> : <MoreHorizontal size={16} />}
+          {(resend.isPending || cancel.isPending) ? <Loader2 size={15} className="animate-spin" /> : <MoreHorizontal size={15} />}
         </button>
         {open && (
           <>
-            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-            <div className="absolute right-0 top-8 z-20 bg-popover border border-border rounded-lg shadow-lg py-1 w-36">
+            <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+            <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
               <button
                 onClick={() => {
                   setOpen(false)
                   resend.mutate({ email: invite.email, roles: invite.roles })
                 }}
-                className="w-full px-3 py-2 text-sm hover:bg-accent text-left transition-colors flex items-center gap-2"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-accent transition-colors text-left"
               >
                 <Send size={13} />
-                Resend
+                Resend invite
               </button>
+              <div className="border-t border-border my-1" />
               <button
                 onClick={() => { setOpen(false); cancel.mutate(invite.id) }}
-                className="w-full px-3 py-2 text-sm text-destructive hover:bg-accent text-left transition-colors flex items-center gap-2"
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-destructive/10 text-destructive transition-colors text-left"
               >
                 <X size={13} />
-                Cancel
+                Cancel invite
               </button>
             </div>
           </>

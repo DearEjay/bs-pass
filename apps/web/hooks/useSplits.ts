@@ -318,26 +318,32 @@ export function useSplitAuditLog(trackId: string) {
   })
 }
 
+async function callGeneratePdf(trackId: string): Promise<Response> {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Not authenticated')
+
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/splits-generate-pdf`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ trackId }),
+    }
+  )
+
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Error ${res.status}`)
+  }
+
+  return res
+}
+
 export function useGeneratePdf(projectId: string) {
   return useMutation({
     mutationFn: async (trackId: string) => {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session?.access_token) throw new Error('Not authenticated')
-
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/splits-generate-pdf`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-          body: JSON.stringify({ trackId }),
-        }
-      )
-
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(body.error ?? `Error ${res.status}`)
-      }
+      const res = await callGeneratePdf(trackId)
 
       // Trigger browser download
       const blob = await res.blob()
@@ -352,6 +358,16 @@ export function useGeneratePdf(projectId: string) {
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
 
+      return { success: true }
+    },
+  })
+}
+
+export function useEmailPdf(projectId: string) {
+  return useMutation({
+    mutationFn: async (trackId: string) => {
+      const res = await callGeneratePdf(trackId)
+      await res.body?.cancel() // drain without downloading
       return { success: true }
     },
   })

@@ -8,6 +8,7 @@ import {
   useAutoPopulateSplits,
   useResetSplitsLock,
   useGeneratePdf,
+  useEmailPdf,
 } from '@/hooks/useSplits'
 import { useCollaborators } from '@/hooks/useCollaborators'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
@@ -15,7 +16,7 @@ import { SignatureStatusBadge, TrackSignatureStatus } from './SignatureStatusBad
 import { SplitAuditLog } from './SplitAuditLog'
 import { RequestSignaturesModal } from './RequestSignaturesModal'
 import {
-  Sparkles, Lock, Unlock, Send, FileDown, AlertTriangle, Plus, Trash2, Loader2, ChevronDown, ChevronUp,
+  Sparkles, Lock, Unlock, Send, FileDown, Mail, AlertTriangle, Plus, Trash2, Loader2, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Collaborator } from '@/hooks/useCollaborators'
@@ -42,12 +43,14 @@ function SplitEditor({
   const autoPopulate = useAutoPopulateSplits(trackId, projectId)
   const resetLock = useResetSplitsLock(trackId)
   const generatePdf = useGeneratePdf(projectId)
+  const emailPdf = useEmailPdf(projectId)
 
   const [rows, setRows] = useState<SplitRow[]>([])
   const [editing, setEditing] = useState(false)
   const [showRequestModal, setShowRequestModal] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [pdfError, setPdfError] = useState<string | null>(null)
+  const [emailSent, setEmailSent] = useState(false)
 
   // Sync rows from DB splits
   useEffect(() => {
@@ -122,6 +125,17 @@ function SplitEditor({
     }
   }
 
+  async function handleEmailPdf() {
+    setPdfError(null)
+    try {
+      await emailPdf.mutateAsync(trackId)
+      setEmailSent(true)
+      setTimeout(() => setEmailSent(false), 4000)
+    } catch (e) {
+      setPdfError((e as Error).message)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Status row */}
@@ -172,8 +186,8 @@ function SplitEditor({
               </button>
             )}
 
-            {/* Request signatures */}
-            {splits.length > 0 && !editing && (
+            {/* Request signatures — only when not fully signed */}
+            {splits.length > 0 && !editing && !allSigned && (
               <button
                 onClick={() => setShowRequestModal(true)}
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
@@ -183,16 +197,26 @@ function SplitEditor({
               </button>
             )}
 
-            {/* Download PDF — only after all signed */}
-            {allSigned && (
-              <button
-                onClick={handleDownloadPdf}
-                disabled={generatePdf.isPending}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 text-emerald-600 text-xs font-medium hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
-              >
-                {generatePdf.isPending ? <Loader2 size={11} className="animate-spin" /> : <FileDown size={11} />}
-                Download PDF
-              </button>
+            {/* Fully-signed actions */}
+            {allSigned && !editing && (
+              <>
+                <button
+                  onClick={handleEmailPdf}
+                  disabled={emailPdf.isPending || emailSent}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-70 transition-opacity"
+                >
+                  {emailPdf.isPending ? <Loader2 size={11} className="animate-spin" /> : <Mail size={11} />}
+                  {emailSent ? 'Sent!' : 'Email PDF to all'}
+                </button>
+                <button
+                  onClick={handleDownloadPdf}
+                  disabled={generatePdf.isPending}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/5 text-emerald-600 text-xs font-medium hover:bg-emerald-500/10 disabled:opacity-50 transition-colors"
+                >
+                  {generatePdf.isPending ? <Loader2 size={11} className="animate-spin" /> : <FileDown size={11} />}
+                  Download PDF
+                </button>
+              </>
             )}
           </div>
         )}
