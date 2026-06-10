@@ -89,10 +89,10 @@ export function useCreateTrack(projectId: string) {
       const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
       const splits = qc.getQueryData<Split[]>(['splits', projectId]) ?? []
       const newStatus = computeProjectStatus(tracks, splits)
-      await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
       qc.setQueryData<Project>(['project', projectId], old =>
         old ? { ...old, status: newStatus } : old
       )
+      supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
     },
   })
 }
@@ -144,11 +144,11 @@ export function useUpdateTrackStatus(projectId: string) {
       const splits = qc.getQueryData<Split[]>(['splits', projectId]) ?? []
       const newStatus = computeProjectStatus(tracks, splits)
 
-      // Persist to DB and update project cache optimistically
-      await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
+      // Update UI immediately, persist to DB in background
       qc.setQueryData<Project>(['project', projectId], old =>
         old ? { ...old, status: newStatus } : old
       )
+      supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
     },
   })
 }
@@ -164,17 +164,17 @@ export function useDeleteTrack(projectId: string) {
         .eq('id', trackId)
       if (error) throw error
     },
-    onSuccess: async (_, trackId) => {
+    onSuccess: (_, trackId) => {
       qc.setQueryData<Track[]>(['tracks', projectId], old =>
         old?.filter(t => t.id !== trackId) ?? []
       )
       const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
       const splits = qc.getQueryData<Split[]>(['splits', projectId]) ?? []
       const newStatus = computeProjectStatus(tracks, splits)
-      await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
       qc.setQueryData<Project>(['project', projectId], old =>
         old ? { ...old, status: newStatus } : old
       )
+      supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
     },
   })
 }
