@@ -21,6 +21,8 @@ export function useProjects(userId: string) {
       if (error) throw error
       return data as Project[]
     },
+    staleTime: 0,
+    refetchOnMount: 'always',
   })
 }
 
