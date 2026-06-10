@@ -139,3 +139,54 @@ export function useDeleteTrack(projectId: string) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tracks', projectId] }),
   })
 }
+
+export function useReorderTracks(projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      await Promise.all(
+        orderedIds.map((id, index) =>
+          supabase.from('tracks').update({ sort_order: index }).eq('id', id)
+        )
+      )
+    },
+    onMutate: async (orderedIds) => {
+      await qc.cancelQueries({ queryKey: ['tracks', projectId] })
+      const previous = qc.getQueryData<Track[]>(['tracks', projectId])
+      const idToTrack = new Map(previous?.map(t => [t.id, t]) ?? [])
+      const reordered = orderedIds.map((id, i) => ({ ...idToTrack.get(id)!, sort_order: i }))
+      qc.setQueryData(['tracks', projectId], reordered)
+      return { previous }
+    },
+    onError: (_err, _ids, ctx) => {
+      if (ctx?.previous) qc.setQueryData(['tracks', projectId], ctx.previous)
+    },
+  })
+}
+
+export function useTrackAudioUrl(track: Track | null | undefined, enabled = true) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['track-audio-url', track?.id, track?.current_version_id],
+    queryFn: async () => {
+      if (!track?.current_version_id) return null
+
+      const { data: version } = await supabase
+        .from('track_versions')
+        .select('file_path')
+        .eq('id', track.current_version_id)
+        .single()
+
+      if (!version?.file_path) return null
+
+      const { data: signed } = await supabase.storage
+        .from('tracks')
+        .createSignedUrl(version.file_path, 3600)
+
+      return signed?.signedUrl ?? null
+    },
+    enabled: enabled && !!track?.current_version_id,
+    staleTime: 50 * 60 * 1000,
+  })
+}
