@@ -114,7 +114,7 @@ export function TrackList({ projectId }: { projectId: string }) {
             items={tracks.map(t => t.id)}
             strategy={verticalListSortingStrategy}
           >
-            <div className="bg-card border border-border rounded-lg divide-y divide-border overflow-hidden">
+            <div className="bg-card border border-border rounded-lg divide-y divide-border">
               {tracks.map(track => (
                 <TrackItem
                   key={track.id}

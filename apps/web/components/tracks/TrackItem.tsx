@@ -119,7 +119,7 @@ export function TrackItem({
     <div
       ref={setNodeRef}
       style={style}
-      className={cn('transition-opacity', isDragging && 'opacity-40')}
+      className={cn('transition-opacity first:rounded-t-lg last:rounded-b-lg', isDragging && 'opacity-40')}
     >
       {/* ── Track row ─────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-3 py-3 hover:bg-accent/30 group transition-colors">
