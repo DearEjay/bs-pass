@@ -15,29 +15,25 @@ describe('computeProjectStatus', () => {
     expect(computeProjectStatus([], noSplits)).toBe('in_pre_production')
   })
 
-  it('returns in_pre_production when all tracks are not_started', () => {
-    expect(computeProjectStatus(tracks('not_started', 'not_started'), noSplits)).toBe('in_pre_production')
+  it('returns in_pre_production when all tracks are writing', () => {
+    expect(computeProjectStatus(tracks('writing', 'writing'), noSplits)).toBe('in_pre_production')
   })
 
   // ── In production ───────────────────────────────────────────────────────────
-  it('returns in_production when all tracks are writing', () => {
-    expect(computeProjectStatus(tracks('writing', 'writing'), noSplits)).toBe('in_production')
-  })
-
   it('returns in_production when all tracks are recording', () => {
     expect(computeProjectStatus(tracks('recording', 'recording'), noSplits)).toBe('in_production')
   })
 
-  it('mix of released and not_started → in_production', () => {
-    expect(computeProjectStatus(tracks('released', 'not_started'), noSplits)).toBe('in_production')
+  it('mix of released and writing → in_production', () => {
+    expect(computeProjectStatus(tracks('released', 'writing'), noSplits)).toBe('in_production')
   })
 
-  it('mix of recording and not_started → in_production', () => {
-    expect(computeProjectStatus(tracks('recording', 'not_started'), noSplits)).toBe('in_production')
+  it('mix of recording and writing → in_production', () => {
+    expect(computeProjectStatus(tracks('recording', 'writing'), noSplits)).toBe('in_production')
   })
 
-  it('mix of mastering and not_started → in_production', () => {
-    expect(computeProjectStatus(tracks('mastering', 'not_started'), noSplits)).toBe('in_production')
+  it('mix of mastering and writing → in_production', () => {
+    expect(computeProjectStatus(tracks('mastering', 'writing'), noSplits)).toBe('in_production')
   })
 
   it('mix of mixing and recording → in_production', () => {

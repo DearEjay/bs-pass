@@ -12,7 +12,6 @@ type NewTrack = Pick<
 >
 
 export const TRACK_STATUSES = [
-  'not_started',
   'writing',
   'recording',
   'mixing',
