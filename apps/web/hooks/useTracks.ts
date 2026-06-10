@@ -165,6 +165,141 @@ export function useReorderTracks(projectId: string) {
   })
 }
 
+export type TrackVersion = Database['public']['Tables']['track_versions']['Row']
+
+export function useTrackVersions(trackId: string) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['track-versions', trackId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('track_versions')
+        .select('*')
+        .eq('track_id', trackId)
+        .order('version_number', { ascending: false })
+      if (error) throw error
+      return data as TrackVersion[]
+    },
+  })
+}
+
+export function useUploadTrackVersion(trackId: string, projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ file }: { file: File }) => {
+      // Determine next version number
+      const { data: existing } = await supabase
+        .from('track_versions')
+        .select('version_number')
+        .eq('track_id', trackId)
+        .order('version_number', { ascending: false })
+        .limit(1)
+      const nextNum = ((existing?.[0]?.version_number) ?? 0) + 1
+
+      // Upload file
+      const ext = file.name.split('.').pop()
+      const storagePath = `${projectId}/${trackId}/v${nextNum}.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('tracks')
+        .upload(storagePath, file, { upsert: false })
+      if (uploadErr) throw uploadErr
+
+      // Create track_version row
+      const { data: version, error: versionErr } = await supabase
+        .from('track_versions')
+        .insert({
+          track_id: trackId,
+          file_path: storagePath,
+          version_label: `v${nextNum}`,
+          version_number: nextNum,
+        })
+        .select()
+        .single()
+      if (versionErr) throw versionErr
+
+      // Make this the active version
+      const { error: trackErr } = await supabase
+        .from('tracks')
+        .update({ current_version_id: version.id })
+        .eq('id', trackId)
+      if (trackErr) throw trackErr
+
+      return version as TrackVersion
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['track-versions', trackId] })
+      qc.invalidateQueries({ queryKey: ['tracks', projectId] })
+      // Bust the audio URL cache so the player reloads the new file
+      qc.invalidateQueries({ queryKey: ['track-audio-url', trackId] })
+    },
+  })
+}
+
+export function useDeleteTrackVersion(trackId: string, projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ versionId, filePath, isCurrentVersion }: {
+      versionId: string
+      filePath: string | null
+      isCurrentVersion: boolean
+    }) => {
+      // If deleting the active version, promote the most recent remaining one first
+      if (isCurrentVersion) {
+        const { data: remaining } = await supabase
+          .from('track_versions')
+          .select('id')
+          .eq('track_id', trackId)
+          .neq('id', versionId)
+          .order('version_number', { ascending: false })
+          .limit(1)
+
+        const { error: linkErr } = await supabase
+          .from('tracks')
+          .update({ current_version_id: remaining?.[0]?.id ?? null })
+          .eq('id', trackId)
+        if (linkErr) throw linkErr
+      }
+
+      // Hard delete the version row
+      const { error } = await supabase
+        .from('track_versions')
+        .delete()
+        .eq('id', versionId)
+      if (error) throw error
+
+      // Delete the storage file
+      if (filePath) {
+        await supabase.storage.from('tracks').remove([filePath])
+      }
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['track-versions', trackId] })
+      qc.invalidateQueries({ queryKey: ['tracks', projectId] })
+      qc.invalidateQueries({ queryKey: ['track-audio-url', trackId] })
+    },
+  })
+}
+
+export function useRestoreTrackVersion(trackId: string, projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (versionId: string) => {
+      const { error } = await supabase
+        .from('tracks')
+        .update({ current_version_id: versionId })
+        .eq('id', trackId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tracks', projectId] })
+      qc.invalidateQueries({ queryKey: ['track-audio-url', trackId] })
+    },
+  })
+}
+
 export function useTrackAudioUrl(track: Track | null | undefined, enabled = true) {
   const supabase = createClient()
   return useQuery({
