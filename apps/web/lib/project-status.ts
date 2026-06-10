@@ -1,11 +1,9 @@
 export type TrackStatus =
-  | 'draft'
+  | 'not_started'
+  | 'writing'
   | 'recording'
-  | 'recorded'
   | 'mixing'
-  | 'mixed'
   | 'mastering'
-  | 'mastered'
   | 'released'
 
 export type ProjectStatus =
@@ -16,14 +14,12 @@ export type ProjectStatus =
   | 'released'
 
 const STAGE: Record<string, number> = {
-  draft: 0,
-  recording: 1,
-  recorded: 2,
-  mixing: 3,
-  mixed: 4,
-  mastering: 5,
-  mastered: 6,
-  released: 7,
+  not_started: 0,
+  writing:     1,
+  recording:   2,
+  mixing:      3,
+  mastering:   4,
+  released:    5,
 }
 
 export function computeProjectStatus(
@@ -35,22 +31,21 @@ export function computeProjectStatus(
   const stages = tracks.map(t => STAGE[t.current_status] ?? 0)
 
   // All tracks released
-  if (stages.every(s => s === 7)) return 'released'
+  if (stages.every(s => s === 5)) return 'released'
 
-  // All tracks mastered or released — check splits
-  if (stages.every(s => s >= 6)) {
+  // All tracks at mastering or released — check splits
+  if (stages.every(s => s >= 4)) {
     const allSplitsSigned = splits.length === 0 || splits.every(s => s.signed_at !== null)
     return allSplitsSigned ? 'ready_for_release' : 'in_post_production'
   }
 
-  // All tracks still in draft — nothing has started
+  // Nothing started yet
   if (stages.every(s => s === 0)) return 'in_pre_production'
 
-  // Mix of draft and started tracks → project is actively in production
-  const hasDraft = stages.some(s => s === 0)
-  if (hasDraft) return 'in_production'
+  // Mix of not_started and active work → project underway
+  if (stages.some(s => s === 0)) return 'in_production'
 
-  // All tracks started — are they all in post-production stages (mixing+)?
+  // All tracks in post-production (mixing or beyond)
   if (stages.every(s => s >= 3)) return 'in_post_production'
 
   return 'in_production'

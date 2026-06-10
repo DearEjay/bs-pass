@@ -247,7 +247,7 @@ export function TrackItem({
           {showEllipsisMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowEllipsisMenu(false)} />
-              <div className="absolute right-0 top-full mt-1 w-52 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+              <div className="absolute right-0 top-full mt-1 w-64 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
                 {/* Add new version */}
                 <button
                   onClick={() => {

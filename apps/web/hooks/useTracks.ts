@@ -12,13 +12,11 @@ type NewTrack = Pick<
 >
 
 export const TRACK_STATUSES = [
-  'draft',
+  'not_started',
+  'writing',
   'recording',
-  'recorded',
   'mixing',
-  'mixed',
   'mastering',
-  'mastered',
   'released',
 ] as const
 

@@ -15,33 +15,32 @@ describe('computeProjectStatus', () => {
     expect(computeProjectStatus([], noSplits)).toBe('in_pre_production')
   })
 
-  it('returns in_pre_production when all tracks are draft', () => {
-    expect(computeProjectStatus(tracks('draft', 'draft'), noSplits)).toBe('in_pre_production')
+  it('returns in_pre_production when all tracks are not_started', () => {
+    expect(computeProjectStatus(tracks('not_started', 'not_started'), noSplits)).toBe('in_pre_production')
   })
 
   // ── In production ───────────────────────────────────────────────────────────
-  it('returns in_production when any track is recording', () => {
+  it('returns in_production when all tracks are writing', () => {
+    expect(computeProjectStatus(tracks('writing', 'writing'), noSplits)).toBe('in_production')
+  })
+
+  it('returns in_production when all tracks are recording', () => {
     expect(computeProjectStatus(tracks('recording', 'recording'), noSplits)).toBe('in_production')
   })
 
-  it('returns in_production when all tracks are recorded', () => {
-    expect(computeProjectStatus(tracks('recorded', 'recorded'), noSplits)).toBe('in_production')
+  it('mix of released and not_started → in_production', () => {
+    expect(computeProjectStatus(tracks('released', 'not_started'), noSplits)).toBe('in_production')
   })
 
-  it('mix of released and draft → in_production (not pre-production)', () => {
-    // Key case: some work done, some not started — project is actively in production
-    expect(computeProjectStatus(tracks('released', 'draft'), noSplits)).toBe('in_production')
+  it('mix of recording and not_started → in_production', () => {
+    expect(computeProjectStatus(tracks('recording', 'not_started'), noSplits)).toBe('in_production')
   })
 
-  it('mix of recording and draft → in_production', () => {
-    expect(computeProjectStatus(tracks('recording', 'draft'), noSplits)).toBe('in_production')
+  it('mix of mastering and not_started → in_production', () => {
+    expect(computeProjectStatus(tracks('mastering', 'not_started'), noSplits)).toBe('in_production')
   })
 
-  it('mix of mastered and draft → in_production', () => {
-    expect(computeProjectStatus(tracks('mastered', 'draft'), noSplits)).toBe('in_production')
-  })
-
-  it('mix of post-production and production stages → in_production', () => {
+  it('mix of mixing and recording → in_production', () => {
     expect(computeProjectStatus(tracks('mixing', 'recording'), noSplits)).toBe('in_production')
   })
 
@@ -51,24 +50,24 @@ describe('computeProjectStatus', () => {
   })
 
   it('returns in_post_production when least advanced is mixing', () => {
-    expect(computeProjectStatus(tracks('mixing', 'mastered'), noSplits)).toBe('in_post_production')
+    expect(computeProjectStatus(tracks('mixing', 'mastering'), noSplits)).toBe('in_post_production')
   })
 
-  it('returns in_post_production when all mastered but splits unsigned', () => {
-    expect(computeProjectStatus(tracks('mastered', 'mastered'), unsignedSplits)).toBe('in_post_production')
+  it('returns in_post_production when all mastering but splits unsigned', () => {
+    expect(computeProjectStatus(tracks('mastering', 'mastering'), unsignedSplits)).toBe('in_post_production')
   })
 
   // ── Ready for release ───────────────────────────────────────────────────────
-  it('returns ready_for_release when all mastered and no splits exist', () => {
-    expect(computeProjectStatus(tracks('mastered', 'mastered'), noSplits)).toBe('ready_for_release')
+  it('returns ready_for_release when all mastering and no splits exist', () => {
+    expect(computeProjectStatus(tracks('mastering', 'mastering'), noSplits)).toBe('ready_for_release')
   })
 
-  it('returns ready_for_release when all mastered and all splits signed', () => {
-    expect(computeProjectStatus(tracks('mastered', 'mastered'), signedSplits)).toBe('ready_for_release')
+  it('returns ready_for_release when all mastering and all splits signed', () => {
+    expect(computeProjectStatus(tracks('mastering', 'mastering'), signedSplits)).toBe('ready_for_release')
   })
 
-  it('returns ready_for_release when mix of mastered/released and splits signed', () => {
-    expect(computeProjectStatus(tracks('mastered', 'released'), signedSplits)).toBe('ready_for_release')
+  it('returns ready_for_release when mix of mastering/released and splits signed', () => {
+    expect(computeProjectStatus(tracks('mastering', 'released'), signedSplits)).toBe('ready_for_release')
   })
 
   // ── Released ────────────────────────────────────────────────────────────────
