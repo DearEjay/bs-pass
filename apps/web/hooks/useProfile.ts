@@ -155,11 +155,20 @@ export function useUpdatePassword() {
   })
 }
 
+function clearRoadmapSummaryCache() {
+  try {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('bs-pass:roadmap-summary:'))
+      .forEach(k => localStorage.removeItem(k))
+  } catch {}
+}
+
 export function useSignOut() {
   const supabase = createClient()
   const router = useRouter()
   return useMutation({
     mutationFn: async () => {
+      clearRoadmapSummaryCache()
       const { error } = await supabase.auth.signOut()
       if (error) throw error
     },

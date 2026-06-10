@@ -72,15 +72,15 @@ export function NewProjectModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 sm:p-4">
-      <div className="bg-card border border-border rounded-t-2xl sm:rounded-lg w-full sm:max-w-md max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-5 border-b border-border">
+      <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-md max-h-[85svh] overflow-y-auto">
+        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border">
           <h2 className="font-semibold">New project</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button onClick={onClose} className="p-2 -mr-1 text-muted-foreground hover:text-foreground transition-colors rounded-md">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="p-5 space-y-4">
+        <form onSubmit={handleSubmit} className="px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 space-y-4">
           {/* Cover art */}
           <div className="relative">
             <button

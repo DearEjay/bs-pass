@@ -77,6 +77,7 @@ interface NewTaskInput {
   title: string
   description?: string | null
   priority?: Priority
+  start_date?: string | null
   due_date?: string | null
   assignee_id?: string | null
   sort_order?: number
@@ -94,6 +95,7 @@ export function useCreateTask(projectId: string) {
           title: input.title,
           description: input.description ?? null,
           priority: input.priority ?? 'medium',
+          start_date: input.start_date ?? null,
           due_date: input.due_date ?? null,
           assignee_id: input.assignee_id ?? null,
           sort_order: input.sort_order ?? 0,
@@ -115,20 +117,32 @@ interface UpdateTaskInput {
   title?: string
   description?: string | null
   priority?: Priority
+  status?: TaskStatus
+  start_date?: string | null
   due_date?: string | null
   assignee_id?: string | null
   sort_order?: number
 }
 
+export type { UpdateTaskInput }
+
 export function useUpdateTask(projectId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ taskId, ...updates }: UpdateTaskInput) => {
-      const { error } = await supabase
-        .from('tasks')
-        .update(updates)
-        .eq('id', taskId)
+    mutationFn: async ({ taskId, status, ...updates }: UpdateTaskInput) => {
+      type TaskUpdate = Database['public']['Tables']['tasks']['Update']
+      const payload: TaskUpdate = { ...updates }
+      if (status !== undefined) {
+        payload.status = status
+        if (status === 'complete') {
+          payload.completed_at = new Date().toISOString()
+        } else {
+          payload.completed_at = null
+          payload.completed_by = null
+        }
+      }
+      const { error } = await supabase.from('tasks').update(payload).eq('id', taskId)
       if (error) throw error
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', projectId] }),
@@ -188,20 +202,32 @@ export function useDeleteTask(projectId: string) {
   })
 }
 
-// ── Reorder (swap sort_order) ─────────────────────────────────────────────────
+// ── Reorder (batch) ───────────────────────────────────────────────────────────
 
-export function useReorderTask(projectId: string) {
+export function useReorderTasks(projectId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async ({ taskId, newSortOrder }: { taskId: string; newSortOrder: number }) => {
-      const { error } = await supabase
-        .from('tasks')
-        .update({ sort_order: newSortOrder })
-        .eq('id', taskId)
-      if (error) throw error
+  return useMutation<void, Error, string[]>({
+    mutationFn: async (orderedIds: string[]) => {
+      await Promise.all(
+        orderedIds.map((id, index) =>
+          supabase.from('tasks').update({ sort_order: index }).eq('id', id)
+        )
+      )
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', projectId] }),
+    onMutate: async (orderedIds: string[]) => {
+      await qc.cancelQueries({ queryKey: ['tasks', projectId] })
+      const previous = qc.getQueryData<TaskWithDeps[]>(['tasks', projectId])
+      const idToTask = new Map(previous?.map(t => [t.id, t]) ?? [])
+      qc.setQueryData(['tasks', projectId], orderedIds.map((id, i) => ({ ...idToTask.get(id)!, sort_order: i })))
+      return { previous }
+    },
+    onError: (_err, _ids, ctx) => {
+      if ((ctx as { previous?: TaskWithDeps[] } | undefined)?.previous) {
+        qc.setQueryData(['tasks', projectId], (ctx as { previous: TaskWithDeps[] }).previous)
+      }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['tasks', projectId] }),
   })
 }
 

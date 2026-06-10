@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings, ChevronLeft } from 'lucide-react'
+import { Settings, ChevronLeft, Map, Music2, Layers, Users, MessageCircle, PieChart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProjectSettingsModal } from './ProjectSettingsModal'
 import type { Database } from '@/types/database'
@@ -27,12 +27,12 @@ const STATUS_LABEL: Record<string, string> = {
 }
 
 const TABS = [
-  { label: 'Roadmap', path: 'roadmap' },
-  { label: 'Tracks', path: 'tracks' },
-  { label: 'Stems', path: 'stems' },
-  { label: 'Collaborators', path: 'collaborators' },
-  { label: 'Chat', path: 'chat' },
-  { label: 'Splits', path: 'splits' },
+  { label: 'Roadmap',       path: 'roadmap',       icon: Map },
+  { label: 'Tracks',        path: 'tracks',        icon: Music2 },
+  { label: 'Stems',         path: 'stems',         icon: Layers },
+  { label: 'Collaborators', path: 'collaborators', icon: Users },
+  { label: 'Chat',          path: 'chat',          icon: MessageCircle },
+  { label: 'Splits',        path: 'splits',        icon: PieChart },
 ]
 
 export function ProjectHeader({ project, userId }: { project: Project; userId: string }) {
@@ -43,16 +43,16 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
 
   return (
     <>
-      <div className="border-b border-border bg-card px-4 sm:px-6 pt-4 pb-0">
+      <div className="border-b border-border bg-card px-4 sm:px-6 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1rem,env(safe-area-inset-top))] pb-0">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-3">
-            <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors">
+            <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors -ml-1 p-2 rounded-md">
               <ChevronLeft size={18} />
             </Link>
             <div>
               <h1 className="font-semibold text-lg leading-tight">{project.title}</h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-muted-foreground capitalize">{project.project_type}</span>
+                <span className="text-xs text-muted-foreground uppercase">{project.project_type}</span>
                 <span className="text-muted-foreground text-xs">·</span>
                 <span className={cn('text-xs', STATUS_COLOR[project.status])}>
                   {STATUS_LABEL[project.status]}
@@ -63,25 +63,26 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
 
           <button
             onClick={() => setShowSettings(true)}
-            className="text-muted-foreground hover:text-foreground transition-colors p-1"
+            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md -mr-1"
           >
             <Settings size={17} />
           </button>
         </div>
 
         <nav className="flex gap-1 -mb-px overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>
-          {TABS.map(tab => (
+          {TABS.map(({ label, path, icon: Icon }) => (
             <Link
-              key={tab.path}
-              href={`/projects/${project.id}/${tab.path}`}
+              key={path}
+              href={`/projects/${project.id}/${path}`}
               className={cn(
-                'px-3 py-2 text-sm border-b-2 transition-colors whitespace-nowrap',
-                activeTab === tab.path
+                'flex items-center gap-1.5 px-3 py-2 text-sm border-b-2 transition-colors whitespace-nowrap',
+                activeTab === path
                   ? 'border-primary text-foreground'
                   : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
-              {tab.label}
+              <Icon size={14} />
+              {label}
             </Link>
           ))}
         </nav>

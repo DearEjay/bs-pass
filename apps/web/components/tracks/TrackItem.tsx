@@ -329,7 +329,7 @@ export function TrackItem({
       {isExpanded && (
         <div className="border-t border-border/50 bg-accent/10">
           {/* Tab switcher */}
-          <div className="flex border-b border-border/50 overflow-x-auto">
+          <div className="flex border-b border-border/50">
             {([
               { id: 'player', label: 'Player' },
               { id: 'versions', label: `Versions${versions.length > 0 ? ` (${versions.length})` : ''}` },
@@ -352,36 +352,33 @@ export function TrackItem({
             ))}
           </div>
 
-          {activeTab === 'player' && (
-            <>
-              {audioUrl ? (
-                <>
-                  <AudioPlayer
-                    ref={playerRef}
-                    trackId={track.id}
-                    audioUrl={audioUrl}
-                    markers={markers}
-                    autoPlay={autoPlay}
-                    onTimeUpdate={handleTimeUpdate}
-                    onEnded={handleEnded}
-                  />
-                  {currentUser && (
-                    <TrackComments
-                      trackId={track.id}
-                      projectId={projectId}
-                      currentUserId={currentUser.id}
-                      currentPlaybackTime={currentTime}
-                      onSeek={(t) => playerRef.current?.seekTo(t)}
-                    />
-                  )}
-                </>
-              ) : (
-                <div className="px-3 py-4 text-xs text-muted-foreground">
-                  Loading audio…
-                </div>
+          {/* AudioPlayer always mounted when audio is available — keeps playback alive across tabs */}
+          {audioUrl ? (
+            <div className={cn(activeTab !== 'player' && 'hidden')}>
+              <AudioPlayer
+                ref={playerRef}
+                trackId={track.id}
+                audioUrl={audioUrl}
+                markers={markers}
+                autoPlay={autoPlay}
+                onTimeUpdate={handleTimeUpdate}
+                onEnded={handleEnded}
+              />
+              {currentUser && activeTab === 'player' && (
+                <TrackComments
+                  trackId={track.id}
+                  projectId={projectId}
+                  currentUserId={currentUser.id}
+                  currentPlaybackTime={currentTime}
+                  onSeek={(t) => playerRef.current?.seekTo(t)}
+                />
               )}
-            </>
-          )}
+            </div>
+          ) : activeTab === 'player' ? (
+            <div className="px-3 py-4 text-xs text-muted-foreground">
+              Loading audio…
+            </div>
+          ) : null}
 
           {activeTab === 'versions' && (
             <TrackVersionsPanel track={track} projectId={projectId} />

@@ -66,7 +66,7 @@ export function ChatMessage({
   searchQuery?: string
 }) {
   const isAgent = message.sender_type === 'agent'
-  const senderName = isAgent ? 'BS-PASS AI' : (message.profiles?.display_name ?? 'Unknown')
+  const senderName = isAgent ? 'Manager' : (message.profiles?.display_name ?? 'Unknown')
   const avatarUrl = message.profiles?.avatar_url
   const time = message.created_at ? format(new Date(message.created_at), 'h:mm a') : ''
   const marginTop = isFirst ? 'mt-5' : 'mt-0.5'

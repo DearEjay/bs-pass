@@ -591,6 +591,7 @@ export type Database = {
           priority: string
           project_id: string
           sort_order: number | null
+          start_date: string | null
           status: string
           title: string
           updated_at: string | null
@@ -609,6 +610,7 @@ export type Database = {
           priority?: string
           project_id: string
           sort_order?: number | null
+          start_date?: string | null
           status?: string
           title: string
           updated_at?: string | null
@@ -627,6 +629,7 @@ export type Database = {
           priority?: string
           project_id?: string
           sort_order?: number | null
+          start_date?: string | null
           status?: string
           title?: string
           updated_at?: string | null

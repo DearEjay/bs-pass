@@ -8,8 +8,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect('/login')
 
   return (
-    <div className="h-screen overflow-hidden">
-      <main className="h-full overflow-y-auto">
+    <div className="h-[100dvh] overflow-hidden">
+      <main className="h-full overflow-y-auto overscroll-none">
         {children}
       </main>
     </div>

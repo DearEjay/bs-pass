@@ -1,16 +1,35 @@
 'use client'
 
+import { useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { LayoutGrid, LogOut, User } from 'lucide-react'
 
+function clearLocalCache() {
+  try {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('bs-pass:roadmap-summary:'))
+      .forEach(k => localStorage.removeItem(k))
+  } catch {}
+}
+
 export function AppNav() {
   const pathname = usePathname()
   const router = useRouter()
 
+  // Clear roadmap summary cache on any sign-out (manual, forced, or token expiry)
+  useEffect(() => {
+    const supabase = createClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') clearLocalCache()
+    })
+    return () => subscription.unsubscribe()
+  }, [])
+
   async function signOut() {
+    clearLocalCache()
     const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/login')

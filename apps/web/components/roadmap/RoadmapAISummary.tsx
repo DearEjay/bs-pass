@@ -1,6 +1,7 @@
 'use client'
 
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect, useRef } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { Sparkles, RefreshCw } from 'lucide-react'
 import type { TaskWithDeps } from '@/hooks/useTasks'
@@ -16,41 +17,133 @@ interface Props {
   displayName: string
 }
 
+// ── localStorage helpers ───────────────────────────────────────────────────────
+// localStorage survives page refreshes (unlike in-memory state).
+// Cleared only when the user clicks Regenerate.
+
+interface Cached { text: string; ts: number }
+
+const cacheKey = (id: string) => `bs-pass:roadmap-summary:${id}`
+
+function readStore(projectId: string): Cached | null {
+  try {
+    const raw = localStorage.getItem(cacheKey(projectId))
+    return raw ? (JSON.parse(raw) as Cached) : null
+  } catch { return null }
+}
+
+function writeStore(projectId: string, text: string) {
+  try {
+    localStorage.setItem(cacheKey(projectId), JSON.stringify({ text, ts: Date.now() }))
+  } catch {}
+}
+
+function clearStore(projectId: string) {
+  try { localStorage.removeItem(cacheKey(projectId)) } catch {}
+}
+
+// ── API ────────────────────────────────────────────────────────────────────────
 async function fetchSummary(projectId: string, displayName: string): Promise<string> {
   const supabase = createClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session?.access_token) throw new Error('Not authenticated')
 
-  const fnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agent-summarize-roadmap`
-  const res = await fetch(fnUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${session.access_token}`,
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agent-summarize-roadmap`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+      body: JSON.stringify({ projectId, displayName }),
     },
-    body: JSON.stringify({ projectId, displayName }),
-  })
-  if (!res.ok) throw new Error(`Summary failed: ${res.status}`)
-  const { summary } = await res.json()
-  return summary as string
+  )
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(`${res.status}: ${body.detail ?? body.error ?? JSON.stringify(body)}`)
+  }
+  const data = await res.json()
+  if (!data.summary) throw new Error('No summary in response')
+  return data.summary as string
 }
 
-export function RoadmapAISummary({ projectId, project, tasks, tracks, displayName }: Props) {
-  const done = tasks.filter(t => t.status === 'complete').length
-  const total = tasks.length
+function fmtTs(ms: number) {
+  return new Date(ms).toLocaleString('en-US', {
+    weekday: 'short', month: 'short', day: 'numeric',
+    year: 'numeric', hour: 'numeric', minute: '2-digit', timeZoneName: 'short',
+  })
+}
 
-  // Refetch when completion state changes
-  const summaryKey = `${done}/${total}`
+// ── Component ──────────────────────────────────────────────────────────────────
+export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
+  const qc = useQueryClient()
+  const queryKey = ['roadmap-summary', projectId]
 
-  const { data: summary, isLoading, isFetching, refetch, error } = useQuery({
-    queryKey: ['roadmap-summary', projectId, summaryKey],
-    queryFn: () => fetchSummary(projectId, displayName),
-    staleTime: 5 * 60 * 1000,
-    enabled: (tasks.length > 0 || tracks.length > 0),
+  // Track last-updated time separately so it reflects the localStorage timestamp
+  const [lastTs, setLastTs] = useState<number | null>(null)
+
+  // Guard refs: mountedRef prevents the mount effect from running twice (React StrictMode);
+  // fetchedRef ensures we only trigger one automatic fetch per mount lifecycle.
+  const mountedRef = useRef(false)
+  const fetchedRef = useRef(false)
+
+  const { data: summary, isFetching, refetch, error } = useQuery<string>({
+    queryKey,
+    queryFn: async () => {
+      const text = await fetchSummary(projectId, displayName)
+      writeStore(projectId, text)
+      setLastTs(Date.now())
+      return text
+    },
+    // Never auto-fetches. We drive all fetches manually so SSR never triggers one.
+    enabled: false,
+    staleTime: Infinity,
+    gcTime: Infinity,
+    refetchOnMount: false,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
     retry: false,
   })
 
-  if (!tasks.length && !tracks.length) return null
+  // Runs once on the client after mount.
+  // If localStorage has a summary → seed the TQ cache directly (no network call).
+  // If not → auto-fetch, but only if tasks are already available.
+  useEffect(() => {
+    if (mountedRef.current) return
+    mountedRef.current = true
+
+    const cached = readStore(projectId)
+    if (cached) {
+      qc.setQueryData(queryKey, cached.text)
+      setLastTs(cached.ts)
+      return
+    }
+    if (tasks.length > 0) {
+      fetchedRef.current = true
+      refetch()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // If tasks weren't loaded when we mounted, trigger the fetch as soon as they arrive.
+  useEffect(() => {
+    if (!mountedRef.current) return  // wait for mount effect
+    if (fetchedRef.current) return   // already fetching or fetched
+    if (tasks.length === 0) return
+    if (qc.getQueryData(queryKey)) return  // TQ cache already seeded
+    if (readStore(projectId)) return       // localStorage has it (will be seeded next mount)
+    fetchedRef.current = true
+    refetch()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tasks.length])
+
+  if (!tasks.length) return null
+
+  function handleRegenerate() {
+    clearStore(projectId)
+    fetchedRef.current = true
+    refetch()
+  }
+
+  const isLoading = isFetching && !summary
 
   return (
     <div className="relative rounded-xl border border-border bg-gradient-to-br from-primary/5 via-card to-card p-4 min-h-[80px] flex gap-3 items-start">
@@ -59,25 +152,30 @@ export function RoadmapAISummary({ projectId, project, tasks, tracks, displayNam
       </div>
 
       <div className="flex-1 min-w-0">
-        {isLoading || isFetching ? (
+        {isLoading ? (
           <div className="space-y-2 py-1">
             <div className="h-3.5 w-3/4 rounded-full bg-muted/60 animate-pulse" />
             <div className="h-3.5 w-1/2 rounded-full bg-muted/40 animate-pulse" />
           </div>
         ) : error ? (
-          <p className="text-sm text-muted-foreground italic">
-            Could not generate summary — check Supabase edge function logs.
-          </p>
+          <p className="text-sm text-muted-foreground italic">{(error as Error).message}</p>
         ) : summary ? (
-          <p className="text-sm leading-relaxed text-foreground/90">{summary}</p>
+          <>
+            <p className="text-sm leading-relaxed text-foreground/90">{summary}</p>
+            {lastTs && (
+              <p className="text-[11px] text-muted-foreground/50 mt-2">
+                Last updated: {fmtTs(lastTs)}
+              </p>
+            )}
+          </>
         ) : null}
       </div>
 
       <button
-        onClick={() => refetch()}
+        onClick={handleRegenerate}
         disabled={isFetching}
         className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
-        title="Refresh summary"
+        title="Regenerate summary"
       >
         <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
       </button>

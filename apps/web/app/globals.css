@@ -32,5 +32,26 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    /* Prevent elastic over-scroll at the body level */
+    overscroll-behavior: none;
+    /* Remove tap highlight on mobile */
+    -webkit-tap-highlight-color: transparent;
   }
+  /* Disable double-tap zoom on interactive elements */
+  button, a, [role="button"], input, select, textarea {
+    touch-action: manipulation;
+  }
+}
+
+@layer utilities {
+  /* Safe-area padding helpers — use these instead of raw env() calls */
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+  .pl-safe { padding-left: env(safe-area-inset-left); }
+  .pr-safe { padding-right: env(safe-area-inset-right); }
+  /* Combined: adds safe-area ON TOP of existing padding */
+  .pb-safe-or-4 { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+  .pb-safe-or-5 { padding-bottom: max(1.25rem, env(safe-area-inset-bottom)); }
+  .pb-safe-or-6 { padding-bottom: max(1.5rem, env(safe-area-inset-bottom)); }
+  .pt-safe-or-4 { padding-top: max(1rem, env(safe-area-inset-top)); }
 }
