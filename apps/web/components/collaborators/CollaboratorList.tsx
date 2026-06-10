@@ -208,7 +208,7 @@ export function CollaboratorList({ projectId }: { projectId: string }) {
       </div>
 
       {/* Active collaborators */}
-      <div className="border border-border rounded-lg divide-y divide-border overflow-hidden">
+      <div className="border border-border rounded-lg divide-y divide-border">
         {collaborators.map(c => (
           <div key={c.id} className="px-4">
             <CollaboratorRow
@@ -230,7 +230,7 @@ export function CollaboratorList({ projectId }: { projectId: string }) {
           <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">
             Awaiting signup
           </h3>
-          <div className="border border-border rounded-lg divide-y divide-border overflow-hidden">
+          <div className="border border-border rounded-lg divide-y divide-border">
             {pendingInvites.map(inv => (
               <div key={inv.id} className="px-4">
                 <PendingInviteRow invite={inv} projectId={projectId} />
