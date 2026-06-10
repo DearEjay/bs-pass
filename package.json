@@ -20,5 +20,8 @@
   ],
   "devDependencies": {
     "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "@capacitor/ios": "^8.4.0"
   }
 }

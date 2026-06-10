@@ -1,0 +1,7 @@
+.vercel
+
+# iOS build artifacts
+ios/App/Pods/
+ios/App/App/public/
+ios/App/DerivedData/
+ios/.xcode.env.local
