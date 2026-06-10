@@ -979,6 +979,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_emails_by_user_ids: {
+        Args: { p_user_ids: string[] }
+        Returns: {
+          email: string
+          id: string
+        }[]
+      }
       get_invite_by_token: { Args: { p_token: string }; Returns: Json }
       get_split_by_token: { Args: { p_token: string }; Returns: Json }
       get_user_id_by_email: { Args: { p_email: string }; Returns: string }

@@ -1,6 +1,7 @@
 import { requireAuth } from '../_shared/auth.ts'
 import { db } from '../_shared/db.ts'
 import { sendEmail } from '../_shared/resend.ts'
+import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,82 +15,108 @@ function json(data: unknown, status = 200) {
   })
 }
 
-// Generate a minimal but complete PDF without external libraries (raw PDF syntax)
-function buildPdf(content: string[][]): Uint8Array {
-  const lines: string[] = []
-  const pageWidth = 595
-  const pageHeight = 842
+async function buildPdf(params: {
+  projectTitle: string
+  trackTitle: string
+  dateStr: string
+  splits: Array<{ name: string; percentage: number; signedAt: string; signedIp: string }>
+  docId: string
+}): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create()
+  const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+
+  const page = pdfDoc.addPage([595, 842])
+  const { height } = page.getSize()
   const margin = 60
-  const lineHeight = 20
+  const lineH = 18
+  let y = height - margin
 
-  // Flatten content into positioned text objects
-  const textObjects: string[] = []
-  let y = pageHeight - margin
-  for (const row of content) {
-    for (let i = 0; i < row.length; i++) {
-      const x = i === 0 ? margin : margin + 300
-      textObjects.push(`BT /F1 ${row.length === 1 && i === 0 ? '13' : '10'} Tf ${x} ${y} Td (${escape(row[i])}) Tj ET`)
-    }
-    y -= lineHeight
-    if (row.length > 0 && row[0] === '') y -= lineHeight / 2 // blank line spacing
+  function drawText(text: string, opts: { bold?: boolean; size?: number; color?: [number, number, number]; indent?: number }) {
+    const size = opts.size ?? 10
+    const col = opts.color ? rgb(opts.color[0], opts.color[1], opts.color[2]) : rgb(0, 0, 0)
+    page.drawText(text, { x: margin + (opts.indent ?? 0), y, size, font: opts.bold ? boldFont : font, color: col })
   }
 
-  const streamContent = textObjects.join('\n')
-  const streamBytes = new TextEncoder().encode(streamContent)
-
-  // Build PDF objects
-  const objs: string[] = []
-  objs.push('%PDF-1.4')
-  const offsets: number[] = []
-  let offset = objs[0].length + 1
-
-  function addObj(n: number, body: string) {
-    const s = `${n} 0 obj\n${body}\nendobj\n`
-    offsets[n] = offset
-    offset += new TextEncoder().encode(s).length
-    objs.push(s)
+  function drawLine() {
+    page.drawLine({ start: { x: margin, y: y + 4 }, end: { x: 535, y: y + 4 }, thickness: 0.5, color: rgb(0.7, 0.7, 0.7) })
+    y -= lineH
   }
 
-  // 1: Catalog
-  addObj(1, '<< /Type /Catalog /Pages 2 0 R >>')
-  // 2: Pages
-  addObj(2, `<< /Type /Pages /Kids [3 0 R] /Count 1 >>`)
-  // 3: Page
-  addObj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${pageWidth} ${pageHeight}] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>`)
-  // 4: Content stream
-  const streamHeader = `<< /Length ${streamBytes.length} >>`
-  objs.push(`4 0 obj\n${streamHeader}\nstream\n`)
-  offsets[4] = offset
-  offset += new TextEncoder().encode(`4 0 obj\n${streamHeader}\nstream\n`).length + streamBytes.length + '\nendstream\nendobj\n'.length
-  // 5: Font
-  addObj(5, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>')
+  function skip(n = 1) { y -= lineH * n }
 
-  const xrefOffset = offset
-  const header = objs.join('')
-  const xref = [
-    'xref',
-    `0 ${offsets.length}`,
-    '0000000000 65535 f ',
-    ...offsets.slice(1).map(o => String(o).padStart(10, '0') + ' 00000 n '),
-  ].join('\n')
-  const trailer = `trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${xrefOffset}\n%%EOF`
+  // Header
+  drawText('BS-PASS', { bold: true, size: 18 })
+  skip()
+  drawText('SPLITS AGREEMENT', { bold: true, size: 13, color: [0.3, 0.3, 0.3] })
+  skip(1.5)
+  drawLine()
+  skip(0.5)
 
-  const enc = new TextEncoder()
-  const parts: Uint8Array[] = [
-    enc.encode(header),
-    streamBytes,
-    enc.encode('\nendstream\nendobj\n'),
-    enc.encode(xref + '\n' + trailer),
-  ]
-  const totalLen = parts.reduce((s, p) => s + p.length, 0)
-  const result = new Uint8Array(totalLen)
-  let pos = 0
-  for (const p of parts) { result.set(p, pos); pos += p.length }
-  return result
-}
+  // Track info
+  drawText('Project', { bold: true, size: 9, color: [0.5, 0.5, 0.5] })
+  skip()
+  drawText(params.projectTitle, { size: 11 })
+  skip(1.2)
+  drawText('Track', { bold: true, size: 9, color: [0.5, 0.5, 0.5] })
+  skip()
+  drawText(params.trackTitle, { size: 11 })
+  skip(1.2)
+  drawText('Generated', { bold: true, size: 9, color: [0.5, 0.5, 0.5] })
+  skip()
+  drawText(params.dateStr, { size: 10 })
+  skip(1.5)
+  drawLine()
+  skip(0.5)
 
-function escape(s: string) {
-  return s.replace(/\\/g, '\\\\').replace(/\(/g, '\\(').replace(/\)/g, '\\)')
+  // Agreement body
+  drawText('REVENUE SPLIT AGREEMENT', { bold: true, size: 11 })
+  skip(1.2)
+  drawText('The parties listed below agree to the following revenue split for the', { size: 9, color: [0.3, 0.3, 0.3] })
+  skip()
+  drawText(`track "${params.trackTitle}" as part of the project "${params.projectTitle}".`, { size: 9, color: [0.3, 0.3, 0.3] })
+  skip(1.5)
+
+  // Splits table header
+  drawText('PARTY', { bold: true, size: 9, color: [0.5, 0.5, 0.5] })
+  page.drawText('SHARE', { x: 300, y, size: 9, font: boldFont, color: rgb(0.5, 0.5, 0.5) })
+  page.drawText('SIGNED', { x: 420, y, size: 9, font: boldFont, color: rgb(0.5, 0.5, 0.5) })
+  skip(1.2)
+
+  for (const s of params.splits) {
+    drawText(s.name, { size: 10 })
+    page.drawText(`${s.percentage.toFixed(2)}%`, { x: 300, y, size: 10, font, color: rgb(0, 0, 0) })
+    page.drawText(s.signedAt, { x: 420, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) })
+    skip()
+  }
+
+  skip(0.5)
+  drawLine()
+  skip(0.5)
+
+  // IP log
+  drawText('SIGNATURE LOG', { bold: true, size: 11 })
+  skip(1.2)
+  for (const s of params.splits) {
+    drawText(`${s.name}`, { bold: true, size: 9 })
+    skip()
+    drawText(`Signed: ${s.signedAt}  |  IP: ${s.signedIp}`, { size: 9, color: [0.4, 0.4, 0.4], indent: 10 })
+    skip(1.2)
+  }
+
+  drawLine()
+  skip(0.5)
+
+  // Disclaimer
+  drawText('DISCLAIMER', { bold: true, size: 9, color: [0.5, 0.5, 0.5] })
+  skip()
+  drawText('This document is an informal record of consent generated by BS-PASS.', { size: 8, color: [0.5, 0.5, 0.5] })
+  skip()
+  drawText('It is not a legally certified e-signature. Consult a music attorney for legally binding agreements.', { size: 8, color: [0.5, 0.5, 0.5] })
+  skip(1.5)
+  drawText(`Document ID: ${params.docId}`, { size: 8, color: [0.7, 0.7, 0.7] })
+
+  return pdfDoc.save()
 }
 
 Deno.serve(async (req) => {
@@ -106,7 +133,6 @@ Deno.serve(async (req) => {
 
     const supabase = db()
 
-    // Load track
     const { data: track } = await supabase
       .from('tracks')
       .select('id,title,project_id')
@@ -114,7 +140,6 @@ Deno.serve(async (req) => {
       .single()
     if (!track) return json({ error: 'Track not found' }, 404)
 
-    // Verify caller is a collaborator
     const { data: collab } = await supabase
       .from('collaborators')
       .select('id,is_main_artist')
@@ -124,14 +149,12 @@ Deno.serve(async (req) => {
       .maybeSingle()
     if (!collab) return json({ error: 'Forbidden' }, 403)
 
-    // Load project
     const { data: project } = await supabase
       .from('projects')
       .select('title')
       .eq('id', track.project_id)
       .single()
 
-    // Load all splits with collaborator info
     const { data: splits } = await supabase
       .from('splits')
       .select('id,percentage,split_status,signed_at,signed_ip,collaborators!inner(user_id,profiles:user_id(display_name))')
@@ -139,79 +162,48 @@ Deno.serve(async (req) => {
 
     if (!splits || splits.length === 0) return json({ error: 'No splits found for this track' }, 400)
 
-    // All must be signed
     const allSigned = splits.every(s => s.split_status === 'signed')
-    if (!allSigned) {
-      return json({ error: 'All parties must sign before the PDF can be generated' }, 422)
-    }
+    if (!allSigned) return json({ error: 'All parties must sign before the PDF can be generated' }, 422)
 
     const now = new Date()
     const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
-    // Build PDF content
-    const content: string[][] = [
-      ['BS-PASS — SPLITS AGREEMENT'],
-      [''],
-      [`Project: ${project?.title ?? 'Unknown'}`],
-      [`Track: ${track.title}`],
-      [`Generated: ${dateStr}`],
-      [''],
-      ['─────────────────────────────────────────'],
-      [''],
-      ['REVENUE SPLIT AGREEMENT'],
-      [''],
-      ['The parties listed below agree to the following revenue split for the'],
-      [`track "${track.title}" as part of the project "${project?.title ?? ''}".`],
-      [''],
-      ['AGREED SPLITS:'],
-      [''],
-      ...splits.map(s => {
-        const c = s.collaborators as { user_id: string; profiles: { display_name: string } | null }
-        const name = c.profiles?.display_name ?? 'Unknown'
-        const signedDate = s.signed_at ? new Date(s.signed_at).toLocaleDateString('en-US') : 'N/A'
-        return [`${name}`, `${Number(s.percentage).toFixed(2)}% — Signed ${signedDate}`]
-      }),
-      [''],
-      ['─────────────────────────────────────────'],
-      [''],
-      ['SIGNATURES:'],
-      [''],
-      ...splits.map(s => {
-        const c = s.collaborators as { user_id: string; profiles: { display_name: string } | null }
-        const name = c.profiles?.display_name ?? 'Unknown'
-        const signedDate = s.signed_at ? new Date(s.signed_at).toLocaleString('en-US') : 'N/A'
-        return [`${name}`, `Signed: ${signedDate} | IP: ${s.signed_ip ?? 'N/A'}`]
-      }),
-      [''],
-      ['─────────────────────────────────────────'],
-      [''],
-      ['DISCLAIMER: This document is an informal record of consent generated by'],
-      ['BS-PASS. It is not a legally certified e-signature. For legally binding'],
-      ['agreements, consult a music attorney.'],
-      [''],
-      [`Document ID: ${crypto.randomUUID()}`],
-    ]
+    const splitRows = splits.map(s => {
+      const c = s.collaborators as { user_id: string; profiles: { display_name: string } | null }
+      return {
+        name: c.profiles?.display_name ?? 'Unknown',
+        percentage: Number(s.percentage),
+        signedAt: s.signed_at ? new Date(s.signed_at).toLocaleDateString('en-US') : 'N/A',
+        signedIp: s.signed_ip ?? 'N/A',
+        userId: c.user_id,
+      }
+    })
 
-    const pdfBytes = buildPdf(content)
-    const pdfBase64 = btoa(String.fromCharCode(...pdfBytes))
+    const docId = crypto.randomUUID()
+    const pdfBytes = await buildPdf({
+      projectTitle: project?.title ?? 'Unknown',
+      trackTitle: track.title,
+      dateStr,
+      splits: splitRows,
+      docId,
+    })
 
     const filename = `splits-${track.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`
 
-    // Email PDF as attachment to all signees
-    const { data: { users } } = await supabase.auth.admin.listUsers()
-    const userIds = splits.map(s => (s.collaborators as { user_id: string }).user_id)
-    const signeeEmails = users.filter(u => userIds.includes(u.id) && u.email).map(u => u.email as string)
+    // Email to all signees
+    const userIds = splitRows.map(s => s.userId)
+    const { data: authRows } = await supabase.rpc('get_emails_by_user_ids', { p_user_ids: userIds })
+    const signeeEmails = (authRows as Array<{ id: string; email: string }> ?? []).map(r => r.email)
 
-    const html = `
-<!DOCTYPE html>
+    const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
-<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #1a1a1a;">
-  <h2 style="font-size: 22px; font-weight: 600; margin-bottom: 8px;">Splits Agreement — All Signatures Collected</h2>
-  <p style="color: #555; margin-bottom: 16px;">All parties have signed the splits agreement for <strong>${track.title}</strong> from <strong>${project?.title ?? 'the project'}</strong>.</p>
-  <p style="color: #555; margin-bottom: 24px;">Your copy of the finalized agreement is attached to this email.</p>
-  <p style="color: #888; font-size: 13px;">This document is an informal record of consent and is not a legally certified e-signature.</p>
-  <p style="color: #bbb; font-size: 12px; margin-top: 32px;">BS-PASS · AI-powered music project management</p>
+<body style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#1a1a1a;">
+  <h2 style="font-size:22px;font-weight:600;margin-bottom:8px;">Splits Agreement — All Signatures Collected</h2>
+  <p style="color:#555;margin-bottom:16px;">All parties have signed the splits agreement for <strong>${track.title}</strong> from <strong>${project?.title ?? 'the project'}</strong>.</p>
+  <p style="color:#555;margin-bottom:24px;">Your copy of the finalized agreement is attached.</p>
+  <p style="color:#888;font-size:13px;">This document is an informal record of consent and is not a legally certified e-signature.</p>
+  <p style="color:#bbb;font-size:12px;margin-top:32px;">BS-PASS · AI-powered music project management</p>
 </body>
 </html>`
 
@@ -221,15 +213,10 @@ Deno.serve(async (req) => {
         subject: `Splits Agreement Ready — ${track.title}`,
         html,
         text: `All parties have signed the splits agreement for "${track.title}". Your copy is attached.`,
-        attachments: [{
-          filename,
-          content: Array.from(pdfBytes),
-          type: 'application/pdf',
-        }],
+        attachments: [{ filename, content: Array.from(pdfBytes), type: 'application/pdf' }],
       }).catch(e => console.warn(`PDF email to ${email} failed:`, e))
     }
 
-    // Audit log
     await supabase.from('audit_logs').insert({
       project_id: track.project_id,
       actor_id: userId,
@@ -240,7 +227,6 @@ Deno.serve(async (req) => {
       diff: { track_id: trackId, filename },
     })
 
-    // Return PDF bytes directly for browser download
     return new Response(pdfBytes, {
       headers: {
         ...CORS,
@@ -252,7 +238,8 @@ Deno.serve(async (req) => {
 
   } catch (err) {
     if (err instanceof Response) return err
-    console.error('splits-generate-pdf unhandled:', err)
-    return json({ error: 'Internal error' }, 500)
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error('splits-generate-pdf unhandled:', msg, err)
+    return json({ error: msg }, 500)
   }
 })
