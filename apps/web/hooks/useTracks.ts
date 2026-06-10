@@ -84,7 +84,16 @@ export function useCreateTrack(projectId: string) {
 
       return updated as Track
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tracks', projectId] }),
+    onSuccess: async (newTrack) => {
+      qc.setQueryData<Track[]>(['tracks', projectId], old => [...(old ?? []), newTrack])
+      const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
+      const splits = qc.getQueryData<Split[]>(['splits', projectId]) ?? []
+      const newStatus = computeProjectStatus(tracks, splits)
+      await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
+      qc.setQueryData<Project>(['project', projectId], old =>
+        old ? { ...old, status: newStatus } : old
+      )
+    },
   })
 }
 
@@ -155,7 +164,18 @@ export function useDeleteTrack(projectId: string) {
         .eq('id', trackId)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tracks', projectId] }),
+    onSuccess: async (_, trackId) => {
+      qc.setQueryData<Track[]>(['tracks', projectId], old =>
+        old?.filter(t => t.id !== trackId) ?? []
+      )
+      const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
+      const splits = qc.getQueryData<Split[]>(['splits', projectId]) ?? []
+      const newStatus = computeProjectStatus(tracks, splits)
+      await supabase.from('projects').update({ status: newStatus }).eq('id', projectId)
+      qc.setQueryData<Project>(['project', projectId], old =>
+        old ? { ...old, status: newStatus } : old
+      )
+    },
   })
 }
 
