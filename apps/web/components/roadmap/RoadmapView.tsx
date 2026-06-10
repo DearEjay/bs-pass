@@ -105,6 +105,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
       {/* AI summary banner */}
       {project && (
         <RoadmapAISummary
+          projectId={projectId}
           project={{ title: project.title, project_type: project.project_type }}
           tasks={tasks}
           tracks={tracks}

@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { generateText } from '@/lib/gemini-client'
+import { createClient } from '@/lib/supabase/client'
 import { Sparkles, RefreshCw } from 'lucide-react'
 import type { TaskWithDeps } from '@/hooks/useTasks'
 import type { Database } from '@/types/database'
@@ -9,52 +9,44 @@ import type { Database } from '@/types/database'
 type Track = Database['public']['Tables']['tracks']['Row']
 
 interface Props {
+  projectId: string
   project: { title: string; project_type: string }
   tasks: TaskWithDeps[]
   tracks: Track[]
   displayName: string
 }
 
-export function RoadmapAISummary({ project, tasks, tracks, displayName }: Props) {
+async function fetchSummary(projectId: string, displayName: string): Promise<string> {
+  const supabase = createClient()
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.access_token) throw new Error('Not authenticated')
+
+  const fnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agent-summarize-roadmap`
+  const res = await fetch(fnUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${session.access_token}`,
+    },
+    body: JSON.stringify({ projectId, displayName }),
+  })
+  if (!res.ok) throw new Error(`Summary failed: ${res.status}`)
+  const { summary } = await res.json()
+  return summary as string
+}
+
+export function RoadmapAISummary({ projectId, project, tasks, tracks, displayName }: Props) {
   const done = tasks.filter(t => t.status === 'complete').length
   const total = tasks.length
-  const overdue = tasks.filter(t =>
-    t.due_date && t.status !== 'complete' && new Date(t.due_date) < new Date()
-  )
 
-  // Re-fetch when the completion state or overdue state changes
-  const summaryKey = `${done}/${total}:${overdue.length}`
+  // Refetch when completion state changes
+  const summaryKey = `${done}/${total}`
 
-  const { data: summary, isLoading, refetch, isFetching } = useQuery({
-    queryKey: ['roadmap-summary', project.title, summaryKey],
-    queryFn: async () => {
-      const trackSummary = tracks.length > 0
-        ? tracks.map(t => `- ${t.title} (${t.current_status})`).join('\n')
-        : '(no tracks yet)'
-
-      const taskSummary = tasks.length > 0
-        ? tasks.map(t => `- [${t.status === 'complete' ? 'done' : t.status}] ${t.title}${t.due_date ? ` (due ${t.due_date})` : ''}`).join('\n')
-        : '(no tasks yet)'
-
-      const prompt = `You are a music project manager assistant. Write a SHORT 1-3 sentence project status update addressed directly to ${displayName}.
-Start with "Hey ${displayName}," and then give a conversational, encouraging status read of the project.
-Only flag something as urgent if there is an overdue task or a critical blocker.
-Keep it casual and concise — no bullet points, just natural sentences.
-
-PROJECT: "${project.title}" (${project.project_type})
-TASKS: ${done} of ${total} complete
-OVERDUE TASKS: ${overdue.map(t => t.title).join(', ') || 'none'}
-
-TRACKS:
-${trackSummary}
-
-ROADMAP TASKS:
-${taskSummary}`
-
-      return generateText(prompt)
-    },
-    staleTime: 5 * 60 * 1000, // 5 min
-    enabled: tasks.length > 0 || tracks.length > 0,
+  const { data: summary, isLoading, isFetching, refetch, error } = useQuery({
+    queryKey: ['roadmap-summary', projectId, summaryKey],
+    queryFn: () => fetchSummary(projectId, displayName),
+    staleTime: 5 * 60 * 1000,
+    enabled: (tasks.length > 0 || tracks.length > 0),
     retry: false,
   })
 
@@ -72,11 +64,13 @@ ${taskSummary}`
             <div className="h-3.5 w-3/4 rounded-full bg-muted/60 animate-pulse" />
             <div className="h-3.5 w-1/2 rounded-full bg-muted/40 animate-pulse" />
           </div>
+        ) : error ? (
+          <p className="text-sm text-muted-foreground italic">
+            Could not generate summary — check Supabase edge function logs.
+          </p>
         ) : summary ? (
           <p className="text-sm leading-relaxed text-foreground/90">{summary}</p>
-        ) : (
-          <p className="text-sm text-muted-foreground italic">Could not generate summary.</p>
-        )}
+        ) : null}
       </div>
 
       <button
