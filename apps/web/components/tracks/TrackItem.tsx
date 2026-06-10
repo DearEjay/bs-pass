@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
@@ -16,7 +16,7 @@ import {
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useTrackComments } from '@/hooks/useTrackComments'
 import { TrackStatusBadge, STATUS_CONFIG } from './TrackStatusBadge'
-import { AudioPlayer, type AudioMarker } from './AudioPlayer'
+import { AudioPlayer, type AudioMarker, type AudioPlayerHandle } from './AudioPlayer'
 import { TrackComments } from './TrackComments'
 import { TrackVersionsPanel } from './TrackVersionsPanel'
 import { VersionUploadModal } from './VersionUploadModal'
@@ -77,6 +77,7 @@ export function TrackItem({
   const [confirmDeleteTrack, setConfirmDeleteTrack] = useState(false)
   const [activeTab, setActiveTab] = useState<ActiveTab>('player')
   const [currentTime, setCurrentTime] = useState(0)
+  const playerRef = useRef<AudioPlayerHandle>(null)
 
   const hasAudio = !!track.current_version_id
   const currentVersion = versions.find(v => v.id === track.current_version_id) ?? null
@@ -84,7 +85,9 @@ export function TrackItem({
   const markers: AudioMarker[] = comments.map(c => ({
     id: c.id,
     timestamp: c.timestamp_secs,
-    isActive: Math.abs(currentTime - c.timestamp_secs) < 1.5,
+    body: c.body,
+    authorName: c.profiles?.display_name ?? 'Unknown',
+    authorAvatarUrl: c.profiles?.avatar_url ?? null,
   }))
 
   const handleTimeUpdate = useCallback((t: number) => setCurrentTime(t), [])
@@ -356,6 +359,7 @@ export function TrackItem({
               {audioUrl ? (
                 <>
                   <AudioPlayer
+                    ref={playerRef}
                     trackId={track.id}
                     audioUrl={audioUrl}
                     markers={markers}
@@ -369,6 +373,7 @@ export function TrackItem({
                       projectId={projectId}
                       currentUserId={currentUser.id}
                       currentPlaybackTime={currentTime}
+                      onSeek={(t) => playerRef.current?.seekTo(t)}
                     />
                   )}
                 </>

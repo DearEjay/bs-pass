@@ -47,7 +47,7 @@ export function useCreateTrackComment(trackId: string, projectId: string) {
       const { data, error } = await (supabase as any)
         .from('track_comments')
         .insert({ track_id: trackId, project_id: projectId, author_id, body, timestamp_secs })
-        .select('*, profiles:author_id(display_name, avatar_url)')
+        .select('*')
         .single()
       if (error) throw error
       return data as TrackComment
