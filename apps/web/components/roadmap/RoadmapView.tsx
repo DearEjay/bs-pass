@@ -159,7 +159,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
   const anySelected = selected.size > 0
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-4">
+    <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-24 sm:pb-8 max-w-5xl mx-auto space-y-4">
       {project && (
         <RoadmapAISummary
           projectId={projectId}

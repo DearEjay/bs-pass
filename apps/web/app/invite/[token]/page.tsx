@@ -78,7 +78,7 @@ export default function InvitePage() {
 
   if (notFound) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background p-6">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
         <div className="max-w-sm w-full text-center space-y-4">
           <XCircle size={40} className="text-destructive mx-auto" />
           <h1 className="text-xl font-semibold">Invite not found</h1>
@@ -95,7 +95,7 @@ export default function InvitePage() {
 
   if (accepted) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center bg-background p-6">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
         <div className="max-w-sm w-full text-center space-y-4">
           <CheckCircle2 size={40} className="text-emerald-500 mx-auto" />
           <h1 className="text-xl font-semibold">You're in!</h1>
@@ -110,7 +110,7 @@ export default function InvitePage() {
   const roleLabels = (invite?.roles ?? []).map(r => ROLE_LABELS[r] ?? r).join(', ')
 
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center bg-background p-6">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-background pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] pl-[max(1.5rem,env(safe-area-inset-left))] pr-[max(1.5rem,env(safe-area-inset-right))]">
       <div className="max-w-sm w-full space-y-6">
         {/* Logo / Brand */}
         <div className="flex items-center gap-2 justify-center">
