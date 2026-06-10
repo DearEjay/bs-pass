@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
+  useUpdateTrackTitle,
   useUpdateTrackStatus,
   useDeleteTrack,
   useDeleteTrackVersion,
@@ -58,6 +59,7 @@ export function TrackItem({
   })
   const style = { transform: CSS.Transform.toString(transform), transition }
 
+  const updateTitle = useUpdateTrackTitle(projectId)
   const updateStatus = useUpdateTrackStatus(projectId)
   const deleteTrack = useDeleteTrack(projectId)
   const deleteVersion = useDeleteTrackVersion(track.id, projectId)
@@ -66,6 +68,8 @@ export function TrackItem({
   const { data: audioUrl } = useTrackAudioUrl(track, isExpanded)
   const { data: comments = [] } = useTrackComments(track.id)
 
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [titleDraft, setTitleDraft] = useState('')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showEllipsisMenu, setShowEllipsisMenu] = useState(false)
   const [showVersionUpload, setShowVersionUpload] = useState(false)
@@ -85,6 +89,24 @@ export function TrackItem({
 
   const handleTimeUpdate = useCallback((t: number) => setCurrentTime(t), [])
   const handleEnded = useCallback(() => onEnded(), [onEnded])
+
+  function startEditTitle() {
+    setTitleDraft(track.title)
+    setEditingTitle(true)
+  }
+
+  async function commitTitle() {
+    const trimmed = titleDraft.trim()
+    setEditingTitle(false)
+    if (trimmed && trimmed !== track.title) {
+      await updateTitle.mutateAsync({ trackId: track.id, title: trimmed })
+    }
+  }
+
+  function cancelTitle() {
+    setEditingTitle(false)
+    setTitleDraft('')
+  }
 
   async function handleStatusChange(status: TrackStatus) {
     setShowStatusMenu(false)
@@ -134,27 +156,48 @@ export function TrackItem({
           <GripVertical size={16} />
         </button>
 
-        {/* Chevron + title */}
+        {/* Chevron */}
         <button
           onClick={onToggleExpand}
           disabled={!hasAudio}
-          className="flex-1 min-w-0 flex items-center gap-2 text-left disabled:cursor-default"
+          className={cn(
+            'text-muted-foreground/50 transition-colors shrink-0 disabled:cursor-default',
+            hasAudio && 'hover:text-muted-foreground',
+          )}
+          aria-label={isExpanded ? 'Collapse track' : 'Expand track'}
         >
-          <span className={cn(
-            'text-muted-foreground/50 transition-colors shrink-0',
-            hasAudio && 'group-hover:text-muted-foreground',
-          )}>
-            {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </span>
-          <div className="min-w-0">
-            <p className="text-sm font-medium truncate">{track.title}</p>
-            {(track.bpm || track.key) && (
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {[track.bpm && `${track.bpm} BPM`, track.key].filter(Boolean).join(' · ')}
-              </p>
-            )}
-          </div>
+          {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
         </button>
+
+        {/* Title (click to edit) */}
+        <div className="flex-1 min-w-0">
+          {editingTitle ? (
+            <input
+              autoFocus
+              value={titleDraft}
+              onChange={e => setTitleDraft(e.target.value)}
+              onBlur={commitTitle}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); commitTitle() }
+                if (e.key === 'Escape') cancelTitle()
+              }}
+              className="w-full text-sm font-medium bg-transparent border-b border-primary outline-none pb-px truncate"
+            />
+          ) : (
+            <p
+              onClick={startEditTitle}
+              className="text-sm font-medium truncate cursor-text hover:text-primary/80 transition-colors"
+              title="Click to rename"
+            >
+              {track.title}
+            </p>
+          )}
+          {(track.bpm || track.key) && (
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {[track.bpm && `${track.bpm} BPM`, track.key].filter(Boolean).join(' · ')}
+            </p>
+          )}
+        </div>
 
         {/* Status selector */}
         <div className="relative">

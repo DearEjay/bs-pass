@@ -91,6 +91,28 @@ export function useCreateTrack(projectId: string) {
   })
 }
 
+export function useUpdateTrackTitle(projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ trackId, title }: { trackId: string; title: string }) => {
+      const { data, error } = await supabase
+        .from('tracks')
+        .update({ title })
+        .eq('id', trackId)
+        .select()
+        .single()
+      if (error) throw error
+      return data as Track
+    },
+    onSuccess: (updated) => {
+      qc.setQueryData<Track[]>(['tracks', projectId], old =>
+        old?.map(t => (t.id === updated.id ? updated : t)) ?? []
+      )
+    },
+  })
+}
+
 export function useUpdateTrackStatus(projectId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
