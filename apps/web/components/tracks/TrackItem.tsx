@@ -280,7 +280,7 @@ export function TrackItem({
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-accent transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <RotateCcw size={13} className="text-muted-foreground shrink-0" />
-                  Restore from a previous version
+                  Restore from previous version
                 </button>
 
                 {/* Divider + Delete track */}
