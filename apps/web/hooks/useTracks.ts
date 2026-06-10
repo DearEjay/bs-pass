@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { computeProjectStatus } from '@shared/project-status'
+import { computeProjectStatus } from '@/lib/project-status'
 import type { Database } from '@/types/database'
 
 type Track = Database['public']['Tables']['tracks']['Row']
