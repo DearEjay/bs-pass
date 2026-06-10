@@ -1119,17 +1119,20 @@ pnpm supabase:functions:deploy
 
 **Goal:** Multi-collaborator projects, revenue splits, digital signatures
 
-- [ ] Collaborator invite flow (search registered users by name/email, select predefined role(s), Resend email with project link, accept redirects to app)
+- [ ] Collaborator Invite Flow: Invite via email. Select predefined role(s). Resend email with project link. Accept redirects to app.
+- [ ] Pending Account State: Allow non-users to receive invites. Prompt account registration during invite acceptance or signature submission. Once registered, project appears in their "Projects" list.
 - [ ] `agent-process-event` handles collaborator.added (role → task auto-reassign)
 - [ ] `agent-process-event` handles collaborator.removed (tasks → Unassigned)
-- [ ] Splits CRUD (agent auto-populate on project init, main artist override)
+- [ ] Splits CRUD (agent auto-populate on per track basis based on collected credits (if any) CTA click in tab, main artist override)
+- [ ] Override Lock Logic: Once a manual override occurs, disable agent auto-population for that track. Provide a "Reset to Track Credits" button to re-enable.
+- [ ] Split Mutation Guard: If a collaborator is removed or splits are modified after signatures are requested, void all existing signatures, reset status to pending, and require a re-request.
 - [ ] 100% sum validation in Edge Function
-- [ ] Split audit log (displayed in Splits tab)
-- [ ] `splits-request-signatures` Edge Function (tokens + Resend)
-- [ ] Public signature page (`/splits/sign/[token]`)
-- [ ] `splits-sign` Edge Function (validate, record, post to chat)
-- [ ] Signature status badges (red/yellow/green)
-- [ ] `splits-generate-pdf` Edge Function (on-demand, streamed download)
+- [ ] Split audit log (displayed in Splits tab) display history of changes and invalidations 
+- [ ] `splits-request-signatures` Edge Function (tokens + Resend via email)
+- [ ] Public Signature Page (`/splits/sign/[token]`): Accessible to non-users as read-only. Requires account creation/login to execute signature.
+- [ ] `splits-sign` Edge Function (validate token, verify logged-in user matches token recipient, record signature, post to chat).
+- [ ] Signature Status Badges: Red (Voided/Declined), Yellow (Pending), Green (Fully Signed).
+- [ ] `splits-generate-pdf` splits-generate-pdf Edge Function (per track basis, all signatures must be collected, manually only (on-demand via CTA click), when all signatures are collected per track, a link to the pdf is sent to all signees via email for them to  download the finalized agreenment.) 
 
 **Milestone:** Full multi-collaborator flow — invite → splits auto-populated → main artist adjusts → requests signatures → collaborator signs via email link → status turns green.
 
