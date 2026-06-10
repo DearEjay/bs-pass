@@ -166,6 +166,7 @@ export function ChatFeed({
         disabled={sendMessage.isPending}
         onTyping={broadcastTyping}
         collaborators={collaborators ?? []}
+        currentUserId={userId}
         onSearchOpen={() => setSearchOpen(true)}
       />
     </div>

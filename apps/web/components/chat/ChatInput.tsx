@@ -5,18 +5,17 @@ import { Send, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Collaborator } from '@/hooks/useChat'
 
-const SPECIAL_MENTIONS = [
-  { id: '@here', display: '@here', subtitle: 'Notify everyone in this project' },
-  { id: '@AI', display: '@AI', subtitle: 'Ask the BS-PASS agent' },
+type MentionOption = { name: string; display: string; subtitle: string }
+
+const SPECIAL_MENTIONS: MentionOption[] = [
+  { name: 'here',    display: '@here',    subtitle: 'Notify everyone in this project' },
+  { name: 'manager', display: '@manager', subtitle: 'Trigger the AI Roadmap Agent' },
 ]
 
-function mentionSlug(displayName: string) {
-  return displayName.replace(/\s+/g, '')
-}
-
+// Detect an in-progress @mention at the cursor (stops at @ or [ so completed @[...] won't re-trigger)
 function getMentionQuery(text: string, cursorPos: number): string | null {
   const before = text.slice(0, cursorPos)
-  const match = before.match(/@([\w]*)$/)
+  const match = before.match(/@(?!\[)([^@[]*)$/)
   return match ? match[1] : null
 }
 
@@ -25,12 +24,14 @@ export function ChatInput({
   disabled,
   onTyping,
   collaborators = [],
+  currentUserId,
   onSearchOpen,
 }: {
   onSend: (body: string) => Promise<void>
   disabled?: boolean
   onTyping?: () => void
   collaborators?: Collaborator[]
+  currentUserId?: string
   onSearchOpen?: () => void
 }) {
   const [text, setText] = useState('')
@@ -38,12 +39,11 @@ export function ChatInput({
   const [mentionQuery, setMentionQuery] = useState<string | null>(null)
   const [mentionIndex, setMentionIndex] = useState(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const dropupRef = useRef<HTMLDivElement>(null)
 
-  const collabOptions = collaborators
-    .filter(c => c.profiles?.display_name)
+  const collabOptions: MentionOption[] = collaborators
+    .filter(c => c.profiles?.display_name && c.user_id !== currentUserId)
     .map(c => ({
-      id: mentionSlug(c.profiles!.display_name!),
+      name: c.profiles!.display_name!,
       display: `@${c.profiles!.display_name!}`,
       subtitle: c.is_main_artist ? 'Main artist' : 'Collaborator',
     }))
@@ -54,8 +54,8 @@ export function ChatInput({
     mentionQuery === null
       ? []
       : allMentions.filter(m =>
-          m.display.toLowerCase().includes(mentionQuery.toLowerCase()) ||
-          m.id.toLowerCase().includes(mentionQuery.toLowerCase()),
+          m.name.toLowerCase().includes(mentionQuery.toLowerCase()) ||
+          m.display.toLowerCase().includes(mentionQuery.toLowerCase()),
         )
 
   useEffect(() => { setMentionIndex(0) }, [mentionQuery])
@@ -63,36 +63,32 @@ export function ChatInput({
   function handleChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
     const val = e.target.value
     setText(val)
-
-    // Auto-grow
     const el = e.target
     el.style.height = 'auto'
     el.style.height = `${Math.min(el.scrollHeight, 160)}px`
-
-    // Typing broadcast
     if (onTyping && val.trim()) onTyping()
-
-    // Mention detection
     const pos = el.selectionStart ?? val.length
     setMentionQuery(getMentionQuery(val, pos))
   }
 
-  function insertMention(slug: string) {
+  function insertMention(name: string) {
     const pos = textareaRef.current?.selectionStart ?? text.length
     const before = text.slice(0, pos)
     const after = text.slice(pos)
-    const atIdx = before.lastIndexOf('@')
-    const newText = before.slice(0, atIdx) + `@${slug} ` + after
+    const match = before.match(/@(?!\[)[^@[]*$/)
+    const atIdx = match ? before.length - match[0].length : before.length
+    // Store as @[Name] so spaces are preserved unambiguously
+    const inserted = `@[${name}] `
+    const newText = before.slice(0, atIdx) + inserted + after
     setText(newText)
     setMentionQuery(null)
     setTimeout(() => {
-      if (textareaRef.current) {
-        const newPos = atIdx + slug.length + 2
-        textareaRef.current.setSelectionRange(newPos, newPos)
-        textareaRef.current.focus()
-        textareaRef.current.style.height = 'auto'
-        textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`
-      }
+      if (!textareaRef.current) return
+      const newPos = atIdx + inserted.length
+      textareaRef.current.setSelectionRange(newPos, newPos)
+      textareaRef.current.focus()
+      textareaRef.current.style.height = 'auto'
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 160)}px`
     }, 0)
   }
 
@@ -114,7 +110,7 @@ export function ChatInput({
     if (filteredMentions.length > 0) {
       if (e.key === 'ArrowDown') { e.preventDefault(); setMentionIndex(i => (i + 1) % filteredMentions.length); return }
       if (e.key === 'ArrowUp') { e.preventDefault(); setMentionIndex(i => (i - 1 + filteredMentions.length) % filteredMentions.length); return }
-      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filteredMentions[mentionIndex].id); return }
+      if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); insertMention(filteredMentions[mentionIndex].name); return }
       if (e.key === 'Escape') { setMentionQuery(null); return }
     }
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -125,31 +121,30 @@ export function ChatInput({
 
   return (
     <div className="shrink-0 border-t border-border bg-background">
-      {/* @mention dropup */}
+      {/* @mention dropup — constrained to same max-width as the input row */}
       {filteredMentions.length > 0 && (
-        <div
-          ref={dropupRef}
-          className="mx-6 mb-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden"
-        >
-          {filteredMentions.map((m, i) => (
-            <button
-              key={m.id}
-              type="button"
-              onMouseDown={e => { e.preventDefault(); insertMention(m.id) }}
-              className={cn(
-                'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
-                i === mentionIndex ? 'bg-accent' : 'hover:bg-accent/50',
-              )}
-            >
-              <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
-                @
-              </div>
-              <div>
-                <p className="text-sm font-medium">{m.display}</p>
-                <p className="text-xs text-muted-foreground">{m.subtitle}</p>
-              </div>
-            </button>
-          ))}
+        <div className="px-6">
+          <div className="max-w-3xl mx-auto mb-1 bg-card border border-border rounded-xl shadow-lg overflow-hidden">
+            {filteredMentions.map((m, i) => (
+              <button
+                key={m.name}
+                type="button"
+                onMouseDown={e => { e.preventDefault(); insertMention(m.name) }}
+                className={cn(
+                  'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors',
+                  i === mentionIndex ? 'bg-accent' : 'hover:bg-accent/50',
+                )}
+              >
+                <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0">
+                  @
+                </div>
+                <div>
+                  <p className="text-sm font-medium">{m.display}</p>
+                  <p className="text-xs text-muted-foreground">{m.subtitle}</p>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

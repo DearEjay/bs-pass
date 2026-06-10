@@ -16,12 +16,34 @@ function highlightSearch(text: string, query: string): React.ReactNode {
   )
 }
 
-function renderBody(body: string, searchQuery?: string) {
-  const parts = body.split(/(@[\w]+)/g)
-  return parts.map((part, i) =>
-    /^@[\w]+$/.test(part)
-      ? <span key={i} className="text-primary font-medium">{part}</span>
-      : <span key={i}>{searchQuery ? highlightSearch(part, searchQuery) : part}</span>
+// Renders body text, highlighting @[Name] mentions and bare @word mentions
+function renderBody(body: string, searchQuery?: string): React.ReactNode {
+  // Split on @[Name] or @word patterns
+  const parts = body.split(/(@\[[^\]]+\]|@[\w]+)/g)
+  return parts.map((part, i) => {
+    if (/^@\[([^\]]+)\]$/.test(part)) {
+      // @[Display Name] → render as @Display Name bold
+      const name = part.slice(2, -1)
+      return <span key={i} className="text-primary font-semibold">@{name}</span>
+    }
+    if (/^@[\w]+$/.test(part)) {
+      // bare @word (legacy or @here/@manager)
+      return <span key={i} className="text-primary font-semibold">{part}</span>
+    }
+    return <span key={i}>{searchQuery ? highlightSearch(part, searchQuery) : part}</span>
+  })
+}
+
+function Avatar({ name, avatarUrl, size = 8 }: { name: string; avatarUrl?: string | null; size?: number }) {
+  const initial = (name?.[0] ?? '?').toUpperCase()
+  const cls = `w-${size} h-${size} rounded-full overflow-hidden bg-accent border border-border flex items-center justify-center text-xs font-semibold text-muted-foreground shrink-0`
+  return (
+    <div className={cls}>
+      {avatarUrl
+        ? <img src={avatarUrl} alt={name} className="w-full h-full object-cover" />
+        : initial
+      }
+    </div>
   )
 }
 
@@ -40,18 +62,22 @@ export function ChatMessage({
 }) {
   const isAgent = message.sender_type === 'agent'
   const senderName = isAgent ? 'BS-PASS AI' : (message.profiles?.display_name ?? 'Unknown')
+  const avatarUrl = message.profiles?.avatar_url
   const time = message.created_at ? format(new Date(message.created_at), 'h:mm a') : ''
-  const initial = (message.profiles?.display_name?.[0] ?? '?').toUpperCase()
+  const marginTop = isFirst ? 'mt-5' : 'mt-0.5'
 
-  // Spacing: tighter within a group, more space between groups
-  const marginTop = isFirst ? 'mt-4' : 'mt-0.5'
+  const body = renderBody(message.body ?? '', searchQuery)
 
+  // ── Own message (right-aligned) ──────────────────────────────────────────
   if (isOwnMessage) {
     return (
-      <div className={cn('flex justify-end items-end gap-2', marginTop)}>
+      <div className={cn('flex items-start justify-end gap-2.5', marginTop)}>
         <div className="flex flex-col items-end max-w-[72%]">
-          {isLast && (
-            <span className="text-[11px] text-muted-foreground mb-1 mr-1">{time}</span>
+          {isFirst && (
+            <div className="flex items-baseline gap-2 mb-1 justify-end">
+              <span className="text-[11px] text-muted-foreground">{time}</span>
+              <span className="text-xs font-semibold">You</span>
+            </div>
           )}
           <div className={cn(
             'bg-primary text-primary-foreground px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words',
@@ -60,18 +86,25 @@ export function ChatMessage({
             isLast             ? 'rounded-2xl rounded-tr-md rounded-br-sm' :
                                  'rounded-2xl rounded-r-md',
           )}>
-            {renderBody(message.body ?? '', searchQuery)}
+            {body}
           </div>
+        </div>
+        {/* Avatar column — always reserves space, shows avatar on first message */}
+        <div className="w-8 shrink-0 mt-0.5">
+          {isFirst && (
+            <Avatar name={senderName} avatarUrl={avatarUrl} />
+          )}
         </div>
       </div>
     )
   }
 
+  // ── AI Agent (left-aligned) ──────────────────────────────────────────────
   if (isAgent) {
     return (
-      <div className={cn('flex gap-2.5 items-end', marginTop)}>
-        <div className="w-8 shrink-0">
-          {isLast && (
+      <div className={cn('flex items-start gap-2.5', marginTop)}>
+        <div className="w-8 shrink-0 mt-0.5">
+          {isFirst && (
             <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center">
               <Bot size={14} className="text-primary" />
             </div>
@@ -79,7 +112,10 @@ export function ChatMessage({
         </div>
         <div className="flex-1 min-w-0 max-w-[72%]">
           {isFirst && (
-            <span className="text-xs font-medium text-primary block mb-1 ml-1">{senderName}</span>
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-xs font-semibold text-primary">{senderName}</span>
+              <span className="text-[11px] text-muted-foreground">{time}</span>
+            </div>
           )}
           <div className={cn(
             'bg-muted px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words inline-block max-w-full',
@@ -88,29 +124,25 @@ export function ChatMessage({
             isLast             ? 'rounded-2xl rounded-tl-md rounded-bl-sm' :
                                  'rounded-2xl rounded-l-md',
           )}>
-            {renderBody(message.body ?? '', searchQuery)}
+            {body}
           </div>
-          {isLast && (
-            <span className="text-[11px] text-muted-foreground mt-1 ml-1 block">{time}</span>
-          )}
         </div>
       </div>
     )
   }
 
-  // Other collaborator
+  // ── Other collaborator (left-aligned) ────────────────────────────────────
   return (
-    <div className={cn('flex gap-2.5 items-end', marginTop)}>
-      <div className="w-8 shrink-0">
-        {isLast && (
-          <div className="w-8 h-8 rounded-full bg-accent border border-border flex items-center justify-center text-xs font-semibold text-muted-foreground shrink-0">
-            {initial}
-          </div>
-        )}
+    <div className={cn('flex items-start gap-2.5', marginTop)}>
+      <div className="w-8 shrink-0 mt-0.5">
+        {isFirst && <Avatar name={senderName} avatarUrl={avatarUrl} />}
       </div>
       <div className="min-w-0 max-w-[72%]">
         {isFirst && (
-          <span className="text-xs font-medium block mb-1 ml-1">{senderName}</span>
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-xs font-semibold">{senderName}</span>
+            <span className="text-[11px] text-muted-foreground">{time}</span>
+          </div>
         )}
         <div className={cn(
           'bg-card border border-border px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words inline-block max-w-full',
@@ -119,11 +151,8 @@ export function ChatMessage({
           isLast             ? 'rounded-2xl rounded-tl-md rounded-bl-sm' :
                                'rounded-2xl rounded-l-md',
         )}>
-          {renderBody(message.body ?? '', searchQuery)}
+          {body}
         </div>
-        {isLast && (
-          <span className="text-[11px] text-muted-foreground mt-1 ml-1 block">{time}</span>
-        )}
       </div>
     </div>
   )
