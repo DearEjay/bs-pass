@@ -39,6 +39,21 @@ export function useTracks(projectId: string) {
   })
 }
 
+export function useProjectStatus(projectId: string, initialProject: Project) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['project', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('projects').select('*').eq('id', projectId).single()
+      if (error) throw error
+      return data as Project
+    },
+    initialData: initialProject,
+    staleTime: Infinity, // mutations keep this fresh via setQueryData
+  })
+}
+
 export function useCreateTrack(projectId: string) {
   const supabase = createClient()
   const qc = useQueryClient()

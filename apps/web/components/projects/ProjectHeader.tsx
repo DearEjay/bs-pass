@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation'
 import { Settings, ChevronLeft, Map, Music2, Layers, Users, MessageCircle, PieChart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProjectSettingsModal } from './ProjectSettingsModal'
+import { useProjectStatus } from '@/hooks/useTracks'
 import type { Database } from '@/types/database'
 
 type Project = Database['public']['Tables']['projects']['Row']
@@ -38,6 +39,7 @@ const TABS = [
 export function ProjectHeader({ project, userId }: { project: Project; userId: string }) {
   const pathname = usePathname()
   const [showSettings, setShowSettings] = useState(false)
+  const { data: liveProject } = useProjectStatus(project.id, project)
 
   const activeTab = TABS.find(t => pathname.endsWith(`/${t.path}`))?.path
 
@@ -54,8 +56,8 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-muted-foreground uppercase">{project.project_type}</span>
                 <span className="text-muted-foreground text-xs">·</span>
-                <span className={cn('text-xs', STATUS_COLOR[project.status])}>
-                  {STATUS_LABEL[project.status]}
+                <span className={cn('text-xs', STATUS_COLOR[liveProject.status])}>
+                  {STATUS_LABEL[liveProject.status]}
                 </span>
               </div>
             </div>
@@ -90,7 +92,7 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
 
       {showSettings && (
         <ProjectSettingsModal
-          project={project}
+          project={liveProject}
           userId={userId}
           onClose={() => setShowSettings(false)}
         />
