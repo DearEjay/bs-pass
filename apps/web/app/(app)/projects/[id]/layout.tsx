@@ -26,7 +26,7 @@ export default async function ProjectLayout({
   return (
     <div className="flex flex-col h-full">
       <ProjectHeader project={project} userId={user!.id} />
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto overscroll-none pb-[env(safe-area-inset-bottom)]">
         {children}
       </div>
     </div>

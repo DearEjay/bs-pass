@@ -121,7 +121,7 @@ export function ChatInput({
   }
 
   return (
-    <div className="shrink-0 border-t border-border bg-background">
+    <div className="shrink-0 border-t border-border bg-background pb-[env(safe-area-inset-bottom)]">
       {/* @mention dropup — constrained to same max-width as the input row */}
       {filteredMentions.length > 0 && (
         <div className="px-6">
@@ -165,7 +165,7 @@ export function ChatInput({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           disabled={disabled || sending}
-          placeholder="Message… (@ to mention, Enter to send)"
+          placeholder="Enter message (@ to mention)"
           rows={1}
           className="flex-1 resize-none px-4 py-2.5 rounded-2xl bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50 placeholder:text-muted-foreground leading-relaxed"
           style={{ minHeight: '42px', maxHeight: '160px' }}

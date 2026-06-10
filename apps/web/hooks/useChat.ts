@@ -7,8 +7,15 @@ import type { Database } from '@/types/database'
 
 type ChatMessageRow = Database['public']['Tables']['chat_messages']['Row']
 
+export interface ChatReaction {
+  id: string
+  user_id: string
+  emoji: string
+}
+
 export type ChatMessage = ChatMessageRow & {
   profiles: { display_name: string | null; avatar_url: string | null } | null
+  reactions: ChatReaction[]
 }
 
 export type Collaborator = {
@@ -26,44 +33,113 @@ export function useMessages(projectId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('chat_messages')
-        .select('*, profiles:sender_id(display_name, avatar_url)')
+        .select('*, profiles:sender_id(display_name, avatar_url), reactions:chat_reactions(id, user_id, emoji)')
         .eq('project_id', projectId)
         .eq('is_deleted', false)
         .order('created_at', { ascending: true })
       if (error) throw error
-      return data as ChatMessage[]
+      return (data ?? []).map(m => ({ ...m, reactions: (m.reactions as ChatReaction[]) ?? [] })) as ChatMessage[]
     },
-    staleTime: Infinity, // realtime keeps it fresh
+    staleTime: Infinity,
   })
 
   useEffect(() => {
-    const channel = supabase
+    // New messages
+    const msgChannel = supabase
       .channel(`chat-messages-${projectId}`)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'chat_messages', filter: `project_id=eq.${projectId}` },
         async (payload) => {
           const newId = (payload.new as { id: string }).id
-          // Fetch with the profile join so the message shape is complete
           const { data } = await supabase
             .from('chat_messages')
-            .select('*, profiles:sender_id(display_name, avatar_url)')
+            .select('*, profiles:sender_id(display_name, avatar_url), reactions:chat_reactions(id, user_id, emoji)')
             .eq('id', newId)
             .single()
           if (!data) return
           qc.setQueryData<ChatMessage[]>(['chat', projectId], old => {
             const existing = old ?? []
             if (existing.some(m => m.id === newId)) return existing
-            return [...existing, data as ChatMessage]
+            return [...existing, { ...data, reactions: (data.reactions as ChatReaction[]) ?? [] } as ChatMessage]
           })
         },
       )
       .subscribe()
 
-    return () => { supabase.removeChannel(channel) }
+    // Reaction changes
+    const rxnChannel = supabase
+      .channel(`chat-reactions-${projectId}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'chat_reactions' },
+        async (payload) => {
+          const raw = payload.eventType === 'DELETE' ? payload.old : payload.new
+          const messageId = (raw as { message_id: string }).message_id
+          if (!messageId) return
+          const cached = qc.getQueryData<ChatMessage[]>(['chat', projectId])
+          if (!cached?.some(m => m.id === messageId)) return
+          const { data: reactions } = await supabase
+            .from('chat_reactions')
+            .select('id, user_id, emoji')
+            .eq('message_id', messageId)
+          qc.setQueryData<ChatMessage[]>(['chat', projectId], old =>
+            old?.map(m => m.id === messageId ? { ...m, reactions: (reactions ?? []) as ChatReaction[] } : m)
+          )
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(msgChannel)
+      supabase.removeChannel(rxnChannel)
+    }
   }, [projectId, supabase, qc])
 
   return query
+}
+
+export function useToggleReaction(projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ messageId, emoji, userId }: { messageId: string; emoji: string; userId: string }) => {
+      const { data: existing } = await supabase
+        .from('chat_reactions')
+        .select('id')
+        .eq('message_id', messageId)
+        .eq('user_id', userId)
+        .eq('emoji', emoji)
+        .maybeSingle()
+
+      if (existing) {
+        const { error } = await supabase.from('chat_reactions').delete().eq('id', existing.id)
+        if (error) throw error
+        return 'removed'
+      } else {
+        const { error } = await supabase.from('chat_reactions').insert({ message_id: messageId, user_id: userId, emoji })
+        if (error) throw error
+        return 'added'
+      }
+    },
+    onMutate: async ({ messageId, emoji, userId }) => {
+      const prev = qc.getQueryData<ChatMessage[]>(['chat', projectId])
+      qc.setQueryData<ChatMessage[]>(['chat', projectId], old =>
+        old?.map(m => {
+          if (m.id !== messageId) return m
+          const existing = m.reactions.find(r => r.emoji === emoji && r.user_id === userId)
+          if (existing) {
+            return { ...m, reactions: m.reactions.filter(r => !(r.emoji === emoji && r.user_id === userId)) }
+          }
+          return { ...m, reactions: [...m.reactions, { id: `opt-${Date.now()}`, user_id: userId, emoji }] }
+        })
+      )
+      return { prev }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['chat', projectId], ctx.prev)
+    },
+  })
 }
 
 export function useSendMessage(projectId: string) {

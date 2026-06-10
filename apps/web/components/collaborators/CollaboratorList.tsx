@@ -5,7 +5,8 @@ import { useCollaborators, usePendingInvites, useResendInvite, useCancelPendingI
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { InviteModal } from './InviteModal'
 import { RemoveCollaboratorModal } from './RemoveCollaboratorModal'
-import { UserPlus, MoreHorizontal, Crown, Clock, Send, X, Loader2 } from 'lucide-react'
+import { ChangeRoleModal } from './ChangeRoleModal'
+import { UserPlus, MoreHorizontal, Crown, Clock, Send, X, Loader2, Pencil } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Collaborator, PendingInvite } from '@/hooks/useCollaborators'
 
@@ -36,11 +37,13 @@ function CollaboratorRow({
   isCurrentUser,
   isMainArtist,
   onRemove,
+  onChangeRoles,
 }: {
   collab: Collaborator
   isCurrentUser: boolean
   isMainArtist: boolean
   onRemove: (c: Collaborator) => void
+  onChangeRoles: (c: Collaborator) => void
 }) {
   const [open, setOpen] = useState(false)
 
@@ -85,6 +88,14 @@ function CollaboratorRow({
             <>
               <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
               <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+                <button
+                  onClick={() => { setOpen(false); onChangeRoles(collab) }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-accent transition-colors text-left"
+                >
+                  <Pencil size={13} />
+                  Change roles
+                </button>
+                <div className="border-t border-border my-1" />
                 <button
                   onClick={() => { setOpen(false); onRemove(collab) }}
                   className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-destructive/10 text-destructive transition-colors text-left"
@@ -175,6 +186,7 @@ export function CollaboratorList({ projectId }: { projectId: string }) {
 
   const [showInvite, setShowInvite] = useState(false)
   const [removing, setRemoving] = useState<Collaborator | null>(null)
+  const [editingRoles, setEditingRoles] = useState<Collaborator | null>(null)
 
   const isMainArtist = collaborators.some(c => c.user_id === currentUser?.id && c.is_main_artist)
 
@@ -217,6 +229,7 @@ export function CollaboratorList({ projectId }: { projectId: string }) {
               isCurrentUser={c.user_id === currentUser?.id}
               isMainArtist={isMainArtist}
               onRemove={setRemoving}
+              onChangeRoles={setEditingRoles}
             />
           </div>
         ))}
@@ -253,6 +266,13 @@ export function CollaboratorList({ projectId }: { projectId: string }) {
           projectId={projectId}
           collaborator={removing}
           onClose={() => setRemoving(null)}
+        />
+      )}
+      {editingRoles && (
+        <ChangeRoleModal
+          projectId={projectId}
+          collaborator={editingRoles}
+          onClose={() => setEditingRoles(null)}
         />
       )}
     </div>

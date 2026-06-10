@@ -7,7 +7,7 @@ export default async function ProjectsPage() {
   const { data: { user } } = await supabase.auth.getUser()
 
   return (
-    <div className="px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-4 sm:pb-6 max-w-5xl mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
+    <div className="px-4 sm:px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:pb-8 max-w-5xl mx-auto pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Projects</h1>
         <UserButton userId={user!.id} />

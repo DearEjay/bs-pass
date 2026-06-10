@@ -211,6 +211,23 @@ export function useAcceptInvite() {
   })
 }
 
+export function useUpdateCollaboratorRoles(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ collaboratorId, roles }: { collaboratorId: string; roles: string[] }) => {
+      const supabase = createClient()
+      const { error } = await supabase
+        .from('collaborators')
+        .update({ roles })
+        .eq('id', collaboratorId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['collaborators', projectId] })
+    },
+  })
+}
+
 export function useCancelPendingInvite(projectId: string) {
   const qc = useQueryClient()
   return useMutation({

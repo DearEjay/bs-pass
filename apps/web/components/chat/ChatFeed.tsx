@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { MessageSquare, Search, X } from 'lucide-react'
-import { useMessages, useSendMessage, useProjectCollaborators, useTypingPresence } from '@/hooks/useChat'
+import { useMessages, useSendMessage, useToggleReaction, useProjectCollaborators, useTypingPresence } from '@/hooks/useChat'
 import { ChatMessage } from './ChatMessage'
 import { ChatInput } from './ChatInput'
 import { TypingIndicator } from './TypingIndicator'
@@ -41,6 +41,7 @@ export function ChatFeed({
 }) {
   const { data: messages, isLoading, error } = useMessages(projectId)
   const sendMessage = useSendMessage(projectId)
+  const toggleReaction = useToggleReaction(projectId)
   const { data: collaborators } = useProjectCollaborators(projectId)
   const { typerNames, broadcastTyping } = useTypingPresence(projectId, userId, displayName)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -75,6 +76,10 @@ export function ChatFeed({
 
   async function handleSend(body: string) {
     await sendMessage.mutateAsync({ body, senderId: userId })
+  }
+
+  function handleToggleReaction(messageId: string, emoji: string) {
+    toggleReaction.mutate({ messageId, emoji, userId })
   }
 
   return (
@@ -147,6 +152,8 @@ export function ChatFeed({
                     isFirst={isFirst}
                     isLast={isLast}
                     searchQuery={searchQuery}
+                    currentUserId={userId}
+                    onToggleReaction={handleToggleReaction}
                   />
                 </div>
               ))}

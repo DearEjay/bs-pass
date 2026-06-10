@@ -1,6 +1,6 @@
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center px-[max(1rem,env(safe-area-inset-left))] py-[max(1.5rem,env(safe-area-inset-top))]">
+    <div className="min-h-[100dvh] flex items-center justify-center px-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold tracking-tight">BS-PASS</h1>
