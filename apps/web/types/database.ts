@@ -539,7 +539,6 @@ export type Database = {
           id: string
           stem_id: string
           storage_path: string
-          track_version_id: string | null
           uploaded_by: string | null
           version_number: number
         }
@@ -548,7 +547,6 @@ export type Database = {
           id?: string
           stem_id: string
           storage_path: string
-          track_version_id?: string | null
           uploaded_by?: string | null
           version_number?: number
         }
@@ -557,7 +555,6 @@ export type Database = {
           id?: string
           stem_id?: string
           storage_path?: string
-          track_version_id?: string | null
           uploaded_by?: string | null
           version_number?: number
         }
@@ -567,13 +564,6 @@ export type Database = {
             columns: ["stem_id"]
             isOneToOne: false
             referencedRelation: "stems"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "stem_versions_track_version_id_fkey"
-            columns: ["track_version_id"]
-            isOneToOne: false
-            referencedRelation: "track_versions"
             referencedColumns: ["id"]
           },
           {
@@ -777,6 +767,7 @@ export type Database = {
           project_id: string
           timestamp_secs: number
           track_id: string
+          track_version_id: string | null
           updated_at: string
         }
         Insert: {
@@ -788,6 +779,7 @@ export type Database = {
           project_id: string
           timestamp_secs: number
           track_id: string
+          track_version_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -799,6 +791,7 @@ export type Database = {
           project_id?: string
           timestamp_secs?: number
           track_id?: string
+          track_version_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -821,6 +814,13 @@ export type Database = {
             columns: ["track_id"]
             isOneToOne: false
             referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "track_comments_track_version_id_fkey"
+            columns: ["track_version_id"]
+            isOneToOne: false
+            referencedRelation: "track_versions"
             referencedColumns: ["id"]
           },
         ]
@@ -984,9 +984,13 @@ export type Database = {
       }
       user_agent_preferences: {
         Row: {
+          agent_tone: string | null
+          agent_verbosity: string | null
           auto_assign_roles: Json | null
+          auto_task_triggers: boolean | null
           avoided_task_types: string[] | null
           created_at: string | null
+          enabled_plugins: Json | null
           id: string
           learning_enabled: boolean | null
           preferred_agent_mode: string | null
@@ -995,9 +999,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agent_tone?: string | null
+          agent_verbosity?: string | null
           auto_assign_roles?: Json | null
+          auto_task_triggers?: boolean | null
           avoided_task_types?: string[] | null
           created_at?: string | null
+          enabled_plugins?: Json | null
           id?: string
           learning_enabled?: boolean | null
           preferred_agent_mode?: string | null
@@ -1006,9 +1014,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agent_tone?: string | null
+          agent_verbosity?: string | null
           auto_assign_roles?: Json | null
+          auto_task_triggers?: boolean | null
           avoided_task_types?: string[] | null
           created_at?: string | null
+          enabled_plugins?: Json | null
           id?: string
           learning_enabled?: boolean | null
           preferred_agent_mode?: string | null

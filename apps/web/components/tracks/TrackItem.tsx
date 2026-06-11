@@ -7,38 +7,38 @@ import {
   useUpdateTrackTitle,
   useUpdateTrackStatus,
   useDeleteTrack,
-  useDeleteTrackVersion,
+  useRestoreDeletedTrack,
   useTrackVersions,
   useTrackAudioUrl,
+  useVersionAudioUrl,
+  useUploadTrackVersion,
   TRACK_STATUSES,
   type TrackStatus,
 } from '@/hooks/useTracks'
+import { useUndoToastStore } from '@/hooks/useUndoToast'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useTrackComments } from '@/hooks/useTrackComments'
 import { TrackStatusBadge, STATUS_CONFIG } from './TrackStatusBadge'
 import { AudioPlayer, type AudioMarker, type AudioPlayerHandle } from './AudioPlayer'
 import { TrackComments } from './TrackComments'
 import { TrackVersionsPanel } from './TrackVersionsPanel'
+import { TrackABPlayer } from './TrackABPlayer'
+import { TrackStemsTab } from './TrackStemsTab'
 import { TrackLyricsTab } from './TrackLyricsTab'
 import { TrackCreditsTab } from './TrackCreditsTab'
 import { TrackMetadataTab } from './TrackMetadataTab'
-import { VersionUploadModal } from './VersionUploadModal'
 import {
   GripVertical,
   ChevronDown,
   ChevronRight,
   MoreHorizontal,
-  Plus,
-  RotateCcw,
   Trash2,
-  X,
-  AlertTriangle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Database } from '@/types/database'
 
 type Track = Database['public']['Tables']['tracks']['Row']
-type ActiveTab = 'player' | 'versions' | 'lyrics' | 'credits' | 'metadata'
+type ActiveTab = 'player' | 'stems' | 'credits' | 'info'
 
 interface TrackItemProps {
   track: Track
@@ -65,22 +65,26 @@ export function TrackItem({
   const updateTitle = useUpdateTrackTitle(projectId)
   const updateStatus = useUpdateTrackStatus(projectId)
   const deleteTrack = useDeleteTrack(projectId)
-  const deleteVersion = useDeleteTrackVersion(track.id, projectId)
+  const restoreTrack = useRestoreDeletedTrack(projectId)
+  const uploadVersion = useUploadTrackVersion(track.id, projectId)
+  const pushToast = useUndoToastStore(s => s.push)
   const { data: versions = [] } = useTrackVersions(track.id)
   const { data: currentUser } = useCurrentUser()
   const { data: audioUrl } = useTrackAudioUrl(track, isExpanded)
-  const { data: comments = [] } = useTrackComments(track.id)
+  const { data: comments = [] } = useTrackComments(track.id, track.current_version_id ?? null)
 
   const [editingTitle, setEditingTitle] = useState(false)
   const [titleDraft, setTitleDraft] = useState('')
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showEllipsisMenu, setShowEllipsisMenu] = useState(false)
-  const [showVersionUpload, setShowVersionUpload] = useState(false)
-  const [showDeleteVersionModal, setShowDeleteVersionModal] = useState(false)
   const [confirmDeleteTrack, setConfirmDeleteTrack] = useState(false)
   const [activeTab, setActiveTab] = useState<ActiveTab>('player')
   const [currentTime, setCurrentTime] = useState(0)
+  const [compareVersion, setCompareVersion] = useState<{ filePath: string; label: string } | null>(null)
   const playerRef = useRef<AudioPlayerHandle>(null)
+  const versionUploadRef = useRef<HTMLInputElement>(null)
+
+  const { data: compareUrl } = useVersionAudioUrl(compareVersion?.filePath ?? null)
 
   const hasAudio = !!track.current_version_id
   const currentVersion = versions.find(v => v.id === track.current_version_id) ?? null
@@ -120,28 +124,25 @@ export function TrackItem({
   }
 
   async function handleDeleteTrack() {
-    await deleteTrack.mutateAsync(track.id)
-  }
-
-  async function handleDeleteCurrentVersion() {
-    if (!currentVersion) return
-    await deleteVersion.mutateAsync({
-      versionId: currentVersion.id,
-      filePath: currentVersion.file_path,
-      isCurrentVersion: true,
-    })
-    setShowDeleteVersionModal(false)
-  }
-
-  function openVersionsTab() {
+    const trackId = track.id
+    const trackTitle = track.title
     setShowEllipsisMenu(false)
-    setActiveTab('versions')
-    if (!isExpanded) onToggleExpand()
+    await deleteTrack.mutateAsync(trackId)
+    pushToast(`"${trackTitle}" deleted`, async () => {
+      await restoreTrack.mutateAsync(trackId)
+    })
   }
 
-  // Previous version label for the confirmation modal
-  const sortedVersions = [...versions].sort((a, b) => b.version_number - a.version_number)
-  const prevVersion = sortedVersions.find(v => v.id !== track.current_version_id)
+  async function handleVersionFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      await uploadVersion.mutateAsync({ file })
+    } finally {
+      e.target.value = ''
+    }
+  }
+
 
   return (
     <div
@@ -218,7 +219,7 @@ export function TrackItem({
           {showStatusMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowStatusMenu(false)} />
-              <div className="absolute right-0 top-full mt-1 w-36 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+              <div className="dropdown-menu right-0 top-full mt-1 w-36">
                 {TRACK_STATUSES.map(s => (
                   <button
                     key={s}
@@ -238,7 +239,7 @@ export function TrackItem({
         </div>
 
         {/* Ellipsis menu */}
-        <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="btn-ellipsis">
           <button
             onClick={() => {
               setShowEllipsisMenu(v => !v)
@@ -253,48 +254,11 @@ export function TrackItem({
           {showEllipsisMenu && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setShowEllipsisMenu(false)} />
-              <div className="absolute right-0 top-full mt-1 w-64 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
-                {/* Add new version */}
-                <button
-                  onClick={() => {
-                    setShowEllipsisMenu(false)
-                    setShowVersionUpload(true)
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-accent transition-colors text-left"
-                >
-                  <Plus size={13} className="text-muted-foreground shrink-0" />
-                  Add new version
-                </button>
-
-                {/* Delete current version */}
-                <button
-                  onClick={() => {
-                    setShowEllipsisMenu(false)
-                    setShowDeleteVersionModal(true)
-                  }}
-                  disabled={!currentVersion || versions.length <= 1}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-accent transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <Trash2 size={13} className="text-muted-foreground shrink-0" />
-                  Delete current version
-                </button>
-
-                {/* Restore from previous */}
-                <button
-                  onClick={openVersionsTab}
-                  disabled={versions.length <= 1}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-accent transition-colors text-left disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  <RotateCcw size={13} className="text-muted-foreground shrink-0" />
-                  Restore from previous version
-                </button>
-
-                {/* Divider + Delete track */}
-                <div className="border-t border-border my-1" />
+              <div className="dropdown-menu right-0 top-full mt-1 w-48">
                 {!confirmDeleteTrack ? (
                   <button
                     onClick={() => setConfirmDeleteTrack(true)}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-destructive/10 text-destructive transition-colors text-left"
+                    className="dropdown-item-destructive"
                   >
                     <Trash2 size={13} className="shrink-0" />
                     Delete track
@@ -331,11 +295,10 @@ export function TrackItem({
           {/* Tab switcher */}
           <div className="flex border-b border-border/50">
             {([
-              { id: 'player', label: 'Player' },
-              { id: 'versions', label: `Versions${versions.length > 0 ? ` (${versions.length})` : ''}` },
-              { id: 'lyrics', label: 'Lyrics' },
+              { id: 'player', label: 'Audio' },
+              { id: 'stems', label: 'Stems' },
               { id: 'credits', label: 'Credits' },
-              { id: 'metadata', label: 'Metadata' },
+              { id: 'info', label: 'Metadata' },
             ] as { id: ActiveTab; label: string }[]).map(tab => (
               <button
                 key={tab.id}
@@ -367,6 +330,7 @@ export function TrackItem({
               {currentUser && activeTab === 'player' && (
                 <TrackComments
                   trackId={track.id}
+                  trackVersionId={track.current_version_id ?? null}
                   projectId={projectId}
                   currentUserId={currentUser.id}
                   currentPlaybackTime={currentTime}
@@ -380,78 +344,67 @@ export function TrackItem({
             </div>
           ) : null}
 
-          {activeTab === 'versions' && (
-            <TrackVersionsPanel track={track} projectId={projectId} />
+          {/* Version history lives inside the Audio tab */}
+          {activeTab === 'player' && (
+            <>
+              <TrackVersionsPanel
+                track={track}
+                projectId={projectId}
+                onAddVersion={() => versionUploadRef.current?.click()}
+                onCompare={(filePath, label) => {
+                  setCompareVersion(cv =>
+                    cv?.filePath === filePath ? null : { filePath, label }
+                  )
+                }}
+                compareVersionId={
+                  compareVersion
+                    ? (versions.find(v => v.file_path === compareVersion.filePath)?.id ?? null)
+                    : null
+                }
+              />
+              {compareVersion && compareUrl && audioUrl && (
+                <TrackABPlayer
+                  versionA={{ url: audioUrl, label: currentVersion?.version_label ?? 'Current' }}
+                  versionB={{ url: compareUrl, label: compareVersion.label }}
+                  onClose={() => setCompareVersion(null)}
+                />
+              )}
+            </>
           )}
 
-          {activeTab === 'lyrics' && (
-            <TrackLyricsTab track={track} projectId={projectId} />
+          {activeTab === 'stems' && (
+            <TrackStemsTab
+              trackId={track.id}
+              projectId={projectId}
+              trackVersionId={track.current_version_id ?? null}
+              trackVersionLabel={currentVersion?.version_label ?? 'v1'}
+              trackTitle={track.title}
+              canEdit={true}
+            />
           )}
 
           {activeTab === 'credits' && (
             <TrackCreditsTab trackId={track.id} projectId={projectId} />
           )}
 
-          {activeTab === 'metadata' && (
-            <TrackMetadataTab track={track} projectId={projectId} />
+          {activeTab === 'info' && (
+            <>
+              <TrackLyricsTab track={track} projectId={projectId} />
+              <div className="border-t border-border/50" />
+              <TrackMetadataTab track={track} projectId={projectId} />
+            </>
           )}
         </div>
       )}
 
-      {/* ── Delete version modal ──────────────────────────────────────────── */}
-      {showDeleteVersionModal && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border rounded-lg w-full max-w-xs p-5 space-y-4">
-            <div className="flex items-start gap-3">
-              <AlertTriangle size={18} className="text-destructive shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-sm">Delete current version?</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  <span className="font-medium text-foreground">
-                    {currentVersion?.version_label ?? 'This version'}
-                  </span>{' '}
-                  will be permanently deleted.
-                  {prevVersion && (
-                    <> The track will revert to{' '}
-                      <span className="font-medium text-foreground">{prevVersion.version_label}</span>.
-                    </>
-                  )}
-                </p>
-              </div>
-            </div>
 
-            {deleteVersion.error && (
-              <p className="text-destructive text-xs">{(deleteVersion.error as Error).message}</p>
-            )}
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowDeleteVersionModal(false)}
-                className="flex-1 py-2 rounded-md border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteCurrentVersion}
-                disabled={deleteVersion.isPending}
-                className="flex-1 py-2 rounded-md bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-              >
-                {deleteVersion.isPending ? 'Deleting…' : "Yes, I'm sure"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Upload new version modal ────────────────────────────────────────── */}
-      {showVersionUpload && (
-        <VersionUploadModal
-          trackId={track.id}
-          projectId={projectId}
-          trackTitle={track.title}
-          onClose={() => setShowVersionUpload(false)}
-        />
-      )}
+      <input
+        ref={versionUploadRef}
+        type="file"
+        accept=".mp3,.wav,.flac,.aac,.ogg"
+        className="hidden"
+        onChange={handleVersionFileSelect}
+      />
     </div>
   )
 }

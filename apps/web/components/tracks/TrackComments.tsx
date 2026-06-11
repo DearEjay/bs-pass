@@ -13,6 +13,7 @@ import { cn, formatTime } from '@/lib/utils'
 
 interface TrackCommentsProps {
   trackId: string
+  trackVersionId: string | null
   projectId: string
   currentUserId: string
   currentPlaybackTime: number
@@ -21,15 +22,16 @@ interface TrackCommentsProps {
 
 export function TrackComments({
   trackId,
+  trackVersionId,
   projectId,
   currentUserId,
   currentPlaybackTime,
   onSeek,
 }: TrackCommentsProps) {
-  const { data: comments = [] } = useTrackComments(trackId)
-  const createComment = useCreateTrackComment(trackId, projectId)
-  const updateComment = useUpdateTrackComment(trackId)
-  const deleteComment = useDeleteTrackComment(trackId)
+  const { data: comments = [] } = useTrackComments(trackId, trackVersionId)
+  const createComment = useCreateTrackComment(trackId, trackVersionId, projectId)
+  const updateComment = useUpdateTrackComment(trackId, trackVersionId)
+  const deleteComment = useDeleteTrackComment(trackId, trackVersionId)
 
   const [body, setBody] = useState('')
   const [capturedTimestamp, setCapturedTimestamp] = useState<number | null>(null)

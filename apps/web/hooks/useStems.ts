@@ -2,16 +2,19 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { trackEvent } from './useTrackEvent'
 
+// A single upload of a stems ZIP. Does NOT carry track_version_id — the parent
+// Stem row owns that relationship.
 export interface StemVersion {
   id: string
   version_number: number
   storage_path: string
-  track_version_id: string | null
   uploaded_by: string | null
   created_at: string | null
 }
 
+// One stems package per track version (UNIQUE(track_id, track_version_id) enforced in DB).
 export interface Stem {
   id: string
   track_id: string
@@ -19,7 +22,6 @@ export interface Stem {
   name: string
   storage_path: string
   file_size_bytes: number | null
-  duration_secs: number | null
   current_stem_version_id: string | null
   created_at: string | null
   current_version: StemVersion | null
@@ -34,6 +36,7 @@ export interface TrackWithStems {
   stems: Stem[]
 }
 
+// Project-wide view: all tracks + their stems for the current track version.
 export function useProjectStems(projectId: string) {
   const supabase = createClient()
   return useQuery({
@@ -46,9 +49,9 @@ export function useProjectStems(projectId: string) {
           current_version:track_versions!current_version_id(id, version_label, version_number),
           stems!track_id(
             id, track_id, track_version_id, name, storage_path,
-            file_size_bytes, duration_secs, current_stem_version_id, created_at, deleted_at,
+            file_size_bytes, current_stem_version_id, created_at, deleted_at,
             current_version:stem_versions!current_stem_version_id(
-              id, version_number, storage_path, track_version_id, uploaded_by, created_at
+              id, version_number, storage_path, uploaded_by, created_at
             )
           )
         `)
@@ -66,8 +69,9 @@ export function useProjectStems(projectId: string) {
           current_version_id: t.current_version_id ?? null,
           sort_order: t.sort_order ?? 0,
           current_version: cv,
+          // Only show stems for the current track version.
           stems: rawStems
-            .filter(s => !s.deleted_at)
+            .filter(s => !s.deleted_at && s.track_version_id === t.current_version_id)
             .map(s => ({
               id: s.id,
               track_id: s.track_id,
@@ -75,7 +79,6 @@ export function useProjectStems(projectId: string) {
               name: s.name,
               storage_path: s.storage_path,
               file_size_bytes: s.file_size_bytes ?? null,
-              duration_secs: s.duration_secs ?? null,
               current_stem_version_id: s.current_stem_version_id ?? null,
               created_at: s.created_at ?? null,
               current_version: s.current_version as StemVersion | null,
@@ -88,6 +91,36 @@ export function useProjectStems(projectId: string) {
   })
 }
 
+// Per-track query used by the Stems sub-tab inside TrackItem.
+// Scoped to the currently active track version — re-fetches automatically when
+// trackVersionId changes (version restored / new version uploaded).
+export function useTrackStems(trackId: string, trackVersionId: string | null) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['track-stems', trackId, trackVersionId],
+    queryFn: async () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let q = (supabase as any)
+        .from('stems')
+        .select(`
+          id, track_id, track_version_id, name, storage_path,
+          file_size_bytes, current_stem_version_id, created_at, deleted_at,
+          current_version:stem_versions!current_stem_version_id(
+            id, version_number, storage_path, uploaded_by, created_at
+          )
+        `)
+        .eq('track_id', trackId)
+        .is('deleted_at', null)
+      if (trackVersionId) q = q.eq('track_version_id', trackVersionId)
+      const { data, error } = await q
+      if (error) throw error
+      return (data ?? []) as Stem[]
+    },
+    enabled: !!trackId,
+    staleTime: 15_000,
+  })
+}
+
 export function useStemVersions(stemId: string) {
   const supabase = createClient()
   return useQuery({
@@ -95,7 +128,7 @@ export function useStemVersions(stemId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('stem_versions')
-        .select('id, version_number, storage_path, track_version_id, uploaded_by, created_at')
+        .select('id, version_number, storage_path, uploaded_by, created_at')
         .eq('stem_id', stemId)
         .order('version_number', { ascending: false })
       if (error) throw error
@@ -106,6 +139,9 @@ export function useStemVersions(stemId: string) {
   })
 }
 
+// Creates a new stems package for a track version. DB enforces only one package
+// per (track_id, track_version_id) — the UI should call useUploadStemVersion
+// instead if a package already exists.
 export function useUploadStem(projectId: string, trackId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
@@ -119,22 +155,20 @@ export function useUploadStem(projectId: string, trackId: string) {
       name: string
       trackVersionId: string
     }) => {
-      // 1. Insert the stem row to get an ID
       const { data: stem, error: stemErr } = await supabase
         .from('stems')
         .insert({
           track_id: trackId,
           track_version_id: trackVersionId,
           name: name.trim(),
-          storage_path: 'pending', // placeholder — updated after upload
+          storage_path: 'pending',
           file_size_bytes: file.size,
         })
         .select()
         .single()
       if (stemErr) throw stemErr
 
-      // 2. Upload to storage: stems/{projectId}/{trackId}/{stemId}/v1.ext
-      const ext = file.name.split('.').pop() ?? 'wav'
+      const ext = file.name.split('.').pop() ?? 'zip'
       const storagePath = `${projectId}/${trackId}/${stem.id}/v1.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('stems')
@@ -144,20 +178,13 @@ export function useUploadStem(projectId: string, trackId: string) {
         throw uploadErr
       }
 
-      // 3. Create the stem_version row
       const { data: version, error: versionErr } = await supabase
         .from('stem_versions')
-        .insert({
-          stem_id: stem.id,
-          storage_path: storagePath,
-          track_version_id: trackVersionId,
-          version_number: 1,
-        })
+        .insert({ stem_id: stem.id, storage_path: storagePath, version_number: 1 })
         .select()
         .single()
       if (versionErr) throw versionErr
 
-      // 4. Link stem → current version + update storage path
       const { error: updateErr } = await supabase
         .from('stems')
         .update({ current_stem_version_id: version.id, storage_path: storagePath })
@@ -166,24 +193,20 @@ export function useUploadStem(projectId: string, trackId: string) {
 
       return stem
     },
-    onSuccess: () => {
+    onSuccess: (_stem) => {
       qc.invalidateQueries({ queryKey: ['project-stems', projectId] })
+      qc.invalidateQueries({ queryKey: ['track-stems', trackId] })
+      trackEvent('stem_uploaded', { project_id: projectId, track_id: trackId })
     },
   })
 }
 
+// Adds a new version to an existing stems package (the "replace/update" path).
 export function useUploadStemVersion(stemId: string, trackId: string, projectId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({
-      file,
-      trackVersionId,
-    }: {
-      file: File
-      trackVersionId: string
-    }) => {
-      // Determine next version number
+    mutationFn: async ({ file }: { file: File; trackVersionId: string }) => {
       const { data: existing } = await supabase
         .from('stem_versions')
         .select('version_number')
@@ -192,28 +215,20 @@ export function useUploadStemVersion(stemId: string, trackId: string, projectId:
         .limit(1)
       const nextNum = ((existing?.[0]?.version_number) ?? 0) + 1
 
-      // Upload file
-      const ext = file.name.split('.').pop() ?? 'wav'
+      const ext = file.name.split('.').pop() ?? 'zip'
       const storagePath = `${projectId}/${trackId}/${stemId}/v${nextNum}.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('stems')
         .upload(storagePath, file, { upsert: false })
       if (uploadErr) throw uploadErr
 
-      // Insert stem_version
       const { data: version, error: versionErr } = await supabase
         .from('stem_versions')
-        .insert({
-          stem_id: stemId,
-          storage_path: storagePath,
-          track_version_id: trackVersionId,
-          version_number: nextNum,
-        })
+        .insert({ stem_id: stemId, storage_path: storagePath, version_number: nextNum })
         .select()
         .single()
       if (versionErr) throw versionErr
 
-      // Make this the current version on the stem
       const { error: updateErr } = await supabase
         .from('stems')
         .update({ current_stem_version_id: version.id, storage_path: storagePath })
@@ -224,6 +239,7 @@ export function useUploadStemVersion(stemId: string, trackId: string, projectId:
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['project-stems', projectId] })
+      qc.invalidateQueries({ queryKey: ['track-stems', trackId] })
       qc.invalidateQueries({ queryKey: ['stem-versions', stemId] })
     },
   })
@@ -247,21 +263,25 @@ export function useRollbackStemVersion(stemId: string, projectId: string) {
   })
 }
 
-export function useRenameStem(projectId: string) {
+export function useDownloadStemUrl() {
   const supabase = createClient()
-  const qc = useQueryClient()
   return useMutation({
-    mutationFn: async ({ stemId, name }: { stemId: string; name: string }) => {
-      const { error } = await supabase.from('stems').update({ name }).eq('id', stemId)
+    mutationFn: async ({ storagePath, filename }: { storagePath: string; filename: string }) => {
+      const { data, error } = await supabase.storage
+        .from('stems')
+        .createSignedUrl(storagePath, 3600)
       if (error) throw error
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['project-stems', projectId] })
+      const a = document.createElement('a')
+      a.href = data.signedUrl
+      a.download = filename.endsWith('.zip') ? filename : `${filename}.zip`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     },
   })
 }
 
-export function useDeleteStem(projectId: string) {
+export function useDeleteStem(projectId: string, trackId?: string) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
@@ -270,6 +290,36 @@ export function useDeleteStem(projectId: string) {
         .from('stems')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', stemId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-stems', projectId] })
+      if (trackId) qc.invalidateQueries({ queryKey: ['track-stems', trackId] })
+    },
+  })
+}
+
+export function useRestoreDeletedStem(projectId: string, trackId?: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (stemId: string) => {
+      const { error } = await supabase.from('stems').update({ deleted_at: null }).eq('id', stemId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['project-stems', projectId] })
+      if (trackId) qc.invalidateQueries({ queryKey: ['track-stems', trackId] })
+    },
+  })
+}
+
+export function useRenameStem(projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async ({ stemId, name }: { stemId: string; name: string }) => {
+      const { error } = await supabase.from('stems').update({ name }).eq('id', stemId)
       if (error) throw error
     },
     onSuccess: () => {

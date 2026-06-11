@@ -2,10 +2,9 @@
 
 import { useState, useRef } from 'react'
 import { useUploadStem, useUploadStemVersion } from '@/hooks/useStems'
-import { X, Upload, Music } from 'lucide-react'
+import { X, Upload, FolderArchive } from 'lucide-react'
 
-const ACCEPTED = '.mp3,.wav,.flac,.aac,.ogg'
-const ACCEPTED_MIME = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg', 'audio/x-wav']
+const ACCEPTED_MIME = ['application/zip', 'application/x-zip-compressed', 'application/x-zip']
 
 interface NewStemProps {
   mode: 'new'
@@ -30,6 +29,10 @@ interface NewVersionProps {
 
 type StemUploadModalProps = NewStemProps | NewVersionProps
 
+function isZip(f: File) {
+  return ACCEPTED_MIME.includes(f.type) || f.name.toLowerCase().endsWith('.zip')
+}
+
 export function StemUploadModal(props: StemUploadModalProps) {
   const uploadStem = useUploadStem(props.projectId, props.trackId)
   const uploadVersion = useUploadStemVersion(
@@ -40,16 +43,13 @@ export function StemUploadModal(props: StemUploadModalProps) {
 
   const inputRef = useRef<HTMLInputElement>(null)
   const [file, setFile] = useState<File | null>(null)
-  const [name, setName] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   function handleFile(f: File) {
-    if (!ACCEPTED_MIME.includes(f.type) && !f.name.match(/\.(mp3|wav|flac|aac|ogg)$/i)) return
+    if (!isZip(f)) { setError('Only .zip files are accepted.'); return }
+    setError(null)
     setFile(f)
-    if (props.mode === 'new' && !name) {
-      setName(f.name.replace(/\.[^.]+$/, ''))
-    }
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -64,11 +64,11 @@ export function StemUploadModal(props: StemUploadModalProps) {
     if (!file) return
     setError(null)
     try {
+      const name = file.name.replace(/\.zip$/i, '')
       if (props.mode === 'new') {
-        if (!name.trim()) { setError('Stem name is required'); return }
         await uploadStem.mutateAsync({ file, name, trackVersionId: props.trackVersionId })
       } else {
-        await uploadVersion.mutateAsync({ file, trackVersionId: props.trackVersionId })
+        await uploadVersion.mutateAsync({ file, trackVersionId: props.trackVersionId ?? '' })
       }
       props.onClose()
     } catch (e) {
@@ -77,7 +77,7 @@ export function StemUploadModal(props: StemUploadModalProps) {
   }
 
   const isPending = uploadStem.isPending || uploadVersion.isPending
-  const title = props.mode === 'new' ? 'Add stem' : 'Add stem version'
+  const title = props.mode === 'new' ? 'Upload stems package' : 'Upload new stems version'
   const subtitle = props.mode === 'new'
     ? props.trackTitle
     : `${props.stemName} · ${props.trackVersionLabel}`
@@ -99,28 +99,12 @@ export function StemUploadModal(props: StemUploadModalProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 space-y-4">
-          {/* Stem name — only for new stems */}
-          {props.mode === 'new' && (
-            <div className="space-y-1.5">
-              <label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                Stem name
-              </label>
-              <input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="e.g. Drums, Bass, Vocals…"
-                className="w-full px-3 py-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-          )}
-
-          {/* Track version label */}
           <p className="text-xs text-muted-foreground">
             Linked to track version:{' '}
             <span className="font-medium text-foreground">{props.trackVersionLabel}</span>
           </p>
 
-          {/* File drop zone */}
+          {/* Drop zone */}
           <div
             onClick={() => inputRef.current?.click()}
             onDrop={handleDrop}
@@ -134,13 +118,13 @@ export function StemUploadModal(props: StemUploadModalProps) {
             <input
               ref={inputRef}
               type="file"
-              accept={ACCEPTED}
+              accept=".zip"
               className="hidden"
               onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f) }}
             />
             {file ? (
               <div className="flex items-center gap-3 justify-center">
-                <Music size={20} className="text-primary shrink-0" />
+                <FolderArchive size={20} className="text-primary shrink-0" />
                 <div className="text-left min-w-0">
                   <p className="text-sm font-medium truncate">{file.name}</p>
                   <p className="text-xs text-muted-foreground">{(file.size / 1024 / 1024).toFixed(1)} MB</p>
@@ -149,8 +133,8 @@ export function StemUploadModal(props: StemUploadModalProps) {
             ) : (
               <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <Upload size={24} strokeWidth={1.5} />
-                <p className="text-sm">Drop audio file or click to browse</p>
-                <p className="text-xs">MP3, WAV, FLAC, AAC, OGG</p>
+                <p className="text-sm">Drop stems ZIP or click to browse</p>
+                <p className="text-xs">.zip only — compress your stems folder before uploading</p>
               </div>
             )}
           </div>
@@ -167,10 +151,10 @@ export function StemUploadModal(props: StemUploadModalProps) {
             </button>
             <button
               type="submit"
-              disabled={!file || (props.mode === 'new' && !name.trim()) || isPending}
+              disabled={!file || isPending}
               className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              {isPending ? 'Uploading…' : props.mode === 'new' ? 'Upload stem' : 'Upload version'}
+              {isPending ? 'Uploading…' : 'Upload'}
             </button>
           </div>
         </form>

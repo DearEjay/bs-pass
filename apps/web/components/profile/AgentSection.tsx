@@ -11,6 +11,18 @@ const AGENT_MODES = [
   { value: 'aggressive', label: 'Aggressive', description: 'More frequent, proactive suggestions' },
 ]
 
+const TONE_OPTIONS = [
+  { value: 'casual', label: 'Casual', description: 'Relaxed, conversational tone' },
+  { value: 'professional', label: 'Professional', description: 'Clear, business-appropriate tone' },
+  { value: 'direct', label: 'Direct', description: 'Brief, action-focused tone' },
+]
+
+const VERBOSITY_OPTIONS = [
+  { value: 'concise', label: 'Concise', description: 'Short task descriptions' },
+  { value: 'balanced', label: 'Balanced', description: 'Moderate detail level' },
+  { value: 'detailed', label: 'Detailed', description: 'Full context in every task' },
+]
+
 export function AgentSection({ userId }: { userId: string }) {
   const { data: prefs } = useAgentPreferences(userId)
   const updatePrefs = useUpdateAgentPreferences(userId)
@@ -19,6 +31,9 @@ export function AgentSection({ userId }: { userId: string }) {
   const [agentMode, setAgentMode] = useState('moderate')
   const [bufferDays, setBufferDays] = useState(0)
   const [learningEnabled, setLearningEnabled] = useState(true)
+  const [agentTone, setAgentTone] = useState('professional')
+  const [agentVerbosity, setAgentVerbosity] = useState('balanced')
+  const [autoTaskTriggers, setAutoTaskTriggers] = useState(true)
   const [dirty, setDirty] = useState(false)
   const [resetConfirm, setResetConfirm] = useState(false)
 
@@ -27,6 +42,9 @@ export function AgentSection({ userId }: { userId: string }) {
       setAgentMode(prefs.preferred_agent_mode ?? 'moderate')
       setBufferDays(prefs.preferred_timeline_buffer_days ?? 0)
       setLearningEnabled(prefs.learning_enabled ?? true)
+      setAgentTone((prefs.agent_tone as string | null) ?? 'professional')
+      setAgentVerbosity((prefs.agent_verbosity as string | null) ?? 'balanced')
+      setAutoTaskTriggers((prefs.auto_task_triggers as boolean | null) ?? true)
       setDirty(false)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -41,6 +59,9 @@ export function AgentSection({ userId }: { userId: string }) {
       preferred_agent_mode: agentMode,
       preferred_timeline_buffer_days: bufferDays,
       learning_enabled: learningEnabled,
+      agent_tone: agentTone,
+      agent_verbosity: agentVerbosity,
+      auto_task_triggers: autoTaskTriggers,
     })
     setDirty(false)
   }
@@ -52,6 +73,9 @@ export function AgentSection({ userId }: { userId: string }) {
     setAgentMode('moderate')
     setBufferDays(0)
     setLearningEnabled(true)
+    setAgentTone('professional')
+    setAgentVerbosity('balanced')
+    setAutoTaskTriggers(true)
     setDirty(false)
   }
 
@@ -106,6 +130,83 @@ export function AgentSection({ userId }: { userId: string }) {
           />
           <span className="text-sm text-muted-foreground">days</span>
         </div>
+      </div>
+
+      {/* Communication tone */}
+      <div className="mb-5">
+        <p className="text-sm font-medium mb-2">Communication tone</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {TONE_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => change<string>(setAgentTone)(opt.value)}
+              className={cn(
+                'p-3 rounded-md border text-left transition-colors',
+                agentTone === opt.value
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/50',
+              )}
+            >
+              <p className={cn('text-sm font-medium', agentTone === opt.value ? 'text-primary' : '')}>
+                {opt.label}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{opt.description}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Verbosity */}
+      <div className="mb-5">
+        <p className="text-sm font-medium mb-2">Task description verbosity</p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {VERBOSITY_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => change<string>(setAgentVerbosity)(opt.value)}
+              className={cn(
+                'p-3 rounded-md border text-left transition-colors',
+                agentVerbosity === opt.value
+                  ? 'border-primary bg-primary/10'
+                  : 'border-border hover:border-primary/50',
+              )}
+            >
+              <p className={cn('text-sm font-medium', agentVerbosity === opt.value ? 'text-primary' : '')}>
+                {opt.label}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">{opt.description}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Auto task triggers */}
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <p className="text-sm font-medium">Auto-create tasks</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Agent automatically generates follow-up tasks on status changes and events.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={autoTaskTriggers}
+          onClick={() => change<boolean>(setAutoTaskTriggers)(!autoTaskTriggers)}
+          className={cn(
+            'relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1',
+            autoTaskTriggers ? 'bg-primary' : 'bg-muted',
+          )}
+        >
+          <span
+            className={cn(
+              'pointer-events-none block h-4 w-4 rounded-full bg-white shadow-sm transition-transform',
+              autoTaskTriggers ? 'translate-x-4' : 'translate-x-0',
+            )}
+          />
+        </button>
       </div>
 
       {/* Learning toggle */}

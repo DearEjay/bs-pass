@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
       supabase.from('tasks').select('title,status,priority,start_date,due_date,description').eq('project_id', projectId).is('deleted_at', null),
       supabase.from('tracks').select('title,current_status').eq('project_id', projectId).is('deleted_at', null),
       supabase.from('collaborators').select('id,user_id,roles,profiles:user_id(display_name)').eq('project_id', projectId).is('removed_at', null),
-      supabase.from('user_agent_preferences').select('avoided_task_types,preferred_timeline_buffer_days').eq('user_id', userId).maybeSingle(),
+      supabase.from('user_agent_preferences').select('avoided_task_types,preferred_timeline_buffer_days,agent_tone,agent_verbosity,auto_task_triggers').eq('user_id', userId).maybeSingle(),
     ])
 
     const existingTasks = (existingRes.data ?? []) as Array<{ title: string; status: string; priority: string | null; start_date: string | null; due_date: string | null; description: string | null }>
@@ -94,6 +94,8 @@ Deno.serve(async (req) => {
       collaborator_roles: collaborators.flatMap(c => c.roles ?? []),
       avoided_task_types: agentPrefs?.avoided_task_types ?? [],
       timeline_buffer_days: bufferDays,
+      agent_tone: agentPrefs?.agent_tone ?? 'professional',
+      agent_verbosity: agentPrefs?.agent_verbosity ?? 'balanced',
     }
 
     const incompleteTasksSummary = incompleteTasks.length > 0
@@ -105,6 +107,18 @@ Deno.serve(async (req) => {
     const trackStatusSummary = trackStatuses.length > 0
       ? trackStatuses.map(t => `- "${t.title}": ${t.current_status}`).join('\n')
       : '(no tracks yet)'
+
+    const toneInstruction = context.agent_tone === 'casual'
+      ? 'Write descriptions in a casual, conversational tone.'
+      : context.agent_tone === 'direct'
+      ? 'Write descriptions in a direct, action-focused tone with minimal fluff.'
+      : 'Write descriptions in a professional, business-appropriate tone.'
+
+    const verbosityInstruction = context.agent_verbosity === 'concise'
+      ? 'Keep task descriptions to 1 short sentence (under 15 words).'
+      : context.agent_verbosity === 'detailed'
+      ? 'Write detailed task descriptions with full context (2–3 sentences).'
+      : 'Write moderate task descriptions (1–2 sentences).'
 
     const prompt = `You are an AI music project manager. Generate a roadmap for this project.
 
@@ -122,6 +136,8 @@ RULES:
 - Tasks should reflect the current state of tracks (don't generate tasks for already-complete track stages)
 - assignee_role is optional — only include if that role exists in collaborator_roles
 - Keep titles under 60 characters
+- ${toneInstruction}
+- ${verbosityInstruction}
 
 PROJECT CONTEXT:
 ${JSON.stringify(context, null, 2)}

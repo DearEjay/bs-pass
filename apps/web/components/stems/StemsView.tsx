@@ -7,6 +7,7 @@ import {
   useRollbackStemVersion,
   useRenameStem,
   useDeleteStem,
+  useDownloadStemUrl,
   type Stem,
   type TrackWithStems,
 } from '@/hooks/useStems'
@@ -15,7 +16,7 @@ import { useCollaborators } from '@/hooks/useCollaborators'
 import { StemUploadModal } from './StemUploadModal'
 import {
   Plus, MoreHorizontal, ChevronDown, ChevronRight,
-  Music2, RotateCcw, Trash2, Pencil, Check, X, Loader2,
+  FolderArchive, RotateCcw, Trash2, Check, X, Download, Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { format } from 'date-fns'
@@ -24,13 +25,6 @@ function formatBytes(bytes: number | null) {
   if (!bytes) return null
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
   return `${(bytes / 1024 / 1024).toFixed(1)} MB`
-}
-
-function formatDuration(secs: number | null) {
-  if (!secs) return null
-  const m = Math.floor(secs / 60)
-  const s = secs % 60
-  return `${m}:${s.toString().padStart(2, '0')}`
 }
 
 function StemVersionsPanel({
@@ -105,6 +99,7 @@ function StemRow({
 }) {
   const renameStem = useRenameStem(projectId)
   const deleteStem = useDeleteStem(projectId)
+  const downloadStem = useDownloadStemUrl()
 
   const [showVersions, setShowVersions] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
@@ -127,6 +122,13 @@ function StemRow({
     }
   }
 
+  function handleDownload() {
+    downloadStem.mutate({
+      storagePath: stem.storage_path,
+      filename: stem.name,
+    })
+  }
+
   return (
     <div className="group">
       <div className="flex items-center gap-3 px-4 py-3 hover:bg-accent/20 transition-colors">
@@ -138,10 +140,8 @@ function StemRow({
           {showVersions ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </button>
 
-        {/* Stem icon */}
-        <Music2 size={14} className="text-muted-foreground/60 shrink-0" />
+        <FolderArchive size={14} className="text-muted-foreground/60 shrink-0" />
 
-        {/* Name */}
         <div className="flex-1 min-w-0">
           {editing ? (
             <div className="flex items-center gap-1.5">
@@ -172,77 +172,86 @@ function StemRow({
             {formatBytes(stem.file_size_bytes) && (
               <span>{formatBytes(stem.file_size_bytes)}</span>
             )}
-            {formatDuration(stem.duration_secs) && (
-              <span>{formatDuration(stem.duration_secs)}</span>
-            )}
+            <span className="text-muted-foreground/50">ZIP</span>
           </div>
         </div>
 
-        {canEdit && (
-          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-            {/* Add version */}
-            <button
-              onClick={() => setShowVersionUpload(true)}
-              className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-foreground border border-border hover:bg-accent transition-colors"
-            >
-              <Plus size={11} />
-              Version
-            </button>
+        <div className="flex items-center gap-1">
+          {/* Download */}
+          <button
+            onClick={handleDownload}
+            disabled={downloadStem.isPending}
+            className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-foreground border border-border hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            {downloadStem.isPending ? <Loader2 size={11} className="animate-spin" /> : <Download size={11} />}
+            Download
+          </button>
 
-            {/* Overflow menu */}
-            <div className="relative">
+          {canEdit && (
+            <>
+              {/* Upload new version */}
               <button
-                onClick={() => { setShowMenu(m => !m); setConfirmDelete(false) }}
-                className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
+                onClick={() => setShowVersionUpload(true)}
+                className="flex items-center gap-1 px-2 py-1 rounded text-xs text-muted-foreground hover:text-foreground border border-border hover:bg-accent transition-colors"
               >
-                <MoreHorizontal size={14} />
+                <Plus size={11} />
+                Version
               </button>
-              {showMenu && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 w-40 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
-                    <button
-                      onClick={startRename}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-accent transition-colors text-left"
-                    >
-                      <Pencil size={12} />
-                      Rename
-                    </button>
-                    <div className="border-t border-border my-1" />
-                    {!confirmDelete ? (
+
+              {/* Overflow menu */}
+              <div className="relative">
+                <button
+                  onClick={() => { setShowMenu(m => !m); setConfirmDelete(false) }}
+                  className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
+                >
+                  <MoreHorizontal size={14} />
+                </button>
+                {showMenu && (
+                  <>
+                    <div className="fixed inset-0 z-40" onClick={() => setShowMenu(false)} />
+                    <div className="dropdown-menu right-0 top-full mt-1 w-40">
                       <button
-                        onClick={() => setConfirmDelete(true)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-destructive/10 text-destructive transition-colors text-left"
+                        onClick={startRename}
+                        className="dropdown-item"
                       >
-                        <Trash2 size={12} />
-                        Delete stem
+                        Rename
                       </button>
-                    ) : (
-                      <div className="px-3 py-2 space-y-1.5">
-                        <p className="text-xs text-muted-foreground">Delete this stem?</p>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setConfirmDelete(false)}
-                            className="flex-1 py-1 text-xs border border-border rounded hover:bg-accent transition-colors"
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            onClick={() => { deleteStem.mutate(stem.id); setShowMenu(false) }}
-                            disabled={deleteStem.isPending}
-                            className="flex-1 py-1 text-xs text-destructive border border-destructive/30 rounded hover:bg-destructive/10 transition-colors"
-                          >
-                            Delete
-                          </button>
+                      <div className="border-t border-border my-1" />
+                      {!confirmDelete ? (
+                        <button
+                          onClick={() => setConfirmDelete(true)}
+                          className="dropdown-item-destructive"
+                        >
+                          <Trash2 size={12} />
+                          Delete
+                        </button>
+                      ) : (
+                        <div className="px-3 py-2 space-y-1.5">
+                          <p className="text-xs text-muted-foreground">Delete this package?</p>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setConfirmDelete(false)}
+                              className="flex-1 py-1 text-xs border border-border rounded hover:bg-accent transition-colors"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => { deleteStem.mutate(stem.id); setShowMenu(false) }}
+                              disabled={deleteStem.isPending}
+                              className="flex-1 py-1 text-xs text-destructive border border-destructive/30 rounded hover:bg-destructive/10 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-        )}
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
       {showVersions && (
@@ -283,9 +292,8 @@ function TrackStemsSection({
   const trackVersionId = track.current_version_id ?? ''
 
   return (
-    <div className="border border-border rounded-lg overflow-hidden">
-      {/* Track header */}
-      <div className="flex items-center justify-between px-4 py-3 bg-muted/20 border-b border-border">
+    <div className="border border-border rounded-lg">
+      <div className="flex items-center justify-between px-4 py-3 bg-muted/20 border-b border-border rounded-t-lg">
         <div>
           <span className="text-sm font-semibold">{track.title}</span>
           {track.current_version && (
@@ -300,14 +308,13 @@ function TrackStemsSection({
             className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border hover:bg-accent transition-colors"
           >
             <Plus size={12} />
-            Add stem
+            Upload stems zip
           </button>
         )}
       </div>
 
-      {/* Stem list */}
       {track.stems.length > 0 ? (
-        <div className="divide-y divide-border/50">
+        <div className="divide-y divide-border/50 rounded-b-lg overflow-visible">
           {track.stems.map(stem => (
             <StemRow
               key={stem.id}
@@ -322,7 +329,7 @@ function TrackStemsSection({
         </div>
       ) : (
         <div className="px-4 py-5 text-center text-xs text-muted-foreground">
-          No stems yet.{canEdit && ' Click "Add stem" to upload one.'}
+          No stems uploaded yet.{canEdit && ' Click "Upload stems zip" to add one.'}
         </div>
       )}
 
@@ -378,7 +385,7 @@ export function StemsView({ projectId }: { projectId: string }) {
       <div>
         <h2 className="font-semibold">Stems</h2>
         <p className="text-xs text-muted-foreground mt-0.5">
-          Audio stems per track, versioned and linked to their track version
+          Stems packages (ZIP) per track — upload a compressed folder of your stem files
         </p>
       </div>
 

@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { computeProjectStatus } from '@/lib/project-status'
+import { trackEvent } from './useTrackEvent'
 import type { Database } from '@/types/database'
 
 type Track = Database['public']['Tables']['tracks']['Row']
@@ -128,6 +129,7 @@ export function useCreateTrack(projectId: string) {
       qc.setQueryData<Track[]>(['tracks', projectId], old => [...(old ?? []), newTrack])
       const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
       await syncProjectStatus(projectId, supabase, qc, tracks)
+      trackEvent('track_created', { project_id: projectId, track_id: newTrack.id })
     },
   })
 }
@@ -174,6 +176,7 @@ export function useUpdateTrackStatus(projectId: string) {
       )
       const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
       await syncProjectStatus(projectId, supabase, qc, tracks)
+      trackEvent('track_status_changed', { project_id: projectId, track_id: updatedTrack.id, status: updatedTrack.current_status })
     },
   })
 }
@@ -195,6 +198,20 @@ export function useDeleteTrack(projectId: string) {
       )
       const tracks = qc.getQueryData<Track[]>(['tracks', projectId]) ?? []
       await syncProjectStatus(projectId, supabase, qc, tracks)
+    },
+  })
+}
+
+export function useRestoreDeletedTrack(projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (trackId: string) => {
+      const { error } = await supabase.from('tracks').update({ deleted_at: null }).eq('id', trackId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tracks', projectId] })
     },
   })
 }
@@ -356,6 +373,21 @@ export function useRestoreTrackVersion(trackId: string, projectId: string) {
       qc.invalidateQueries({ queryKey: ['tracks', projectId] })
       qc.invalidateQueries({ queryKey: ['track-audio-url', trackId] })
     },
+  })
+}
+
+export function useVersionAudioUrl(filePath: string | null | undefined) {
+  const supabase = createClient()
+  return useQuery({
+    queryKey: ['version-audio-url', filePath],
+    queryFn: async () => {
+      if (!filePath) return null
+      const { data, error } = await supabase.storage.from('tracks').createSignedUrl(filePath, 3600)
+      if (error) throw error
+      return data.signedUrl
+    },
+    enabled: !!filePath,
+    staleTime: 50 * 60 * 1000,
   })
 }
 

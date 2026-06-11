@@ -43,6 +43,28 @@
   }
 }
 
+@layer components {
+  /* Ellipsis (···) triggers are always visible — never hidden until hover */
+  .btn-ellipsis {
+    @apply relative;
+  }
+
+  /* Dropdown panel — add position + width inline, this class handles the rest */
+  .dropdown-menu {
+    @apply absolute bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden;
+  }
+
+  /* Standard dropdown item */
+  .dropdown-item {
+    @apply w-full flex items-center gap-2.5 px-3 py-2 text-xs text-foreground hover:bg-accent transition-colors text-left;
+  }
+
+  /* Destructive dropdown item */
+  .dropdown-item-destructive {
+    @apply w-full flex items-center gap-2.5 px-3 py-2 text-xs text-destructive hover:bg-destructive/10 transition-colors text-left;
+  }
+}
+
 @layer utilities {
   /* Safe-area padding helpers — use these instead of raw env() calls */
   .pt-safe { padding-top: env(safe-area-inset-top); }

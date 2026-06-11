@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { AppShell } from '@/components/ui/AppShell'
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient()
@@ -8,10 +9,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   if (!user) redirect('/login')
 
   return (
-    <div className="h-[100dvh] overflow-hidden">
-      <main className="h-full overflow-y-auto overscroll-none">
-        {children}
-      </main>
-    </div>
+    <AppShell>
+      <div className="h-[100dvh] overflow-hidden">
+        <main className="h-full overflow-y-auto overscroll-none">
+          {children}
+        </main>
+      </div>
+    </AppShell>
   )
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings, ChevronLeft, Map, Music2, Layers, Users, MessageCircle, PieChart } from 'lucide-react'
+import { Settings, ChevronLeft, Map, Music2, Users, MessageCircle, PieChart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProjectSettingsModal } from './ProjectSettingsModal'
 import { useProjectStatus } from '@/hooks/useTracks'
@@ -30,7 +30,6 @@ const STATUS_LABEL: Record<string, string> = {
 const TABS = [
   { label: 'Roadmap',       path: 'roadmap',       icon: Map },
   { label: 'Tracks',        path: 'tracks',        icon: Music2 },
-  { label: 'Stems',         path: 'stems',         icon: Layers },
   { label: 'Collaborators', path: 'collaborators', icon: Users },
   { label: 'Chat',          path: 'chat',          icon: MessageCircle },
   { label: 'Splits',        path: 'splits',        icon: PieChart },

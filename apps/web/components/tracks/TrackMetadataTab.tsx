@@ -82,7 +82,7 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
 
   return (
     <div className="px-3 pb-4 pt-3 space-y-4">
-      <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Metadata</span>
+      <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Track Details</span>
 
       <div className="grid grid-cols-2 gap-4">
         {/* BPM */}

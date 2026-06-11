@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { AccountSection } from '@/components/profile/AccountSection'
 import { NotificationSection } from '@/components/profile/NotificationSection'
 import { AgentSection } from '@/components/profile/AgentSection'
+import { AgentPluginsSection } from '@/components/profile/AgentPluginsSection'
 import { SecuritySection } from '@/components/profile/SecuritySection'
 
 export default async function ProfilePage() {
@@ -29,6 +30,7 @@ export default async function ProfilePage() {
           <AccountSection userId={user.id} email={user.email ?? ''} />
           <NotificationSection userId={user.id} />
           <AgentSection userId={user.id} />
+          <AgentPluginsSection userId={user.id} />
           <SecuritySection email={user.email ?? ''} />
         </div>
       </div>

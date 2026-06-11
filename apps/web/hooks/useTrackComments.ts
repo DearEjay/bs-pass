@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 export type TrackComment = {
   id: string
   track_id: string
+  track_version_id: string | null
   project_id: string
   author_id: string
   body: string
@@ -16,25 +17,30 @@ export type TrackComment = {
   profiles: { display_name: string | null; avatar_url: string | null } | null
 }
 
-export function useTrackComments(trackId: string) {
+export function useTrackComments(trackId: string, trackVersionId: string | null) {
   const supabase = createClient()
   return useQuery({
-    queryKey: ['track-comments', trackId],
+    queryKey: ['track-comments', trackId, trackVersionId],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      let q = (supabase as any)
         .from('track_comments')
         .select('*, profiles:author_id(display_name, avatar_url)')
         .eq('track_id', trackId)
         .is('deleted_at', null)
         .order('timestamp_secs', { ascending: true })
+      if (trackVersionId) {
+        q = q.eq('track_version_id', trackVersionId)
+      }
+      const { data, error } = await q
       if (error) throw error
       return (data ?? []) as TrackComment[]
     },
+    enabled: !!trackId,
   })
 }
 
-export function useCreateTrackComment(trackId: string, projectId: string) {
+export function useCreateTrackComment(trackId: string, trackVersionId: string | null, projectId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
@@ -46,17 +52,24 @@ export function useCreateTrackComment(trackId: string, projectId: string) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('track_comments')
-        .insert({ track_id: trackId, project_id: projectId, author_id, body, timestamp_secs })
+        .insert({
+          track_id: trackId,
+          track_version_id: trackVersionId ?? null,
+          project_id: projectId,
+          author_id,
+          body,
+          timestamp_secs,
+        })
         .select('*')
         .single()
       if (error) throw error
       return data as TrackComment
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['track-comments', trackId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['track-comments', trackId, trackVersionId] }),
   })
 }
 
-export function useUpdateTrackComment(trackId: string) {
+export function useUpdateTrackComment(trackId: string, trackVersionId: string | null) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
@@ -68,11 +81,11 @@ export function useUpdateTrackComment(trackId: string) {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['track-comments', trackId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['track-comments', trackId, trackVersionId] }),
   })
 }
 
-export function useDeleteTrackComment(trackId: string) {
+export function useDeleteTrackComment(trackId: string, trackVersionId: string | null) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
@@ -84,6 +97,6 @@ export function useDeleteTrackComment(trackId: string) {
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['track-comments', trackId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['track-comments', trackId, trackVersionId] }),
   })
 }

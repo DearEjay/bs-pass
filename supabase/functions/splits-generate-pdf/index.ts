@@ -15,11 +15,21 @@ function json(data: unknown, status = 200) {
   })
 }
 
+const ROLE_LABELS: Record<string, string> = {
+  main_artist: 'Main Artist', featured_artist: 'Featured Artist',
+  producer: 'Producer', co_producer: 'Co-Producer',
+  recording_engineer: 'Recording Engineer', mixing_engineer: 'Mixing Engineer',
+  mastering_engineer: 'Mastering Engineer', songwriter: 'Songwriter',
+  session_musician: 'Session Musician', background_vocalist: 'Background Vocalist',
+  manager: 'Manager', ar: 'A&R', graphic_designer: 'Graphic Designer',
+  video_director: 'Video Director', marketing: 'Marketing',
+}
+
 async function buildPdf(params: {
   projectTitle: string
   trackTitle: string
   dateStr: string
-  splits: Array<{ name: string; percentage: number; signedAt: string; signedIp: string }>
+  splits: Array<{ name: string; role: string; percentage: number; signedAt: string; signedIp: string }>
   docId: string
 }): Promise<Uint8Array> {
   const pdfDoc = await PDFDocument.create()
@@ -79,14 +89,16 @@ async function buildPdf(params: {
 
   // Splits table header
   drawText('PARTY', { bold: true, size: 9, color: [0.5, 0.5, 0.5] })
-  page.drawText('SHARE', { x: 300, y, size: 9, font: boldFont, color: rgb(0.5, 0.5, 0.5) })
-  page.drawText('SIGNED', { x: 420, y, size: 9, font: boldFont, color: rgb(0.5, 0.5, 0.5) })
+  page.drawText('ROLE', { x: 230, y, size: 9, font: boldFont, color: rgb(0.5, 0.5, 0.5) })
+  page.drawText('SHARE', { x: 370, y, size: 9, font: boldFont, color: rgb(0.5, 0.5, 0.5) })
+  page.drawText('SIGNED', { x: 450, y, size: 9, font: boldFont, color: rgb(0.5, 0.5, 0.5) })
   skip(1.2)
 
   for (const s of params.splits) {
     drawText(s.name, { size: 10 })
-    page.drawText(`${s.percentage.toFixed(2)}%`, { x: 300, y, size: 10, font, color: rgb(0, 0, 0) })
-    page.drawText(s.signedAt, { x: 420, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) })
+    page.drawText(s.role, { x: 230, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) })
+    page.drawText(`${s.percentage.toFixed(2)}%`, { x: 370, y, size: 10, font, color: rgb(0, 0, 0) })
+    page.drawText(s.signedAt, { x: 450, y, size: 9, font, color: rgb(0.3, 0.3, 0.3) })
     skip()
   }
 
@@ -157,7 +169,7 @@ Deno.serve(async (req) => {
 
     const { data: splits } = await supabase
       .from('splits')
-      .select('id,percentage,split_status,signed_at,signed_ip,collaborators!inner(user_id,profiles:user_id(display_name))')
+      .select('id,percentage,role,split_status,signed_at,signed_ip,collaborators!inner(user_id,is_main_artist,profiles:user_id(display_name))')
       .eq('track_id', trackId)
 
     if (!splits || splits.length === 0) return json({ error: 'No splits found for this track' }, 400)
@@ -169,9 +181,14 @@ Deno.serve(async (req) => {
     const dateStr = now.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
 
     const splitRows = splits.map(s => {
-      const c = s.collaborators as { user_id: string; profiles: { display_name: string } | null }
+      const c = s.collaborators as { user_id: string; is_main_artist: boolean; profiles: { display_name: string } | null }
+      const roleKey = (s as { role?: string | null }).role
+      const roleLabel = c.is_main_artist
+        ? 'Main Artist'
+        : roleKey ? (ROLE_LABELS[roleKey] ?? roleKey.replace(/_/g, ' ')) : '—'
       return {
         name: c.profiles?.display_name ?? 'Unknown',
+        role: roleLabel,
         percentage: Number(s.percentage),
         signedAt: s.signed_at ? new Date(s.signed_at).toLocaleDateString('en-US') : 'N/A',
         signedIp: s.signed_ip ?? 'N/A',

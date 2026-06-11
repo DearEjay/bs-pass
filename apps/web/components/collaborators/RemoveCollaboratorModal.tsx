@@ -1,28 +1,21 @@
 'use client'
 
-import { useRemoveCollaborator } from '@/hooks/useCollaborators'
 import { AlertTriangle, X } from 'lucide-react'
 import type { Collaborator } from '@/hooks/useCollaborators'
 
 export function RemoveCollaboratorModal({
-  projectId,
   collaborator,
+  isPending,
+  error,
+  onRemove,
   onClose,
 }: {
-  projectId: string
   collaborator: Collaborator
+  isPending: boolean
+  error: Error | null
+  onRemove: () => void
   onClose: () => void
 }) {
-  const remove = useRemoveCollaborator(projectId)
-
-  async function handleRemove() {
-    await remove.mutateAsync({
-      collaboratorId: collaborator.id,
-      displayName: collaborator.display_name ?? 'Collaborator',
-    })
-    onClose()
-  }
-
   return (
     <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 sm:p-4">
       <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-sm max-h-[85svh] overflow-y-auto">
@@ -47,8 +40,8 @@ export function RemoveCollaboratorModal({
             <li>They will lose access to this project</li>
           </ul>
 
-          {remove.error && (
-            <p className="text-destructive text-sm">{(remove.error as Error).message}</p>
+          {error && (
+            <p className="text-destructive text-sm">{error.message}</p>
           )}
 
           <div className="flex gap-3 pt-1">
@@ -61,11 +54,11 @@ export function RemoveCollaboratorModal({
             </button>
             <button
               type="button"
-              onClick={handleRemove}
-              disabled={remove.isPending}
+              onClick={onRemove}
+              disabled={isPending}
               className="flex-1 py-2 rounded-md bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
-              {remove.isPending ? 'Removing…' : 'Remove'}
+              {isPending ? 'Removing…' : 'Remove'}
             </button>
           </div>
         </div>

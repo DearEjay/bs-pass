@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import { ProjectHeader } from '@/components/projects/ProjectHeader'
+import { CommandPalette } from '@/components/shared/CommandPalette'
 
 export default async function ProjectLayout({
   children,
@@ -29,6 +30,7 @@ export default async function ProjectLayout({
       <div className="flex-1 overflow-y-auto overscroll-none pb-[env(safe-area-inset-bottom)]">
         {children}
       </div>
+      <CommandPalette userId={user!.id} />
     </div>
   )
 }

@@ -21,6 +21,7 @@ export interface Split {
     display_name: string | null
     avatar_url: string | null
     roles: string[]
+    is_main_artist: boolean
   }
 }
 
@@ -55,6 +56,7 @@ export function useSplits(trackId: string) {
             id,
             user_id,
             roles,
+            is_main_artist,
             profiles:user_id(display_name, avatar_url)
           )
         `)
@@ -66,6 +68,7 @@ export function useSplits(trackId: string) {
           id: string
           user_id: string
           roles: string[]
+          is_main_artist: boolean
           profiles: { display_name: string | null; avatar_url: string | null } | null
         }
         return {
@@ -86,6 +89,7 @@ export function useSplits(trackId: string) {
             display_name: c.profiles?.display_name ?? null,
             avatar_url: c.profiles?.avatar_url ?? null,
             roles: Array.isArray(c.roles) ? c.roles : [],
+            is_main_artist: c.is_main_artist ?? false,
           },
         } as Split
       })

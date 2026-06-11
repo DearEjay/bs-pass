@@ -43,16 +43,13 @@ export function FilterDropdown({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute left-0 top-full mt-1 min-w-[9rem] bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+          <div className="dropdown-menu left-0 top-full mt-1 min-w-[9rem]">
             {options.map(opt => (
               <button
                 key={opt.value}
                 type="button"
                 onClick={() => { onChange(opt.value); setOpen(false) }}
-                className={cn(
-                  'w-full flex items-center gap-2.5 px-3 py-1.5 text-xs hover:bg-accent transition-colors text-left',
-                  opt.value === value && 'bg-accent',
-                )}
+                className={cn('dropdown-item', opt.value === value && 'bg-accent')}
               >
                 <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', opt.dot ?? 'bg-muted-foreground/30')} />
                 {opt.label}

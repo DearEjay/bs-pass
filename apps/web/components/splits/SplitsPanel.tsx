@@ -66,7 +66,11 @@ function SplitEditor({
   // Sync rows from DB splits
   useEffect(() => {
     if (!editing) {
-      setRows(splits.map(s => ({ collaborator_id: s.collaborator_id, percentage: s.percentage, role: s.role ?? '' })))
+      setRows(splits.map(s => ({
+        collaborator_id: s.collaborator_id,
+        percentage: s.percentage,
+        role: s.collaborator.is_main_artist ? 'main_artist' : (s.role ?? ''),
+      })))
     }
   }, [splits, editing])
 
@@ -81,7 +85,7 @@ function SplitEditor({
     const available = collaborators.filter(c => !rows.some(r => r.collaborator_id === c.id))
     if (available.length === 0) return
     const first = available[0]
-    const defaultRole = first.roles.filter(r => r !== 'main_artist')[0] ?? ''
+    const defaultRole = first.is_main_artist ? 'main_artist' : (first.roles.filter(r => r !== 'main_artist')[0] ?? '')
     setRows(prev => [...prev, { collaborator_id: first.id, percentage: 0, role: defaultRole }])
   }
 
@@ -94,9 +98,8 @@ function SplitEditor({
       if (i !== idx) return r
       if (field === 'percentage') return { ...r, percentage: Math.min(100, Math.max(0, parseFloat(value) || 0)) }
       if (field === 'collaborator_id') {
-        // When collaborator changes, reset role to their first non-main_artist role
         const collab = collaborators.find(c => c.id === value)
-        const defaultRole = collab?.roles.filter(ro => ro !== 'main_artist')[0] ?? ''
+        const defaultRole = collab?.is_main_artist ? 'main_artist' : (collab?.roles.filter(ro => ro !== 'main_artist')[0] ?? '')
         return { ...r, collaborator_id: value, role: defaultRole }
       }
       return { ...r, [field]: value }
@@ -253,13 +256,13 @@ function SplitEditor({
             <div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center px-4 py-3 border-b last:border-b-0 border-border">
               <div>
                 <span className="text-sm font-medium">{s.collaborator.display_name ?? 'Unknown'}</span>
-                {(s.role ?? s.collaborator.roles[0]) && (
-                  <p className="text-xs text-muted-foreground truncate">
-                    {s.role
+                <p className="text-xs text-muted-foreground truncate">
+                  {s.collaborator.is_main_artist
+                    ? 'Main Artist'
+                    : s.role
                       ? (ROLE_LABELS[s.role] ?? s.role)
-                      : s.collaborator.roles.map(r => ROLE_LABELS[r] ?? r.replace(/_/g, ' ')).join(' · ')}
-                  </p>
-                )}
+                      : s.collaborator.roles.filter(r => r !== 'main_artist').map(r => ROLE_LABELS[r] ?? r.replace(/_/g, ' ')).join(' · ')}
+                </p>
               </div>
               <span className="text-sm font-semibold tabular-nums pr-8">{s.percentage.toFixed(2)}%</span>
               <SignatureStatusBadge status={s.split_status} />
@@ -292,7 +295,9 @@ function SplitEditor({
               const usedIds = rows.filter((_, i) => i !== idx).map(r => r.collaborator_id)
               const available = collaborators.filter(c => !usedIds.includes(c.id))
               const rowCollab = collaborators.find(c => c.id === row.collaborator_id)
-              const roleOptions = rowCollab?.roles.filter(r => r !== 'main_artist') ?? []
+              const roleOptions = rowCollab?.is_main_artist
+                ? ['main_artist']
+                : (rowCollab?.roles.filter(r => r !== 'main_artist') ?? [])
               return (
                 <div key={idx} className="grid grid-cols-[1fr_1fr_100px_36px] items-center px-4 py-2.5 border-b last:border-b-0 border-border gap-2">
                   <select

@@ -7,7 +7,7 @@ import {
   useRestoreTrackVersion,
   type TrackVersion,
 } from '@/hooks/useTracks'
-import { RotateCcw, Trash2, X, CheckCircle2, Clock } from 'lucide-react'
+import { RotateCcw, Trash2, X, CheckCircle2, Clock, Plus, SplitSquareHorizontal } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Database } from '@/types/database'
 
@@ -16,9 +16,12 @@ type Track = Database['public']['Tables']['tracks']['Row']
 interface TrackVersionsPanelProps {
   track: Track
   projectId: string
+  onAddVersion?: () => void
+  onCompare?: (filePath: string, versionLabel: string) => void
+  compareVersionId?: string | null
 }
 
-export function TrackVersionsPanel({ track, projectId }: TrackVersionsPanelProps) {
+export function TrackVersionsPanel({ track, projectId, onAddVersion, onCompare, compareVersionId }: TrackVersionsPanelProps) {
   const { data: versions = [], isLoading } = useTrackVersions(track.id)
   const deleteVersion = useDeleteTrackVersion(track.id, projectId)
   const restoreVersion = useRestoreTrackVersion(track.id, projectId)
@@ -44,11 +47,22 @@ export function TrackVersionsPanel({ track, projectId }: TrackVersionsPanelProps
 
   return (
     <div className="px-3 pb-3 pt-2">
-      <p className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
-        <Clock size={11} />
-        Version history
-        <span className="opacity-50">({versions.length})</span>
-      </p>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs font-medium text-muted-foreground flex items-center gap-1.5">
+          <Clock size={11} />
+          Version history
+          <span className="opacity-50">({versions.length})</span>
+        </p>
+        {onAddVersion && (
+          <button
+            onClick={onAddVersion}
+            className="flex items-center gap-1 px-2 py-1 text-xs border border-border rounded hover:bg-accent transition-colors"
+          >
+            <Plus size={11} />
+            Add version
+          </button>
+        )}
+      </div>
 
       {versions.length === 0 ? (
         <p className="text-xs text-muted-foreground py-2">No versions found.</p>
@@ -114,6 +128,21 @@ export function TrackVersionsPanel({ track, projectId }: TrackVersionsPanelProps
                     </div>
                   ) : (
                     <>
+                      {!isCurrent && onCompare && v.file_path && (
+                        <button
+                          onClick={() => onCompare(v.file_path!, v.version_label)}
+                          className={cn(
+                            'flex items-center gap-1 px-2 py-0.5 text-xs rounded transition-colors',
+                            compareVersionId === v.id
+                              ? 'bg-emerald-500/15 text-emerald-600'
+                              : 'text-muted-foreground hover:bg-accent',
+                          )}
+                          title="Compare with current version"
+                        >
+                          <SplitSquareHorizontal size={11} />
+                          {compareVersionId === v.id ? 'Comparing' : 'Compare'}
+                        </button>
+                      )}
                       {!isCurrent && (
                         <button
                           onClick={() => restoreVersion.mutate(v.id)}

@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { trackEvent } from './useTrackEvent'
 
 export interface Collaborator {
   id: string
@@ -98,6 +99,7 @@ export function useInviteCollaborator(projectId: string) {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['collaborators', projectId] })
       qc.invalidateQueries({ queryKey: ['pending_invites', projectId] })
+      trackEvent('collaborator_invited', { project_id: projectId })
     },
   })
 }
@@ -162,6 +164,24 @@ export function useRemoveCollaborator(projectId: string) {
       qc.invalidateQueries({ queryKey: ['collaborators', projectId] })
       qc.invalidateQueries({ queryKey: ['splits'] })
       qc.invalidateQueries({ queryKey: ['tasks', projectId] })
+    },
+  })
+}
+
+export function useRestoreCollaborator(projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (collaboratorId: string) => {
+      const { error } = await supabase
+        .from('collaborators')
+        .update({ removed_at: null, status: 'active' })
+        .eq('id', collaboratorId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['collaborators', projectId] })
+      qc.invalidateQueries({ queryKey: ['splits'] })
     },
   })
 }

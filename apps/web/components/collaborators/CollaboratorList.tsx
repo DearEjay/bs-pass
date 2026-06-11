@@ -1,8 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useCollaborators, usePendingInvites, useResendInvite, useCancelPendingInvite } from '@/hooks/useCollaborators'
+import { useCollaborators, usePendingInvites, useResendInvite, useCancelPendingInvite, useRemoveCollaborator, useRestoreCollaborator } from '@/hooks/useCollaborators'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useUndoToastStore } from '@/hooks/useUndoToast'
 import { InviteModal } from './InviteModal'
 import { RemoveCollaboratorModal } from './RemoveCollaboratorModal'
 import { ChangeRoleModal } from './ChangeRoleModal'
@@ -80,17 +81,17 @@ function CollaboratorRow({
         <div className="relative">
           <button
             onClick={() => setOpen(o => !o)}
-            className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded opacity-0 group-hover:opacity-100 focus:opacity-100"
+            className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded"
           >
             <MoreHorizontal size={15} />
           </button>
           {open && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-              <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+              <div className="dropdown-menu right-0 top-full mt-1 w-48">
                 <button
                   onClick={() => { setOpen(false); onChangeRoles(collab) }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-accent transition-colors text-left"
+                  className="dropdown-item"
                 >
                   <Pencil size={13} />
                   Change roles
@@ -98,7 +99,7 @@ function CollaboratorRow({
                 <div className="border-t border-border my-1" />
                 <button
                   onClick={() => { setOpen(false); onRemove(collab) }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-destructive/10 text-destructive transition-colors text-left"
+                  className="dropdown-item-destructive"
                 >
                   Remove collaborator
                 </button>
@@ -145,20 +146,20 @@ function PendingInviteRow({
       <div className="relative">
         <button
           onClick={() => setOpen(o => !o)}
-          className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded opacity-0 group-hover:opacity-100 focus:opacity-100"
+          className="p-1 text-muted-foreground hover:text-foreground transition-colors rounded"
         >
           {(resend.isPending || cancel.isPending) ? <Loader2 size={15} className="animate-spin" /> : <MoreHorizontal size={15} />}
         </button>
         {open && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-            <div className="absolute right-0 top-full mt-1 w-48 bg-card border border-border rounded-lg shadow-xl z-50 py-1 overflow-hidden">
+            <div className="dropdown-menu right-0 top-full mt-1 w-48">
               <button
                 onClick={() => {
                   setOpen(false)
                   resend.mutate({ email: invite.email, roles: invite.roles })
                 }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-accent transition-colors text-left"
+                className="dropdown-item"
               >
                 <Send size={13} />
                 Resend invite
@@ -166,7 +167,7 @@ function PendingInviteRow({
               <div className="border-t border-border my-1" />
               <button
                 onClick={() => { setOpen(false); cancel.mutate(invite.id) }}
-                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs hover:bg-destructive/10 text-destructive transition-colors text-left"
+                className="dropdown-item-destructive"
               >
                 <X size={13} />
                 Cancel invite
@@ -183,12 +184,26 @@ export function CollaboratorList({ projectId }: { projectId: string }) {
   const { data: collaborators = [], isLoading: loadingCollabs } = useCollaborators(projectId)
   const { data: pendingInvites = [], isLoading: loadingPending } = usePendingInvites(projectId)
   const { data: currentUser } = useCurrentUser()
+  const remove = useRemoveCollaborator(projectId)
+  const restoreCollab = useRestoreCollaborator(projectId)
+  const pushToast = useUndoToastStore(s => s.push)
 
   const [showInvite, setShowInvite] = useState(false)
   const [removing, setRemoving] = useState<Collaborator | null>(null)
   const [editingRoles, setEditingRoles] = useState<Collaborator | null>(null)
 
   const isMainArtist = collaborators.some(c => c.user_id === currentUser?.id && c.is_main_artist)
+
+  async function handleRemoveConfirm() {
+    if (!removing) return
+    const collabId = removing.id
+    const displayName = removing.display_name ?? 'Collaborator'
+    await remove.mutateAsync({ collaboratorId: collabId, displayName })
+    setRemoving(null)
+    pushToast(`${displayName} removed`, async () => {
+      await restoreCollab.mutateAsync(collabId)
+    })
+  }
 
   if (loadingCollabs) {
     return (
@@ -263,8 +278,10 @@ export function CollaboratorList({ projectId }: { projectId: string }) {
       {showInvite && <InviteModal projectId={projectId} onClose={() => setShowInvite(false)} />}
       {removing && (
         <RemoveCollaboratorModal
-          projectId={projectId}
           collaborator={removing}
+          isPending={remove.isPending}
+          error={remove.error as Error | null}
+          onRemove={handleRemoveConfirm}
           onClose={() => setRemoving(null)}
         />
       )}
