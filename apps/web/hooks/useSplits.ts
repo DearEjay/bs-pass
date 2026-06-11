@@ -8,6 +8,7 @@ export interface Split {
   track_id: string
   collaborator_id: string
   percentage: number
+  role: string | null
   split_status: 'pending' | 'signed' | 'voided'
   signed_at: string | null
   signed_ip: string | null
@@ -43,6 +44,7 @@ export function useSplits(trackId: string) {
           track_id,
           collaborator_id,
           percentage,
+          role,
           split_status,
           signed_at,
           signed_ip,
@@ -71,6 +73,7 @@ export function useSplits(trackId: string) {
           track_id: s.track_id,
           collaborator_id: s.collaborator_id,
           percentage: Number(s.percentage),
+          role: s.role ?? null,
           split_status: (s.split_status ?? 'pending') as 'pending' | 'signed' | 'voided',
           signed_at: s.signed_at ?? null,
           signed_ip: s.signed_ip ?? null,
@@ -112,7 +115,7 @@ export function useTrackSplitsLock(trackId: string) {
 export function useUpsertSplits(trackId: string, projectId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (splits: Array<{ collaborator_id: string; percentage: number }>) => {
+    mutationFn: async (splits: Array<{ collaborator_id: string; percentage: number; role?: string }>) => {
       const supabase = createClient()
 
       // 100% validation
@@ -138,6 +141,7 @@ export function useUpsertSplits(trackId: string, projectId: string) {
           track_id: trackId,
           collaborator_id: s.collaborator_id,
           percentage: s.percentage,
+          role: s.role ?? null,
           split_status: 'pending',
         }))
       )

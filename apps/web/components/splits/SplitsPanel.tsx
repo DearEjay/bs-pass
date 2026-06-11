@@ -21,9 +21,20 @@ import {
 import { cn } from '@/lib/utils'
 import type { Collaborator } from '@/hooks/useCollaborators'
 
+const ROLE_LABELS: Record<string, string> = {
+  main_artist: 'Main Artist', featured_artist: 'Featured Artist',
+  producer: 'Producer', co_producer: 'Co-Producer',
+  recording_engineer: 'Recording Engineer', mixing_engineer: 'Mixing Engineer',
+  mastering_engineer: 'Mastering Engineer', songwriter: 'Songwriter',
+  session_musician: 'Session Musician', background_vocalist: 'Background Vocalist',
+  manager: 'Manager', ar: 'A&R', graphic_designer: 'Graphic Designer',
+  video_director: 'Video Director', marketing: 'Marketing',
+}
+
 interface SplitRow {
   collaborator_id: string
   percentage: number
+  role: string
 }
 
 function SplitEditor({
@@ -55,7 +66,7 @@ function SplitEditor({
   // Sync rows from DB splits
   useEffect(() => {
     if (!editing) {
-      setRows(splits.map(s => ({ collaborator_id: s.collaborator_id, percentage: s.percentage })))
+      setRows(splits.map(s => ({ collaborator_id: s.collaborator_id, percentage: s.percentage, role: s.role ?? '' })))
     }
   }, [splits, editing])
 
@@ -69,7 +80,9 @@ function SplitEditor({
   function addRow() {
     const available = collaborators.filter(c => !rows.some(r => r.collaborator_id === c.id))
     if (available.length === 0) return
-    setRows(prev => [...prev, { collaborator_id: available[0].id, percentage: 0 }])
+    const first = available[0]
+    const defaultRole = first.roles.filter(r => r !== 'main_artist')[0] ?? ''
+    setRows(prev => [...prev, { collaborator_id: first.id, percentage: 0, role: defaultRole }])
   }
 
   function removeRow(idx: number) {
@@ -80,6 +93,12 @@ function SplitEditor({
     setRows(prev => prev.map((r, i) => {
       if (i !== idx) return r
       if (field === 'percentage') return { ...r, percentage: Math.min(100, Math.max(0, parseFloat(value) || 0)) }
+      if (field === 'collaborator_id') {
+        // When collaborator changes, reset role to their first non-main_artist role
+        const collab = collaborators.find(c => c.id === value)
+        const defaultRole = collab?.roles.filter(ro => ro !== 'main_artist')[0] ?? ''
+        return { ...r, collaborator_id: value, role: defaultRole }
+      }
       return { ...r, [field]: value }
     }))
   }
@@ -234,9 +253,11 @@ function SplitEditor({
             <div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center px-4 py-3 border-b last:border-b-0 border-border">
               <div>
                 <span className="text-sm font-medium">{s.collaborator.display_name ?? 'Unknown'}</span>
-                {s.collaborator.roles.length > 0 && (
+                {(s.role ?? s.collaborator.roles[0]) && (
                   <p className="text-xs text-muted-foreground truncate">
-                    {s.collaborator.roles.map(r => r.replace(/_/g, ' ')).join(' · ')}
+                    {s.role
+                      ? (ROLE_LABELS[s.role] ?? s.role)
+                      : s.collaborator.roles.map(r => ROLE_LABELS[r] ?? r.replace(/_/g, ' ')).join(' · ')}
                   </p>
                 )}
               </div>
@@ -261,16 +282,19 @@ function SplitEditor({
       {editing && (
         <div className="space-y-3">
           <div className="rounded-lg border border-border overflow-hidden">
-            <div className="grid grid-cols-[1fr_120px_36px] text-xs text-muted-foreground px-4 py-2 border-b border-border bg-muted/20">
+            <div className="grid grid-cols-[1fr_1fr_100px_36px] text-xs text-muted-foreground px-4 py-2 border-b border-border bg-muted/20">
               <span>Collaborator</span>
+              <span>Role</span>
               <span className="text-right pr-2">Share</span>
               <span />
             </div>
             {rows.map((row, idx) => {
               const usedIds = rows.filter((_, i) => i !== idx).map(r => r.collaborator_id)
               const available = collaborators.filter(c => !usedIds.includes(c.id))
+              const rowCollab = collaborators.find(c => c.id === row.collaborator_id)
+              const roleOptions = rowCollab?.roles.filter(r => r !== 'main_artist') ?? []
               return (
-                <div key={idx} className="grid grid-cols-[1fr_120px_36px] items-center px-4 py-2.5 border-b last:border-b-0 border-border gap-2">
+                <div key={idx} className="grid grid-cols-[1fr_1fr_100px_36px] items-center px-4 py-2.5 border-b last:border-b-0 border-border gap-2">
                   <select
                     value={row.collaborator_id}
                     onChange={e => updateRow(idx, 'collaborator_id', e.target.value)}
@@ -279,12 +303,21 @@ function SplitEditor({
                     {available.map(c => (
                       <option key={c.id} value={c.id}>{c.display_name ?? c.id}</option>
                     ))}
-                    {/* keep the currently selected option */}
                     {!available.some(c => c.id === row.collaborator_id) && (
                       <option value={row.collaborator_id}>
                         {collaborators.find(c => c.id === row.collaborator_id)?.display_name ?? row.collaborator_id}
                       </option>
                     )}
+                  </select>
+                  <select
+                    value={row.role}
+                    onChange={e => updateRow(idx, 'role', e.target.value)}
+                    className="w-full px-2 py-1.5 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">No role</option>
+                    {roleOptions.map(r => (
+                      <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                    ))}
                   </select>
                   <div className="relative">
                     <input

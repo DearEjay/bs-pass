@@ -2,26 +2,42 @@
 
 import { useState } from 'react'
 import { useTrackCredits, useUpsertCredit, useDeleteCredit } from '@/hooks/useTrackExtras'
+import { useCollaborators } from '@/hooks/useCollaborators'
 import { Trash2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
+const ROLE_LABELS: Record<string, string> = {
+  main_artist: 'Main Artist', featured_artist: 'Featured Artist',
+  producer: 'Producer', co_producer: 'Co-Producer',
+  recording_engineer: 'Recording Engineer', mixing_engineer: 'Mixing Engineer',
+  mastering_engineer: 'Mastering Engineer', songwriter: 'Songwriter',
+  session_musician: 'Session Musician', background_vocalist: 'Background Vocalist',
+  manager: 'Manager', ar: 'A&R', graphic_designer: 'Graphic Designer',
+  video_director: 'Video Director', marketing: 'Marketing',
+}
+
 interface EditableCell {
-  creditId: string | null // null = ghost row
+  creditId: string
   field: 'name' | 'role'
 }
 
-export function TrackCreditsTab({ trackId }: { trackId: string }) {
+export function TrackCreditsTab({ trackId, projectId }: { trackId: string; projectId: string }) {
   const { data: credits = [], isLoading } = useTrackCredits(trackId)
+  const { data: collaborators = [] } = useCollaborators(projectId)
   const upsertCredit = useUpsertCredit(trackId)
   const deleteCredit = useDeleteCredit(trackId)
 
-  // Ghost row state
-  const [ghostName, setGhostName] = useState('')
+  // Ghost row: pick a collaborator (or "other" for free text) + one of their roles
+  const [ghostCollabId, setGhostCollabId] = useState('')
+  const [ghostNameOther, setGhostNameOther] = useState('')
   const [ghostRole, setGhostRole] = useState('')
 
-  // Which cell is actively editing
+  // Inline edit for existing rows
   const [editing, setEditing] = useState<EditableCell | null>(null)
   const [draft, setDraft] = useState('')
+
+  const selectedCollab = collaborators.find(c => c.id === ghostCollabId)
+  const collabRoles = selectedCollab?.roles.filter(r => r !== 'main_artist') ?? []
 
   function startEdit(creditId: string, field: 'name' | 'role', current: string) {
     setEditing({ creditId, field })
@@ -33,7 +49,7 @@ export function TrackCreditsTab({ trackId }: { trackId: string }) {
     if (!credit) return
     setEditing(null)
     const trimmed = draft.trim()
-    if (!trimmed) return // don't save empty
+    if (!trimmed) return
     const updated = field === 'name'
       ? { id: creditId, name: trimmed, role: credit.role }
       : { id: creditId, name: credit.name, role: trimmed }
@@ -41,11 +57,19 @@ export function TrackCreditsTab({ trackId }: { trackId: string }) {
   }
 
   async function commitGhostRow() {
-    const name = ghostName.trim()
+    let name: string
+    if (!ghostCollabId) return
+    if (ghostCollabId === 'other') {
+      name = ghostNameOther.trim()
+    } else {
+      name = selectedCollab?.display_name?.trim() ?? ''
+    }
     const role = ghostRole.trim()
     if (!name && !role) return
-    await upsertCredit.mutateAsync({ name: name || '—', role: role || '—', sort_order: credits.length })
-    setGhostName('')
+    const roleLabel = ROLE_LABELS[role] ?? role
+    await upsertCredit.mutateAsync({ name: name || '—', role: roleLabel || '—', sort_order: credits.length })
+    setGhostCollabId('')
+    setGhostNameOther('')
     setGhostRole('')
   }
 
@@ -70,7 +94,7 @@ export function TrackCreditsTab({ trackId }: { trackId: string }) {
             <tr key={credit.id} className="border-b border-border/50 group">
               {(['name', 'role'] as const).map(field => (
                 <td key={field} className="py-1.5 pr-2">
-                  {editing !== null && editing.creditId === credit.id && editing.field === field ? (
+                  {editing?.creditId === credit.id && editing.field === field ? (
                     <input
                       autoFocus
                       value={draft}
@@ -106,26 +130,58 @@ export function TrackCreditsTab({ trackId }: { trackId: string }) {
             </tr>
           ))}
 
-          {/* Ghost row */}
+          {/* Ghost row — collaborator picker + role picker */}
           <tr className="border-b border-border/30">
             <td className="py-1.5 pr-2">
-              <input
-                value={ghostName}
-                onChange={e => setGhostName(e.target.value)}
-                onBlur={commitGhostRow}
-                onKeyDown={e => e.key === 'Tab' && !ghostName.trim() && e.preventDefault()}
-                placeholder="Add name…"
-                className="w-full bg-transparent px-2 py-0.5 rounded text-sm focus:outline-none focus:bg-input focus:border focus:border-primary/50 placeholder:text-muted-foreground/50 transition-colors"
-              />
+              {ghostCollabId === 'other' ? (
+                <input
+                  autoFocus
+                  value={ghostNameOther}
+                  onChange={e => setGhostNameOther(e.target.value)}
+                  onBlur={commitGhostRow}
+                  onKeyDown={e => e.key === 'Escape' && setGhostCollabId('')}
+                  placeholder="Enter name…"
+                  className="w-full bg-transparent px-2 py-0.5 rounded text-sm focus:outline-none focus:bg-input focus:border focus:border-primary/50 placeholder:text-muted-foreground/50 transition-colors"
+                />
+              ) : (
+                <select
+                  value={ghostCollabId}
+                  onChange={e => {
+                    setGhostCollabId(e.target.value)
+                    setGhostRole('')
+                  }}
+                  className="w-full bg-transparent px-2 py-0.5 rounded text-sm focus:outline-none focus:bg-input focus:border focus:border-primary/50 text-muted-foreground transition-colors"
+                >
+                  <option value="">Add credit…</option>
+                  {collaborators.map(c => (
+                    <option key={c.id} value={c.id}>{c.display_name ?? c.id}</option>
+                  ))}
+                  <option value="other">Other…</option>
+                </select>
+              )}
             </td>
             <td className="py-1.5 pr-2">
-              <input
-                value={ghostRole}
-                onChange={e => setGhostRole(e.target.value)}
-                onBlur={commitGhostRow}
-                placeholder="Add role…"
-                className="w-full bg-transparent px-2 py-0.5 rounded text-sm focus:outline-none focus:bg-input focus:border focus:border-primary/50 placeholder:text-muted-foreground/50 transition-colors"
-              />
+              {ghostCollabId && ghostCollabId !== 'other' && collabRoles.length > 0 ? (
+                <select
+                  value={ghostRole}
+                  onChange={e => setGhostRole(e.target.value)}
+                  onBlur={commitGhostRow}
+                  className="w-full bg-transparent px-2 py-0.5 rounded text-sm focus:outline-none focus:bg-input focus:border focus:border-primary/50 text-muted-foreground transition-colors"
+                >
+                  <option value="">Select role…</option>
+                  {collabRoles.map(r => (
+                    <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  value={ghostRole}
+                  onChange={e => setGhostRole(e.target.value)}
+                  onBlur={commitGhostRow}
+                  placeholder="Add role…"
+                  className="w-full bg-transparent px-2 py-0.5 rounded text-sm focus:outline-none focus:bg-input focus:border focus:border-primary/50 placeholder:text-muted-foreground/50 transition-colors"
+                />
+              )}
             </td>
             <td className="py-1.5">
               <Plus size={13} className="text-muted-foreground/30" />

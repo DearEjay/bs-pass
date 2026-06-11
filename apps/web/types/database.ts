@@ -479,6 +479,7 @@ export type Database = {
           created_at: string | null
           id: string
           percentage: number
+          role: string | null
           signature_token: string | null
           signed_at: string | null
           signed_ip: string | null
@@ -492,6 +493,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           percentage: number
+          role?: string | null
           signature_token?: string | null
           signed_at?: string | null
           signed_ip?: string | null
@@ -505,6 +507,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           percentage?: number
+          role?: string | null
           signature_token?: string | null
           signed_at?: string | null
           signed_ip?: string | null

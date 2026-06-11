@@ -389,7 +389,7 @@ export function TrackItem({
           )}
 
           {activeTab === 'credits' && (
-            <TrackCreditsTab trackId={track.id} />
+            <TrackCreditsTab trackId={track.id} projectId={projectId} />
           )}
 
           {activeTab === 'metadata' && (
