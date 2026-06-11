@@ -5,24 +5,24 @@ import { useProjects } from '@/hooks/useProjects'
 import { ProjectCard } from './ProjectCard'
 import { NewProjectModal } from './NewProjectModal'
 import { Plus, Search, X } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { FilterDropdown } from '@/components/ui/FilterDropdown'
 
 const STATUS_FILTERS = [
-  { value: 'all', label: 'All' },
-  { value: 'in_pre_production', label: 'Pre-Production' },
-  { value: 'in_production', label: 'In Production' },
-  { value: 'in_post_production', label: 'Post-Production' },
-  { value: 'ready_for_release', label: 'Ready' },
-  { value: 'released', label: 'Released' },
-] as const
+  { value: 'all',                label: 'All statuses' },
+  { value: 'in_pre_production',  label: 'Pre-Production',  dot: 'bg-gray-400' },
+  { value: 'in_production',      label: 'In Production',   dot: 'bg-orange-500' },
+  { value: 'in_post_production', label: 'Post-Production', dot: 'bg-blue-500' },
+  { value: 'ready_for_release',  label: 'Ready',           dot: 'bg-violet-500' },
+  { value: 'released',           label: 'Released',        dot: 'bg-teal-600' },
+]
 
 const TYPE_FILTERS = [
-  { value: 'all', label: 'All types' },
-  { value: 'single', label: 'Single' },
-  { value: 'ep', label: 'EP' },
-  { value: 'album', label: 'Album' },
-  { value: 'mixtape', label: 'Mixtape' },
-] as const
+  { value: 'all',      label: 'All types' },
+  { value: 'single',   label: 'Single',   dot: 'bg-indigo-500' },
+  { value: 'ep',       label: 'EP',       dot: 'bg-purple-500' },
+  { value: 'album',    label: 'Album',    dot: 'bg-pink-500' },
+  { value: 'mixtape',  label: 'Mixtape',  dot: 'bg-cyan-500' },
+]
 
 export function ProjectList({ userId }: { userId: string }) {
   const { data: projects, isLoading, error } = useProjects(userId)
@@ -60,68 +60,47 @@ export function ProjectList({ userId }: { userId: string }) {
   return (
     <>
       {/* Search + filters */}
-      <div className="space-y-3 mb-5">
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+      <div className="flex items-center gap-2 flex-wrap mb-5">
+        <div className="relative flex-1 min-w-[160px]">
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Search projects…"
-            className="w-full pl-9 pr-9 py-2 rounded-md bg-card border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full pl-7 pr-3 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
           {query && (
             <button
               onClick={() => setQuery('')}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
             >
-              <X size={14} />
+              <X size={11} />
             </button>
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {STATUS_FILTERS.map(f => (
-            <button
-              key={f.value}
-              onClick={() => setStatusFilter(f.value)}
-              className={cn(
-                'px-3 py-1 rounded-full text-xs border transition-colors',
-                statusFilter === f.value
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
+        <FilterDropdown
+          value={statusFilter}
+          onChange={setStatusFilter}
+          options={STATUS_FILTERS}
+        />
 
-          <div className="w-px bg-border self-stretch mx-1" />
+        <FilterDropdown
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={TYPE_FILTERS}
+        />
 
-          {TYPE_FILTERS.map(f => (
-            <button
-              key={f.value}
-              onClick={() => setTypeFilter(f.value)}
-              className={cn(
-                'px-3 py-1 rounded-full text-xs border transition-colors',
-                typeFilter === f.value
-                  ? 'bg-primary text-primary-foreground border-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground hover:border-foreground/30',
-              )}
-            >
-              {f.label}
-            </button>
-          ))}
-
-          {hasActiveFilter && (
-            <button
-              onClick={() => { setQuery(''); setStatusFilter('all'); setTypeFilter('all') }}
-              className="px-3 py-1 rounded-full text-xs border border-destructive/40 text-destructive hover:bg-destructive/5 transition-colors ml-auto"
-            >
-              Clear all
-            </button>
-          )}
-        </div>
+        {hasActiveFilter && (
+          <button
+            onClick={() => { setQuery(''); setStatusFilter('all'); setTypeFilter('all') }}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
+          >
+            <X size={11} />
+            Clear
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">

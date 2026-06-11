@@ -27,6 +27,7 @@ import { GanttView } from './GanttView'
 import { Plus, Sparkles, List, BarChart2, Loader2, CheckCircle2, Clock, Circle, Trash2, X, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { FilterDropdown } from '@/components/ui/FilterDropdown'
 
 type ViewMode = 'gantt' | 'list'
 
@@ -242,34 +243,28 @@ export function RoadmapView({ projectId }: { projectId: string }) {
           </div>
 
           {/* Status filter */}
-          <select
+          <FilterDropdown
             value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value)}
-            className={cn(
-              'px-2.5 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer',
-              statusFilter && 'border-primary/50 bg-primary/5 text-primary',
-            )}
-          >
-            <option value="">All statuses</option>
-            <option value="not_started">Not started</option>
-            <option value="in_progress">In progress</option>
-            <option value="complete">Complete</option>
-          </select>
+            onChange={setStatusFilter}
+            options={[
+              { value: '', label: 'All statuses' },
+              { value: 'not_started', label: 'Not started', dot: 'bg-gray-400' },
+              { value: 'in_progress',  label: 'In progress',  dot: 'bg-blue-500' },
+              { value: 'complete',     label: 'Complete',     dot: 'bg-teal-500' },
+            ]}
+          />
 
           {/* Priority filter */}
-          <select
+          <FilterDropdown
             value={priorityFilter}
-            onChange={e => setPriorityFilter(e.target.value)}
-            className={cn(
-              'px-2.5 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring cursor-pointer',
-              priorityFilter && 'border-primary/50 bg-primary/5 text-primary',
-            )}
-          >
-            <option value="">All priorities</option>
-            <option value="high">High</option>
-            <option value="medium">Medium</option>
-            <option value="low">Low</option>
-          </select>
+            onChange={setPriorityFilter}
+            options={[
+              { value: '',       label: 'All priorities' },
+              { value: 'high',   label: 'High',   dot: 'bg-red-500' },
+              { value: 'medium', label: 'Medium', dot: 'bg-amber-500' },
+              { value: 'low',    label: 'Low',    dot: 'bg-slate-400' },
+            ]}
+          />
 
           {/* Clear all filters */}
           {hasFilters && (
