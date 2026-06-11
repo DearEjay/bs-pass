@@ -90,45 +90,6 @@ export type Database = {
           },
         ]
       }
-      chat_reactions: {
-        Row: {
-          id: string
-          message_id: string
-          user_id: string
-          emoji: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          message_id: string
-          user_id: string
-          emoji: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          message_id?: string
-          user_id?: string
-          emoji?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "chat_reactions_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "chat_messages"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chat_reactions_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       chat_messages: {
         Row: {
           body: string | null
@@ -174,6 +135,45 @@ export type Database = {
           {
             foreignKeyName: "chat_messages_sender_id_fkey"
             columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          id: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          id?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          id?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "chat_messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chat_reactions_user_id_fkey"
+            columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
