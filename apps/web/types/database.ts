@@ -539,6 +539,7 @@ export type Database = {
           id: string
           stem_id: string
           storage_path: string
+          track_version_id: string | null
           uploaded_by: string | null
           version_number: number
         }
@@ -547,6 +548,7 @@ export type Database = {
           id?: string
           stem_id: string
           storage_path: string
+          track_version_id?: string | null
           uploaded_by?: string | null
           version_number?: number
         }
@@ -555,6 +557,7 @@ export type Database = {
           id?: string
           stem_id?: string
           storage_path?: string
+          track_version_id?: string | null
           uploaded_by?: string | null
           version_number?: number
         }
@@ -564,6 +567,13 @@ export type Database = {
             columns: ["stem_id"]
             isOneToOne: false
             referencedRelation: "stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stem_versions_track_version_id_fkey"
+            columns: ["track_version_id"]
+            isOneToOne: false
+            referencedRelation: "track_versions"
             referencedColumns: ["id"]
           },
           {
