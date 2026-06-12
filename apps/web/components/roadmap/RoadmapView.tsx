@@ -214,10 +214,10 @@ export function RoadmapView({ projectId }: { projectId: string }) {
           </div>
         )}
 
-        <div className="flex items-center gap-2 ml-auto">
+        <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-accent transition-colors whitespace-nowrap"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-1 px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-accent transition-colors whitespace-nowrap"
             title="Add task"
           >
             <Plus size={13} />
@@ -228,7 +228,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             onClick={handleGenerateWithAI}
             disabled={generatingAI}
             title="Create tasks with AI"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors whitespace-nowrap"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             {generatingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             {generatingAI ? 'Generating…' : 'Create with AI'}
@@ -239,7 +239,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
               onClick={handleAutoAssign}
               disabled={autoAssigning}
               title="Auto-assign existing tasks to collaborators based on their roles"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-colors whitespace-nowrap"
+              className="flex flex-1 sm:flex-none items-center justify-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-colors whitespace-nowrap"
             >
               {autoAssigning ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />}
               <span className="sm:hidden">{autoAssigning ? 'Assigning…' : 'Auto Assign'}</span>
@@ -423,38 +423,38 @@ export function RoadmapView({ projectId }: { projectId: string }) {
 
           {/* Bulk action bar — mobile: full-width bottom bar */}
           {anySelected && (
-            <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-card border-t border-border shadow-2xl flex items-center gap-2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-              <span className="text-sm font-semibold shrink-0">{selected.size} selected</span>
-              <div className="flex-1 flex items-center justify-center gap-2">
+            <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-card border-t border-border shadow-2xl flex items-center gap-1.5 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <span className="text-sm font-semibold shrink-0 min-w-0">{selected.size} sel.</span>
+              <div className="flex-1 flex items-center gap-1.5 min-w-0">
                 {allComplete ? (
                   <button
                     onClick={() => bulkSetStatus('not_started')}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 transition-colors text-xs font-medium"
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 transition-colors text-xs font-medium"
                   >
-                    <Circle size={18} />
+                    <Circle size={16} />
                     Undo
                   </button>
                 ) : (
                   <button
                     onClick={() => bulkSetStatus('complete')}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors text-xs font-medium"
+                    className="flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors text-xs font-medium"
                   >
-                    <CheckCircle2 size={18} />
+                    <CheckCircle2 size={16} />
                     Done
                   </button>
                 )}
                 <button
                   onClick={() => bulkSetStatus('in_progress')}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400/10 text-amber-600 hover:bg-amber-400/20 transition-colors text-xs font-medium"
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-amber-400/10 text-amber-600 hover:bg-amber-400/20 transition-colors text-xs font-medium"
                 >
-                  <Clock size={18} />
+                  <Clock size={16} />
                   Progress
                 </button>
                 <button
                   onClick={bulkDelete}
-                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors text-xs font-medium"
+                  className="flex-1 flex items-center justify-center gap-1 px-2 py-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors text-xs font-medium"
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={16} />
                   Delete
                 </button>
               </div>
