@@ -70,9 +70,10 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
             <button
               onClick={() => setShowSettings(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground whitespace-nowrap"
+              aria-label="Project Settings"
             >
               <Settings size={13} />
-              Project Settings
+              <span className="hidden sm:inline">Project Settings</span>
             </button>
           </div>
         </div>

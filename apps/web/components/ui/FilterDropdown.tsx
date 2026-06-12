@@ -14,22 +14,24 @@ export function FilterDropdown({
   value,
   onChange,
   options,
+  className,
 }: {
   value: string
   onChange: (value: string) => void
   options: FilterOption[]
+  className?: string
 }) {
   const [open, setOpen] = useState(false)
   const selected = options.find(o => o.value === value) ?? options[0]
   const isDefault = selected.value === options[0].value
 
   return (
-    <div className="relative">
+    <div className={cn('relative', className)}>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
         className={cn(
-          'flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border transition-colors',
+          'flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border transition-colors w-full justify-between',
           isDefault
             ? 'border-border bg-background text-muted-foreground hover:text-foreground'
             : 'border-primary/50 bg-primary/5 text-primary',

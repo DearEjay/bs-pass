@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Upload, X } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { SelectDropdown } from '@/components/ui/SelectDropdown'
+import { CalendarPicker } from '@/components/ui/CalendarPicker'
 
 type Track = Database['public']['Tables']['tracks']['Row']
 
@@ -58,11 +59,9 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
     await saveMetadata.mutateAsync({ key: value })
   }
 
-  async function handleReleaseDateBlur() {
-    const value = releaseDate || null
-    if (value !== ((track as Track & { release_date?: string | null }).release_date ?? null)) {
-      await saveMetadata.mutateAsync({ release_date: value })
-    }
+  async function handleReleaseDateChange(iso: string | null) {
+    setReleaseDate(iso ?? '')
+    await saveMetadata.mutateAsync({ release_date: iso })
   }
 
   async function handleRecordLabelBlur() {
@@ -140,13 +139,9 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
         {/* Release date */}
         <div className="space-y-1.5">
           <label className="text-xs text-muted-foreground">Release date</label>
-          <input
-            type="date"
-            value={releaseDate}
-            onChange={e => setReleaseDate(e.target.value)}
-            onBlur={handleReleaseDateBlur}
-            className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+          <div className="w-full aspect-square">
+            <CalendarPicker value={releaseDate} onChange={handleReleaseDateChange} className="h-full" />
+          </div>
         </div>
 
         {/* Track cover art */}

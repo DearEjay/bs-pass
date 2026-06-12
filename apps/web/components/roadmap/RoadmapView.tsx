@@ -276,10 +276,11 @@ export function RoadmapView({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      {/* Search + filters — one row */}
+      {/* Search + filters — 1 row on desktop, 2 rows on mobile */}
       {tasks.length > 0 && (
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 min-w-0">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+          {/* Row 1: search */}
+          <div className="relative w-full sm:flex-1 sm:min-w-0">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               value={searchQuery}
@@ -297,50 +298,56 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             )}
           </div>
 
-          <FilterDropdown
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: '', label: 'All statuses' },
-              { value: 'not_started', label: 'Not started', dot: 'bg-gray-400' },
-              { value: 'in_progress',  label: 'In progress',  dot: 'bg-blue-500' },
-              { value: 'complete',     label: 'Complete',     dot: 'bg-teal-500' },
-            ]}
-          />
+          {/* Row 2 on mobile: filters fill full width equally */}
+          <div className="flex items-center gap-2 sm:contents">
+            <FilterDropdown
+              className="flex-1 sm:flex-none"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[
+                { value: '', label: 'All statuses' },
+                { value: 'not_started', label: 'Not started', dot: 'bg-gray-400' },
+                { value: 'in_progress',  label: 'In progress',  dot: 'bg-blue-500' },
+                { value: 'complete',     label: 'Complete',     dot: 'bg-teal-500' },
+              ]}
+            />
 
-          <FilterDropdown
-            value={priorityFilter}
-            onChange={setPriorityFilter}
-            options={[
-              { value: '',       label: 'All priorities' },
-              { value: 'high',   label: 'High',   dot: 'bg-red-500' },
-              { value: 'medium', label: 'Medium', dot: 'bg-amber-500' },
-              { value: 'low',    label: 'Low',    dot: 'bg-slate-400' },
-            ]}
-          />
+            <FilterDropdown
+              className="flex-1 sm:flex-none"
+              value={priorityFilter}
+              onChange={setPriorityFilter}
+              options={[
+                { value: '',       label: 'All priorities' },
+                { value: 'high',   label: 'High',   dot: 'bg-red-500' },
+                { value: 'medium', label: 'Medium', dot: 'bg-amber-500' },
+                { value: 'low',    label: 'Low',    dot: 'bg-slate-400' },
+              ]}
+            />
 
-          <FilterDropdown
-            value={assigneeFilter}
-            onChange={setAssigneeFilter}
-            options={[
-              { value: '', label: 'All assignees' },
-              { value: '__unassigned__', label: 'Unassigned' },
-              ...collaborators.map(c => ({
-                value: c.user_id,
-                label: (c as { full_name?: string | null }).full_name ?? c.display_name ?? c.user_id.slice(0, 8),
-              })),
-            ]}
-          />
+            <FilterDropdown
+              className="flex-1 sm:flex-none"
+              value={assigneeFilter}
+              onChange={setAssigneeFilter}
+              options={[
+                { value: '', label: 'All assignees' },
+                { value: '__unassigned__', label: 'Unassigned' },
+                ...collaborators.map(c => ({
+                  value: c.user_id,
+                  label: (c as { full_name?: string | null }).full_name ?? c.display_name ?? c.user_id.slice(0, 8),
+                })),
+              ]}
+            />
 
-          {hasFilters && (
-            <button
-              onClick={() => { setSearchQuery(''); setStatusFilter(''); setPriorityFilter(''); setAssigneeFilter('') }}
-              className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
-              title="Clear filters"
-            >
-              <X size={11} />
-            </button>
-          )}
+            {hasFilters && (
+              <button
+                onClick={() => { setSearchQuery(''); setStatusFilter(''); setPriorityFilter(''); setAssigneeFilter('') }}
+                className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
+                title="Clear filters"
+              >
+                <X size={11} />
+              </button>
+            )}
+          </div>
         </div>
       )}
 
