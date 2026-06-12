@@ -15,6 +15,7 @@ import {
   type TaskStatus,
 } from '@/hooks/useTasks'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
+import { useProfile } from '@/hooks/useProfile'
 import { useTracks } from '@/hooks/useTracks'
 import { useProject } from '@/hooks/useProjects'
 import { useCollaborators } from '@/hooks/useCollaborators'
@@ -36,6 +37,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
   const { data: tracks = [] } = useTracks(projectId)
   const { data: project } = useProject(projectId)
   const { data: currentUser } = useCurrentUser()
+  const { data: profile } = useProfile(currentUser?.id ?? '')
   const { data: collaborators = [] } = useCollaborators(projectId)
 
   const createTask   = useCreateTask(projectId)
@@ -184,7 +186,9 @@ export function RoadmapView({ projectId }: { projectId: string }) {
     )
   }
 
-  const displayName = currentUser?.user_metadata?.full_name
+  const displayName = (profile as { full_name?: string | null; display_name?: string | null } | undefined)?.full_name
+    ?? (profile as { full_name?: string | null; display_name?: string | null } | undefined)?.display_name
+    ?? currentUser?.user_metadata?.full_name
     ?? currentUser?.user_metadata?.display_name
     ?? currentUser?.email?.split('@')[0]
     ?? 'there'
