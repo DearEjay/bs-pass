@@ -28,9 +28,15 @@ export function NewProjectModal({
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  function handleClose() {
+    if (coverPreview) URL.revokeObjectURL(coverPreview)
+    onClose()
+  }
+
   function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    if (coverPreview) URL.revokeObjectURL(coverPreview)
     setCoverFile(file)
     setCoverPreview(URL.createObjectURL(file))
   }
@@ -75,7 +81,7 @@ export function NewProjectModal({
       <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-md max-h-[85svh] overflow-y-auto">
         <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border">
           <h2 className="font-semibold">New project</h2>
-          <button onClick={onClose} className="p-2 -mr-1 text-muted-foreground hover:text-foreground transition-colors rounded-md">
+          <button onClick={handleClose} disabled={createProject.isPending} className="p-2 -mr-1 text-muted-foreground hover:text-foreground transition-colors rounded-md disabled:opacity-50">
             <X size={18} />
           </button>
         </div>
@@ -162,8 +168,9 @@ export function NewProjectModal({
           <div className="flex gap-3 pt-1">
             <button
               type="button"
-              onClick={onClose}
-              className="flex-1 py-2 rounded-md border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+              onClick={handleClose}
+              disabled={createProject.isPending}
+              className="flex-1 py-2 rounded-md border border-border text-sm text-muted-foreground hover:text-foreground transition-colors disabled:opacity-50"
             >
               Cancel
             </button>

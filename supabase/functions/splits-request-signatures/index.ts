@@ -61,9 +61,9 @@ Deno.serve(async (req) => {
       .eq('track_id', trackId)
     if (!splits || splits.length === 0) return json({ error: 'No splits configured for this track' }, 400)
 
-    // 100% sum validation
+    // 100% sum validation (exact to 2 decimal places)
     const total = splits.reduce((sum, s) => sum + Number(s.percentage), 0)
-    if (Math.abs(total - 100) > 0.01) {
+    if (Math.round(total * 100) !== 10000) {
       return json({ error: `Split percentages must total 100% (currently ${total.toFixed(2)}%)` }, 422)
     }
 
@@ -107,7 +107,10 @@ Deno.serve(async (req) => {
     let emailsSent = 0
     for (const split of updatedSplits) {
       const email = userMap.get(split.user_id)
-      if (!email) continue
+      if (!email) {
+        console.warn(`splits-request-signatures: no email found for user_id=${split.user_id} (${split.display_name}) — skipping`)
+        continue
+      }
 
       const signUrl = `${APP_BASE}/splits/sign/${split.token}`
       const otherParties = updatedSplits
@@ -158,7 +161,7 @@ Deno.serve(async (req) => {
       entity_type: 'splits',
       entity_id: trackId,
       action: 'signature_request_sent',
-      diff: { track_id: trackId, splits_count: splits.length, emails_sent: emailsSent },
+      diff: { track_id: trackId, splits_count: splits.length, emails_sent: emailsSent, missing_emails: splits.length - emailsSent },
     })
 
     return json({ success: true, emails_sent: emailsSent })

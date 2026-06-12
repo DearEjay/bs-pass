@@ -75,7 +75,7 @@ function SplitEditor({
   }, [splits, editing])
 
   const total = rows.reduce((s, r) => s + Number(r.percentage), 0)
-  const isValid = Math.abs(total - 100) <= 0.01
+  const isValid = Math.round(total * 100) === 10000
 
   const allSigned = splits.length > 0 && splits.every(s => s.split_status === 'signed')
   const anyPending = splits.some(s => s.split_status === 'pending' && s.signature_token !== null)
@@ -111,7 +111,9 @@ function SplitEditor({
     const pct = parseFloat((100 / rows.length).toFixed(2))
     setRows(prev => prev.map((r, i) => ({
       ...r,
-      percentage: i === prev.length - 1 ? 100 - pct * (prev.length - 1) : pct,
+      percentage: i === prev.length - 1
+        ? parseFloat((100 - pct * (prev.length - 1)).toFixed(2))
+        : pct,
     })))
   }
 
@@ -271,7 +273,7 @@ function SplitEditor({
           <div className="px-4 py-2 bg-muted/20 flex items-center justify-between border-t border-border">
             <span className="text-xs text-muted-foreground">Total</span>
             <span className={cn('text-xs font-semibold tabular-nums',
-              Math.abs(splits.reduce((s, x) => s + x.percentage, 0) - 100) <= 0.01
+              Math.round(splits.reduce((s, x) => s + x.percentage, 0) * 100) === 10000
                 ? 'text-emerald-600'
                 : 'text-destructive'
             )}>

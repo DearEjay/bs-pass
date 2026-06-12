@@ -90,8 +90,11 @@ export function AgentPluginsSection({ userId }: { userId: string }) {
     const next = { ...plugins, [id]: !plugins[id] }
     setPlugins(next)
     setSaving(id)
-    await updatePrefs.mutateAsync({ enabled_plugins: next })
-    setSaving(null)
+    try {
+      await updatePrefs.mutateAsync({ enabled_plugins: next })
+    } finally {
+      setSaving(null)
+    }
   }
 
   return (

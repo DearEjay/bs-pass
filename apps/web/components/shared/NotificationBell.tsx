@@ -4,20 +4,10 @@ import { useState } from 'react'
 import { Bell, CheckCheck, X, Map, Music2, Users, MessageCircle } from 'lucide-react'
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '@/hooks/useNotifications'
 import { cn } from '@/lib/utils'
+import { timeAgo } from '@/lib/chat-utils'
 import type { Database } from '@/types/database'
 
 type Notification = Database['public']['Tables']['notifications']['Row']
-
-function timeAgo(dateStr: string | null): string {
-  if (!dateStr) return ''
-  const diff = Date.now() - new Date(dateStr).getTime()
-  const mins = Math.floor(diff / 60_000)
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hrs = Math.floor(mins / 60)
-  if (hrs < 24) return `${hrs}h ago`
-  return `${Math.floor(hrs / 24)}d ago`
-}
 
 const TYPE_ICONS: Record<string, React.ElementType> = {
   task_assigned: Map,

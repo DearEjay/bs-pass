@@ -122,24 +122,25 @@ export function useUpsertSplits(trackId: string, projectId: string) {
     mutationFn: async (splits: Array<{ collaborator_id: string; percentage: number; role?: string }>) => {
       const supabase = createClient()
 
-      // 100% validation
+      // 100% validation (exact to 2 decimal places)
       const total = splits.reduce((s, x) => s + Number(x.percentage), 0)
-      if (Math.abs(total - 100) > 0.01) {
+      if (Math.round(total * 100) !== 10000) {
         throw new Error(`Splits must total 100% (currently ${total.toFixed(2)}%)`)
       }
 
       // Check if any splits currently have active signature requests
       const { data: existing } = await supabase
         .from('splits')
-        .select('id,split_status,signature_token')
+        .select('id,split_status,signature_token,collaborator_id,percentage,role')
         .eq('track_id', trackId)
 
       const hadActiveTokens = (existing ?? []).some(s => s.signature_token !== null && s.split_status !== 'voided')
 
-      // Delete old splits and insert new ones
+      // Delete old splits
       const { error: delError } = await supabase.from('splits').delete().eq('track_id', trackId)
       if (delError) throw delError
 
+      // Insert new splits; rollback to previous state if insert fails
       const { error: insError } = await supabase.from('splits').insert(
         splits.map(s => ({
           track_id: trackId,
@@ -149,7 +150,22 @@ export function useUpsertSplits(trackId: string, projectId: string) {
           split_status: 'pending',
         }))
       )
-      if (insError) throw insError
+      if (insError) {
+        if (existing && existing.length > 0) {
+          try {
+            await supabase.from('splits').insert(
+              existing.map(s => ({
+                track_id: trackId,
+                collaborator_id: s.collaborator_id,
+                percentage: s.percentage,
+                role: s.role,
+                split_status: s.split_status,
+              }))
+            )
+          } catch { /* ignore rollback failure — best effort */ }
+        }
+        throw insError
+      }
 
       // Lock agent for this track since there was a manual edit
       await supabase.from('tracks').update({ splits_agent_locked: true }).eq('id', trackId)
@@ -225,15 +241,24 @@ export function useAutoPopulateSplits(trackId: string, projectId: string) {
         throw new Error('No credits matched to collaborators. Make sure credit names match collaborator display names.')
       }
 
-      // Equal distribution
+      // Equal distribution (last row absorbs rounding)
       const pct = parseFloat((100 / matched.length).toFixed(2))
       const splits = matched.map((m, i) => ({
         ...m,
-        percentage: i === matched.length - 1 ? 100 - pct * (matched.length - 1) : pct,
+        percentage: i === matched.length - 1
+          ? parseFloat((100 - pct * (matched.length - 1)).toFixed(2))
+          : pct,
       }))
 
-      // Delete old and insert new — do NOT lock agent (this was auto-populate, not manual)
-      await supabase.from('splits').delete().eq('track_id', trackId)
+      // Read existing splits for rollback if insert fails
+      const { data: existingSplits } = await supabase
+        .from('splits')
+        .select('collaborator_id, percentage, role, split_status')
+        .eq('track_id', trackId)
+
+      const { error: delError } = await supabase.from('splits').delete().eq('track_id', trackId)
+      if (delError) throw delError
+
       const { error } = await supabase.from('splits').insert(
         splits.map(s => ({
           track_id: trackId,
@@ -242,7 +267,16 @@ export function useAutoPopulateSplits(trackId: string, projectId: string) {
           split_status: 'pending',
         }))
       )
-      if (error) throw error
+      if (error) {
+        if (existingSplits && existingSplits.length > 0) {
+          try {
+            await supabase.from('splits').insert(
+              existingSplits.map(s => ({ track_id: trackId, ...s }))
+            )
+          } catch { /* ignore rollback failure — best effort */ }
+        }
+        throw error
+      }
 
       await supabase.from('audit_logs').insert({
         project_id: projectId,

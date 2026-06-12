@@ -136,8 +136,8 @@ Deno.serve(async (req) => {
       ?? req.headers.get('x-real-ip')
       ?? 'unknown'
 
-    // Record signature — nullify token (single-use)
-    await supabase
+    // Atomic update: only succeeds if signed_at is still null (guards concurrent signing)
+    const { data: updated } = await supabase
       .from('splits')
       .update({
         signed_at: new Date().toISOString(),
@@ -147,6 +147,12 @@ Deno.serve(async (req) => {
         token_expires_at: null,
       })
       .eq('id', split.id)
+      .is('signed_at', null)
+      .select('id')
+
+    if (!updated || updated.length === 0) {
+      return json({ error: 'This split has already been signed.' }, 409)
+    }
 
     const signerName = collab.profiles?.display_name ?? 'A collaborator'
 
