@@ -258,13 +258,11 @@ function SplitEditor({
             <div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center px-4 py-3 border-b last:border-b-0 border-border gap-x-2">
               <div className="min-w-0">
                 <span className="text-sm font-medium">{s.collaborator.full_name ?? s.collaborator.display_name ?? 'Unknown'}</span>
-                <p className="text-xs text-muted-foreground truncate">
-                  {s.collaborator.is_main_artist
-                    ? 'Main Artist'
-                    : s.role
-                      ? (ROLE_LABELS[s.role] ?? s.role)
-                      : s.collaborator.roles.filter(r => r !== 'main_artist').map(r => ROLE_LABELS[r] ?? r.replace(/_/g, ' ')).join(' · ')}
-                </p>
+                {(s.collaborator.is_main_artist || s.role) && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {s.collaborator.is_main_artist ? 'Main Artist' : (ROLE_LABELS[s.role!] ?? s.role)}
+                  </p>
+                )}
                 {(s.collaborator.pro_name || s.collaborator.ipi_number) && (
                   <p className="text-[11px] text-muted-foreground/70 mt-0.5">
                     {[s.collaborator.pro_name, s.collaborator.ipi_number && `IPI: ${s.collaborator.ipi_number}`].filter(Boolean).join(' · ')}

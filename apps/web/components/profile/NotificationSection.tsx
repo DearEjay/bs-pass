@@ -5,12 +5,6 @@ import { Loader2 } from 'lucide-react'
 import { useProfile, useUpdateNotifPrefs, DEFAULT_NOTIF_PREFS, type NotifPrefs } from '@/hooks/useProfile'
 import { cn } from '@/lib/utils'
 
-const DIGEST_OPTIONS: { value: NotifPrefs['digest']; label: string }[] = [
-  { value: 'realtime', label: 'Real-time' },
-  { value: 'daily', label: 'Daily digest' },
-  { value: 'weekly', label: 'Weekly digest' },
-]
-
 export function NotificationSection({ userId }: { userId: string }) {
   const { data: profile } = useProfile(userId)
   const updateNotif = useUpdateNotifPrefs(userId)
@@ -28,12 +22,6 @@ export function NotificationSection({ userId }: { userId: string }) {
 
   function toggle(key: keyof Omit<NotifPrefs, 'digest'>) {
     const next = { ...prefs, [key]: !prefs[key] }
-    setPrefs(next)
-    setDirty(true)
-  }
-
-  function setDigest(value: NotifPrefs['digest']) {
-    const next = { ...prefs, digest: value }
     setPrefs(next)
     setDirty(true)
   }
@@ -66,27 +54,6 @@ export function NotificationSection({ userId }: { userId: string }) {
           checked={prefs.signatures}
           onChange={() => toggle('signatures')}
         />
-      </div>
-
-      <div className="mt-6 pt-5 border-t border-border">
-        <p className="text-sm font-medium mb-3">Email frequency</p>
-        <div className="flex gap-2 flex-wrap">
-          {DIGEST_OPTIONS.map(opt => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setDigest(opt.value)}
-              className={cn(
-                'px-4 py-2 rounded-md text-sm border transition-colors whitespace-nowrap',
-                prefs.digest === opt.value
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
       </div>
 
       {dirty && (
