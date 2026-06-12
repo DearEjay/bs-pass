@@ -5,11 +5,18 @@ import { useSaveTrackMetadata } from '@/hooks/useTrackExtras'
 import { createClient } from '@/lib/supabase/client'
 import { Upload, X } from 'lucide-react'
 import type { Database } from '@/types/database'
+import { SelectDropdown } from '@/components/ui/SelectDropdown'
 
 type Track = Database['public']['Tables']['tracks']['Row']
 
 const KEY_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const KEY_QUALITIES = ['Major', 'Minor']
+
+const KEY_NOTE_OPTIONS = [
+  { value: '', label: '—' },
+  ...KEY_NOTES.map(n => ({ value: n, label: n })),
+]
+const KEY_QUALITY_OPTIONS = KEY_QUALITIES.map(q => ({ value: q, label: q }))
 
 function parseKey(value: string): { note: string; quality: string } {
   const parts = value.split(' ')
@@ -104,22 +111,19 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
         <div className="space-y-1.5">
           <label className="text-xs text-muted-foreground">Key</label>
           <div className="flex gap-1.5">
-            <select
+            <SelectDropdown
               value={keyNote}
-              onChange={e => { setKeyNote(e.target.value); handleKeyChange(e.target.value, keyQuality) }}
-              className="flex-1 px-2 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            >
-              <option value="">—</option>
-              {KEY_NOTES.map(n => <option key={n} value={n}>{n}</option>)}
-            </select>
-            <select
+              onChange={note => { setKeyNote(note); handleKeyChange(note, keyQuality) }}
+              options={KEY_NOTE_OPTIONS}
+              className="flex-1"
+            />
+            <SelectDropdown
               value={keyQuality}
-              onChange={e => { setKeyQuality(e.target.value); handleKeyChange(keyNote, e.target.value) }}
+              onChange={quality => { setKeyQuality(quality); handleKeyChange(keyNote, quality) }}
+              options={KEY_QUALITY_OPTIONS}
               disabled={!keyNote}
-              className="flex-1 px-2 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50"
-            >
-              {KEY_QUALITIES.map(q => <option key={q} value={q}>{q}</option>)}
-            </select>
+              className="flex-1"
+            />
           </div>
         </div>
 

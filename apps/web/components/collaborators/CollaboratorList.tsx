@@ -71,7 +71,7 @@ function CollaboratorRow({
           )}
         </div>
         {collab.roles.length > 0 && (
-          <p className="text-xs text-muted-foreground mt-0.5 truncate">
+          <p className="text-xs text-muted-foreground mt-0.5">
             {collab.roles.map(r => ROLE_LABELS[r] ?? r).join(' · ')}
           </p>
         )}

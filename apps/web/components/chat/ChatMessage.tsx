@@ -9,10 +9,20 @@ import type { ChatMessage as ChatMessageType, ChatReaction } from '@/hooks/useCh
 
 const TAPBACKS = ['❤️', '👍', '👎', '😂', '‼️', '❓'] as const
 
-function renderBody(body: string, searchQuery?: string): React.ReactNode {
+function renderBody(body: string, isOwnMessage: boolean, searchQuery?: string): React.ReactNode {
   return parseChatBody(body).map((part, i) => {
     if (part.kind === 'mention') {
-      return <span key={i} className="text-primary font-semibold">@{part.name}</span>
+      return (
+        <span
+          key={i}
+          className={isOwnMessage
+            ? 'font-semibold underline underline-offset-2 opacity-90'
+            : 'text-primary font-semibold'
+          }
+        >
+          @{part.name}
+        </span>
+      )
     }
     const text = part.value
     if (searchQuery) {
@@ -154,7 +164,7 @@ export function ChatMessage({
   const marginTop = isFirst ? 'mt-5' : 'mt-0.5'
   const reactions = message.reactions ?? []
 
-  const body = renderBody(message.body ?? '', searchQuery)
+  const body = renderBody(message.body ?? '', isOwnMessage, searchQuery)
 
   function handleReact(emoji: string) {
     if (!onToggleReaction || !currentUserId) return
@@ -165,11 +175,7 @@ export function ChatMessage({
   // ── Own message (right-aligned) ──────────────────────────────────────────
   if (isOwnMessage) {
     return (
-      <div
-        className={cn('flex justify-end', marginTop)}
-        onMouseEnter={() => setShowTray(true)}
-        onMouseLeave={() => setShowTray(false)}
-      >
+      <div className={cn('flex justify-end', marginTop)}>
         <div className="flex flex-col items-end max-w-[72%]">
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-[11px] text-muted-foreground">{time}</span>
@@ -181,7 +187,12 @@ export function ChatMessage({
             </div>
           )}
           <div className="flex items-end gap-1.5">
-            <div className="bg-primary text-primary-foreground px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm">
+            <div
+              className="bg-primary text-primary-foreground px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm cursor-pointer select-text"
+              onMouseEnter={() => setShowTray(true)}
+              onMouseLeave={() => setShowTray(false)}
+              onClick={() => onToggleReaction && setShowTray(v => !v)}
+            >
               {body}
             </div>
             <Avatar name={senderName} avatarUrl={avatarUrl} />
@@ -216,11 +227,7 @@ export function ChatMessage({
 
   // ── Other collaborator (left-aligned) ────────────────────────────────────
   return (
-    <div
-      className={cn('flex justify-start', marginTop)}
-      onMouseEnter={() => setShowTray(true)}
-      onMouseLeave={() => setShowTray(false)}
-    >
+    <div className={cn('flex justify-start', marginTop)}>
       <div className="flex flex-col items-start max-w-[72%]">
         <div className="flex items-baseline gap-2 mb-1">
           <span className="text-xs font-semibold">{senderName}</span>
@@ -233,7 +240,12 @@ export function ChatMessage({
         )}
         <div className="flex items-end gap-1.5">
           <Avatar name={senderName} avatarUrl={avatarUrl} />
-          <div className="bg-card border border-border px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm inline-block">
+          <div
+            className="bg-card border border-border px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm inline-block cursor-pointer select-text"
+            onMouseEnter={() => setShowTray(true)}
+            onMouseLeave={() => setShowTray(false)}
+            onClick={() => onToggleReaction && setShowTray(v => !v)}
+          >
             {body}
           </div>
         </div>

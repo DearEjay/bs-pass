@@ -5,6 +5,7 @@ import { useTrackCredits, useUpsertCredit, useDeleteCredit } from '@/hooks/useTr
 import { useCollaborators } from '@/hooks/useCollaborators'
 import { Trash2, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SelectDropdown } from '@/components/ui/SelectDropdown'
 
 const ROLE_LABELS: Record<string, string> = {
   main_artist: 'Main Artist', featured_artist: 'Featured Artist',
@@ -46,23 +47,24 @@ export function TrackCreditsTab({ trackId, projectId }: { trackId: string; proje
     setEditingCreditId(creditId)
   }
 
-  async function commitEdit(creditId: string) {
-    if (!editCollabId || !editRole) { setEditingCreditId(null); return }
-    const collab = collaborators.find(c => c.id === editCollabId)
+  async function commitEdit(creditId: string, collabId = editCollabId, role = editRole) {
+    if (!collabId || !role) { setEditingCreditId(null); return }
+    const collab = collaborators.find(c => c.id === collabId)
     const name = collab?.display_name?.trim() ?? ''
     if (!name) { setEditingCreditId(null); return }
     setEditingCreditId(null)
-    await upsertCredit.mutateAsync({ id: creditId, name, role: ROLE_LABELS[editRole] ?? editRole })
+    await upsertCredit.mutateAsync({ id: creditId, name, role: ROLE_LABELS[role] ?? role })
   }
 
   const ghostCollab = collaborators.find(c => c.id === ghostCollabId)
   const ghostRoles = ghostCollab?.roles.filter(r => r !== 'main_artist') ?? []
 
-  async function commitGhostRow() {
-    if (!ghostCollabId || !ghostRole) return
-    const name = ghostCollab?.display_name?.trim() ?? ''
+  async function commitGhostRow(collabId = ghostCollabId, role = ghostRole) {
+    if (!collabId || !role) return
+    const collab = collaborators.find(c => c.id === collabId)
+    const name = collab?.display_name?.trim() ?? ''
     if (!name) return
-    await upsertCredit.mutateAsync({ name, role: ROLE_LABELS[ghostRole] ?? ghostRole, sort_order: credits.length })
+    await upsertCredit.mutateAsync({ name, role: ROLE_LABELS[role] ?? role, sort_order: credits.length })
     setGhostCollabId('')
     setGhostRole('')
   }
@@ -93,16 +95,11 @@ export function TrackCreditsTab({ trackId, projectId }: { trackId: string; proje
               <tr key={credit.id} className="border-b border-border/50 group">
                 <td className="py-1.5 pr-2">
                   {isEditing ? (
-                    <select
-                      autoFocus
+                    <SelectDropdown
                       value={editCollabId}
-                      onChange={e => { setEditCollabId(e.target.value); setEditRole('') }}
-                      className="w-full bg-input border border-primary/50 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      {collaborators.map(c => (
-                        <option key={c.id} value={c.id}>{c.display_name ?? c.id}</option>
-                      ))}
-                    </select>
+                      onChange={id => { setEditCollabId(id); setEditRole('') }}
+                      options={collaborators.map(c => ({ value: c.id, label: c.display_name ?? c.id }))}
+                    />
                   ) : (
                     <span
                       onClick={() => startEdit(credit.id, credit.name, credit.role)}
@@ -114,17 +111,12 @@ export function TrackCreditsTab({ trackId, projectId }: { trackId: string; proje
                 </td>
                 <td className="py-1.5 pr-2">
                   {isEditing ? (
-                    <select
+                    <SelectDropdown
                       value={editRole}
-                      onChange={e => setEditRole(e.target.value)}
-                      onBlur={() => commitEdit(credit.id)}
-                      className="w-full bg-input border border-primary/50 rounded px-2 py-0.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="">Select role…</option>
-                      {editRoles.map(r => (
-                        <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
-                      ))}
-                    </select>
+                      onChange={role => { setEditRole(role); commitEdit(credit.id, editCollabId, role) }}
+                      options={editRoles.map(r => ({ value: r, label: ROLE_LABELS[r] ?? r }))}
+                      placeholder="Select role…"
+                    />
                   ) : (
                     <span
                       onClick={() => startEdit(credit.id, credit.name, credit.role)}
@@ -153,30 +145,21 @@ export function TrackCreditsTab({ trackId, projectId }: { trackId: string; proje
           {collaborators.length > 0 && (
             <tr className="border-b border-border/30">
               <td className="py-1.5 pr-2">
-                <select
+                <SelectDropdown
                   value={ghostCollabId}
-                  onChange={e => { setGhostCollabId(e.target.value); setGhostRole('') }}
-                  className="w-full bg-transparent px-2 py-0.5 rounded text-sm focus:outline-none focus:bg-input focus:border focus:border-primary/50 text-muted-foreground transition-colors"
-                >
-                  <option value="">Add credit…</option>
-                  {collaborators.map(c => (
-                    <option key={c.id} value={c.id}>{c.display_name ?? c.id}</option>
-                  ))}
-                </select>
+                  onChange={id => { setGhostCollabId(id); setGhostRole('') }}
+                  options={collaborators.map(c => ({ value: c.id, label: c.display_name ?? c.id }))}
+                  placeholder="Add credit…"
+                />
               </td>
               <td className="py-1.5 pr-2">
                 {ghostCollabId && ghostRoles.length > 0 ? (
-                  <select
+                  <SelectDropdown
                     value={ghostRole}
-                    onChange={e => setGhostRole(e.target.value)}
-                    onBlur={commitGhostRow}
-                    className="w-full bg-transparent px-2 py-0.5 rounded text-sm focus:outline-none focus:bg-input focus:border focus:border-primary/50 text-muted-foreground transition-colors"
-                  >
-                    <option value="">Select role…</option>
-                    {ghostRoles.map(r => (
-                      <option key={r} value={r}>{ROLE_LABELS[r] ?? r}</option>
-                    ))}
-                  </select>
+                    onChange={role => { setGhostRole(role); commitGhostRow(ghostCollabId, role) }}
+                    options={ghostRoles.map(r => ({ value: r, label: ROLE_LABELS[r] ?? r }))}
+                    placeholder="Select role…"
+                  />
                 ) : (
                   <span className="px-2 py-0.5 text-sm text-muted-foreground/40">—</span>
                 )}
