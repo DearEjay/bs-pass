@@ -217,7 +217,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
         <div className="flex items-center gap-2 ml-auto">
           <button
             onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-accent transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-accent transition-colors whitespace-nowrap"
             title="Add task"
           >
             <Plus size={13} />
@@ -227,10 +227,11 @@ export function RoadmapView({ projectId }: { projectId: string }) {
           <button
             onClick={handleGenerateWithAI}
             disabled={generatingAI}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors"
+            title="Create tasks with AI"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             {generatingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            {generatingAI ? 'Generating…' : 'Create tasks with AI'}
+            <span className="hidden sm:inline">{generatingAI ? 'Generating…' : 'Create tasks with AI'}</span>
           </button>
 
           {tasks.length > 0 && (
@@ -238,10 +239,10 @@ export function RoadmapView({ projectId }: { projectId: string }) {
               onClick={handleAutoAssign}
               disabled={autoAssigning}
               title="Auto-assign existing tasks to collaborators based on their roles"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-colors whitespace-nowrap"
             >
               {autoAssigning ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />}
-              {autoAssigning ? 'Assigning…' : 'Auto-assign'}
+              <span className="hidden sm:inline">{autoAssigning ? 'Assigning…' : 'Auto-assign'}</span>
             </button>
           )}
 
