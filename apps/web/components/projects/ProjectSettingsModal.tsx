@@ -65,6 +65,12 @@ export function ProjectSettingsModal({
   const [title, setTitle] = useState(project.title)
   const [projectType, setProjectType] = useState(project.project_type as typeof PROJECT_TYPES[number]['value'])
   const [genre, setGenre] = useState(project.genre ?? '')
+  const [recordLabel, setRecordLabel] = useState(
+    (project as Project & { record_label?: string | null }).record_label ?? ''
+  )
+  const [upc, setUpc] = useState(
+    (project as Project & { upc?: string | null }).upc ?? ''
+  )
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   // null = removed, undefined = unchanged, string = local preview URL, existing = project.cover_url
@@ -90,6 +96,8 @@ export function ProjectSettingsModal({
       title,
       project_type: projectType,
       genre: genre || null,
+      record_label: recordLabel.trim() || null,
+      upc: upc.trim() || null,
     })
     // Upload new cover or clear it if explicitly removed
     if (coverFile !== undefined) {
@@ -201,6 +209,32 @@ export function ProjectSettingsModal({
               options={GENRE_OPTIONS}
               placeholder="Select genre…"
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Record label <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <input
+                type="text"
+                value={recordLabel}
+                onChange={e => setRecordLabel(e.target.value)}
+                placeholder="e.g. Independent…"
+                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">UPC <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={upc}
+                onChange={e => setUpc(e.target.value.replace(/\D/g, ''))}
+                placeholder="000000000000"
+                maxLength={13}
+                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+              />
+            </div>
           </div>
 
 

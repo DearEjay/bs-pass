@@ -396,11 +396,13 @@ export type Database = {
           id: string
           owner_id: string
           project_type: string
+          record_label: string | null
           status: string
           timeline_end: string | null
           timeline_start: string | null
           title: string
           updated_at: string | null
+          upc: string | null
         }
         Insert: {
           agent_mode?: string
@@ -413,11 +415,13 @@ export type Database = {
           id?: string
           owner_id: string
           project_type: string
+          record_label?: string | null
           status?: string
           timeline_end?: string | null
           timeline_start?: string | null
           title: string
           updated_at?: string | null
+          upc?: string | null
         }
         Update: {
           agent_mode?: string
@@ -430,11 +434,13 @@ export type Database = {
           id?: string
           owner_id?: string
           project_type?: string
+          record_label?: string | null
           status?: string
           timeline_end?: string | null
           timeline_start?: string | null
           title?: string
           updated_at?: string | null
+          upc?: string | null
         }
         Relationships: [
           {
@@ -916,7 +922,9 @@ export type Database = {
           deleted_at: string | null
           duration_secs: number | null
           id: string
+          isrc: string | null
           key: string | null
+          language: string | null
           lyrics: string | null
           project_id: string
           record_label: string | null
@@ -935,7 +943,9 @@ export type Database = {
           deleted_at?: string | null
           duration_secs?: number | null
           id?: string
+          isrc?: string | null
           key?: string | null
+          language?: string | null
           lyrics?: string | null
           project_id: string
           record_label?: string | null
@@ -954,7 +964,9 @@ export type Database = {
           deleted_at?: string | null
           duration_secs?: number | null
           id?: string
+          isrc?: string | null
           key?: string | null
+          language?: string | null
           lyrics?: string | null
           project_id?: string
           record_label?: string | null

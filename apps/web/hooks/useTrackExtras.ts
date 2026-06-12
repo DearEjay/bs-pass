@@ -76,7 +76,9 @@ export function useDeleteCredit(trackId: string) {
 
 interface TrackMetadata {
   bpm?: number | null
+  isrc?: string | null
   key?: string | null
+  language?: string | null
   release_date?: string | null
   track_cover_url?: string | null
   title?: string

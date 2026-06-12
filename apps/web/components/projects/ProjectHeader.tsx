@@ -47,24 +47,24 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
   return (
     <>
       <div className="border-b border-border bg-card px-4 sm:px-6 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1rem,env(safe-area-inset-top))] pb-0">
-        <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3 min-w-0">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
             <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors -ml-1 p-2 rounded-md shrink-0">
               <ChevronLeft size={18} />
             </Link>
             <div className="min-w-0">
               <h1 className="font-semibold text-lg leading-tight truncate">{project.title}</h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-muted-foreground uppercase">{project.project_type}</span>
-                <span className="text-muted-foreground text-xs">·</span>
-                <span className={cn('text-xs', STATUS_COLOR[liveProject.status])}>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-xs text-muted-foreground uppercase shrink-0">{project.project_type}</span>
+                <span className="text-muted-foreground text-xs shrink-0">·</span>
+                <span className={cn('text-xs whitespace-nowrap truncate', STATUS_COLOR[liveProject.status])}>
                   {STATUS_LABEL[liveProject.status]}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
+          <div className="flex items-center gap-2 shrink-0 ml-2">
             <NotificationBell userId={userId} />
             <UserButton userId={userId} />
             <button

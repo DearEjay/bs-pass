@@ -154,13 +154,11 @@ export default function InvitePage() {
                 </p>
               )}
             </div>
-          ) : (
-            // Not logged in → prompt login / signup
+          ) : invite?.source === 'pending' ? (
+            // No account for this email → send to signup
             <div className="space-y-3">
               <p className="text-sm text-muted-foreground text-center">
-                {invite?.source === 'pending'
-                  ? 'Create a free account to accept this invitation.'
-                  : 'Sign in to accept this invitation.'}
+                Create a free account to accept this invitation.
               </p>
               <Link
                 href={`/signup?next=/invite/${token}`}
@@ -168,12 +166,31 @@ export default function InvitePage() {
               >
                 Create account &amp; accept
               </Link>
+              <p className="text-center text-xs text-muted-foreground">
+                Already have an account?{' '}
+                <Link href={`/login?next=/invite/${token}`} className="text-foreground underline underline-offset-2">
+                  Sign in
+                </Link>
+              </p>
+            </div>
+          ) : (
+            // Registered user → send to login
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground text-center">
+                Sign in to accept this invitation.
+              </p>
               <Link
                 href={`/login?next=/invite/${token}`}
-                className="block w-full py-2.5 rounded-md border border-border text-sm text-center hover:bg-accent transition-colors"
+                className="block w-full py-2.5 rounded-md bg-primary text-primary-foreground text-sm font-medium text-center hover:opacity-90 transition-opacity"
               >
-                Sign in
+                Sign in to accept
               </Link>
+              <p className="text-center text-xs text-muted-foreground">
+                New to BS-PASS?{' '}
+                <Link href={`/signup?next=/invite/${token}`} className="text-foreground underline underline-offset-2">
+                  Create account
+                </Link>
+              </p>
             </div>
           )}
         </div>

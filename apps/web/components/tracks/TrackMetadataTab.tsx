@@ -13,6 +13,44 @@ type Track = Database['public']['Tables']['tracks']['Row']
 const KEY_NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 const KEY_QUALITIES = ['Major', 'Minor']
 
+const LANGUAGE_OPTIONS = [
+  { value: '', label: '—' },
+  { value: 'English', label: 'English' },
+  { value: 'Spanish', label: 'Spanish' },
+  { value: 'French', label: 'French' },
+  { value: 'Portuguese', label: 'Portuguese' },
+  { value: 'German', label: 'German' },
+  { value: 'Italian', label: 'Italian' },
+  { value: 'Japanese', label: 'Japanese' },
+  { value: 'Korean', label: 'Korean' },
+  { value: 'Mandarin', label: 'Mandarin' },
+  { value: 'Cantonese', label: 'Cantonese' },
+  { value: 'Arabic', label: 'Arabic' },
+  { value: 'Hindi', label: 'Hindi' },
+  { value: 'Punjabi', label: 'Punjabi' },
+  { value: 'Urdu', label: 'Urdu' },
+  { value: 'Bengali', label: 'Bengali' },
+  { value: 'Russian', label: 'Russian' },
+  { value: 'Dutch', label: 'Dutch' },
+  { value: 'Swedish', label: 'Swedish' },
+  { value: 'Norwegian', label: 'Norwegian' },
+  { value: 'Danish', label: 'Danish' },
+  { value: 'Finnish', label: 'Finnish' },
+  { value: 'Polish', label: 'Polish' },
+  { value: 'Turkish', label: 'Turkish' },
+  { value: 'Greek', label: 'Greek' },
+  { value: 'Tagalog', label: 'Tagalog' },
+  { value: 'Vietnamese', label: 'Vietnamese' },
+  { value: 'Indonesian', label: 'Indonesian' },
+  { value: 'Thai', label: 'Thai' },
+  { value: 'Swahili', label: 'Swahili' },
+  { value: 'Yoruba', label: 'Yoruba' },
+  { value: 'Igbo', label: 'Igbo' },
+  { value: 'Amharic', label: 'Amharic' },
+  { value: 'Afrikaans', label: 'Afrikaans' },
+  { value: 'Instrumental', label: 'Instrumental' },
+]
+
 const KEY_NOTE_OPTIONS = [
   { value: '', label: '—' },
   ...KEY_NOTES.map(n => ({ value: n, label: n })),
@@ -43,6 +81,12 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
   const [recordLabel, setRecordLabel] = useState(
     (track as Track & { record_label?: string | null }).record_label ?? ''
   )
+  const [language, setLanguage] = useState(
+    (track as Track & { language?: string | null }).language ?? ''
+  )
+  const [isrc, setIsrc] = useState(
+    (track as Track & { isrc?: string | null }).isrc ?? ''
+  )
   const [coverUploading, setCoverUploading] = useState(false)
   const [coverUrl, setCoverUrl] = useState(
     (track as Track & { track_cover_url?: string | null }).track_cover_url ?? null
@@ -68,6 +112,19 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
     const value = recordLabel.trim() || null
     if (value !== ((track as Track & { record_label?: string | null }).record_label ?? null)) {
       await saveMetadata.mutateAsync({ record_label: value })
+    }
+  }
+
+  async function handleLanguageChange(value: string) {
+    setLanguage(value)
+    await saveMetadata.mutateAsync({ language: value || null })
+  }
+
+  async function handleIsrcBlur() {
+    const value = isrc.trim().toUpperCase() || null
+    if (value !== ((track as Track & { isrc?: string | null }).isrc ?? null)) {
+      setIsrc(value ?? '')
+      await saveMetadata.mutateAsync({ isrc: value })
     }
   }
 
@@ -175,16 +232,42 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
         </div>
       </div>
 
-      {/* Record label */}
+      {/* Record label + Language */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">Record label <span className="opacity-50">(optional)</span></label>
+          <input
+            type="text"
+            value={recordLabel}
+            onChange={e => setRecordLabel(e.target.value)}
+            onBlur={handleRecordLabelBlur}
+            placeholder="e.g. Independent…"
+            className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <label className="text-xs text-muted-foreground">Language</label>
+          <SelectDropdown
+            value={language}
+            onChange={handleLanguageChange}
+            options={LANGUAGE_OPTIONS}
+            placeholder="Select…"
+          />
+        </div>
+      </div>
+
+      {/* ISRC */}
       <div className="space-y-1.5">
-        <label className="text-xs text-muted-foreground">Record label <span className="opacity-50">(optional)</span></label>
+        <label className="text-xs text-muted-foreground">ISRC</label>
         <input
           type="text"
-          value={recordLabel}
-          onChange={e => setRecordLabel(e.target.value)}
-          onBlur={handleRecordLabelBlur}
-          placeholder="e.g. Independent, Atlantic Records…"
-          className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          value={isrc}
+          onChange={e => setIsrc(e.target.value)}
+          onBlur={handleIsrcBlur}
+          placeholder="AA-XXX-00-00000"
+          maxLength={15}
+          className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono tracking-wide"
         />
       </div>
     </div>
