@@ -39,6 +39,9 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
   const [releaseDate, setReleaseDate] = useState(
     (track as Track & { release_date?: string | null }).release_date ?? ''
   )
+  const [recordLabel, setRecordLabel] = useState(
+    (track as Track & { record_label?: string | null }).record_label ?? ''
+  )
   const [coverUploading, setCoverUploading] = useState(false)
   const [coverUrl, setCoverUrl] = useState(
     (track as Track & { track_cover_url?: string | null }).track_cover_url ?? null
@@ -59,6 +62,13 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
     const value = releaseDate || null
     if (value !== ((track as Track & { release_date?: string | null }).release_date ?? null)) {
       await saveMetadata.mutateAsync({ release_date: value })
+    }
+  }
+
+  async function handleRecordLabelBlur() {
+    const value = recordLabel.trim() || null
+    if (value !== ((track as Track & { record_label?: string | null }).record_label ?? null)) {
+      await saveMetadata.mutateAsync({ record_label: value })
     }
   }
 
@@ -168,6 +178,19 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
             </label>
           )}
         </div>
+      </div>
+
+      {/* Record label */}
+      <div className="space-y-1.5">
+        <label className="text-xs text-muted-foreground">Record label <span className="opacity-50">(optional)</span></label>
+        <input
+          type="text"
+          value={recordLabel}
+          onChange={e => setRecordLabel(e.target.value)}
+          onBlur={handleRecordLabelBlur}
+          placeholder="e.g. Independent, Atlantic Records…"
+          className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+        />
       </div>
     </div>
   )

@@ -80,6 +80,7 @@ interface TrackMetadata {
   release_date?: string | null
   track_cover_url?: string | null
   title?: string
+  record_label?: string | null
 }
 
 export function useSaveTrackMetadata(trackId: string, projectId: string) {

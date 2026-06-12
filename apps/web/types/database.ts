@@ -180,24 +180,6 @@ export type Database = {
           },
         ]
       }
-      collaborator_role_definitions: {
-        Row: {
-          label: string
-          slug: string
-          sort_order: number
-        }
-        Insert: {
-          label: string
-          slug: string
-          sort_order: number
-        }
-        Update: {
-          label?: string
-          slug?: string
-          sort_order?: number
-        }
-        Relationships: []
-      }
       collaborators: {
         Row: {
           accepted_at: string | null
@@ -937,6 +919,7 @@ export type Database = {
           key: string | null
           lyrics: string | null
           project_id: string
+          record_label: string | null
           release_date: string | null
           sort_order: number | null
           splits_agent_locked: boolean
@@ -955,6 +938,7 @@ export type Database = {
           key?: string | null
           lyrics?: string | null
           project_id: string
+          record_label?: string | null
           release_date?: string | null
           sort_order?: number | null
           splits_agent_locked?: boolean
@@ -973,6 +957,7 @@ export type Database = {
           key?: string | null
           lyrics?: string | null
           project_id?: string
+          record_label?: string | null
           release_date?: string | null
           sort_order?: number | null
           splits_agent_locked?: boolean
