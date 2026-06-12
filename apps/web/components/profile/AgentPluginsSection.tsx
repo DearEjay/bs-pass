@@ -115,24 +115,22 @@ export function AgentPluginsSection({ userId }: { userId: string }) {
                 enabled ? 'border-primary/40 bg-primary/5' : 'border-border',
               )}
             >
-              <div className="absolute top-3 right-3">
+              {/* Icon + toggle row */}
+              <div className="flex items-center justify-between mb-2">
+                <div className={cn(
+                  'p-1.5 rounded-md',
+                  enabled ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
+                )}>
+                  <Icon size={14} />
+                </div>
                 {saving === id
                   ? <Loader2 size={16} className="animate-spin text-muted-foreground" />
                   : <Toggle checked={enabled} onChange={() => handleToggle(id)} />
                 }
               </div>
-              <div className="flex items-start gap-3 pr-10">
-                <div className={cn(
-                  'mt-0.5 p-1.5 rounded-md shrink-0',
-                  enabled ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
-                )}>
-                  <Icon size={14} />
-                </div>
-                <div>
-                  <p className={cn('text-sm font-medium', enabled && 'text-primary')}>{label}</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
-                </div>
-              </div>
+              {/* Title + description — full width, never competes with toggle */}
+              <p className={cn('text-sm font-medium', enabled && 'text-primary')}>{label}</p>
+              <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
             </div>
           )
         })}
