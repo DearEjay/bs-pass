@@ -30,6 +30,7 @@ function makeNotification(overrides: Partial<Notification> = {}): Notification {
     type: 'task_assigned',
     payload: { message: 'You were assigned a task', project_title: 'Album A' } as unknown as Notification['payload'],
     read_at: null,
+    project_id: null,
     created_at: new Date().toISOString(),
     ...overrides,
   }
@@ -40,7 +41,7 @@ function makeNotification(overrides: Partial<Notification> = {}): Notification {
 describe('NotificationBell', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockUseNotifications.mockReturnValue({ data: [], isLoading: false } as ReturnType<typeof useNotifications>)
+    mockUseNotifications.mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useNotifications>)
   })
 
   // ── rendering ──────────────────────────────────────────────────────────────

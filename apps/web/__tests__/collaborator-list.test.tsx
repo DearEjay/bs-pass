@@ -112,7 +112,7 @@ function setupAsCollaborator(collabs: Collaborator[] = [MAIN_ARTIST, REGULAR_COL
 describe('CollaboratorList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockUsePendingInvites.mockReturnValue({ data: [], isLoading: false } as ReturnType<typeof usePendingInvites>)
+    mockUsePendingInvites.mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof usePendingInvites>)
     mockRemoveMutateAsync.mockResolvedValue(undefined)
     mockRestoreMutateAsync.mockResolvedValue(undefined)
   })
@@ -162,7 +162,7 @@ describe('CollaboratorList', () => {
   })
 
   it('shows empty state when no collaborators', () => {
-    mockUseCollaborators.mockReturnValue({ data: [], isLoading: false } as ReturnType<typeof useCollaborators>)
+    mockUseCollaborators.mockReturnValue({ data: [], isLoading: false } as unknown as ReturnType<typeof useCollaborators>)
     mockUseCurrentUser.mockReturnValue({ data: { id: 'u1' } } as ReturnType<typeof useCurrentUser>)
     render(<CollaboratorList projectId="p1" />)
     expect(screen.getByText(/no collaborators yet/i)).toBeInTheDocument()

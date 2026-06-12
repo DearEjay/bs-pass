@@ -29,10 +29,14 @@ const tracksTime    = new Trend('bs_tracks_duration',    true)
 const chatTime      = new Trend('bs_chat_duration',      true)
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const BASE_URL  = __ENV.SUPABASE_URL   || 'https://qbfmotconogcybnmoqbd.supabase.co'
+// All env vars are required — no hardcoded fallbacks for credentials
+if (!__ENV.SUPABASE_URL || !__ENV.SUPABASE_ANON_KEY || !__ENV.TEST_EMAIL || !__ENV.TEST_PASSWORD) {
+  throw new Error('Required env vars: SUPABASE_URL, SUPABASE_ANON_KEY, TEST_EMAIL, TEST_PASSWORD')
+}
+const BASE_URL  = __ENV.SUPABASE_URL
 const ANON_KEY  = __ENV.SUPABASE_ANON_KEY
-const EMAIL     = __ENV.TEST_EMAIL    || 'test@bspass.dev'
-const PASSWORD  = __ENV.TEST_PASSWORD || 'TestPass123!'
+const EMAIL     = __ENV.TEST_EMAIL
+const PASSWORD  = __ENV.TEST_PASSWORD
 
 export const options = {
   stages: [

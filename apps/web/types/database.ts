@@ -1068,6 +1068,10 @@ export type Database = {
       get_invite_by_token: { Args: { p_token: string }; Returns: Json }
       get_split_by_token: { Args: { p_token: string }; Returns: Json }
       get_user_id_by_email: { Args: { p_email: string }; Returns: string }
+      is_project_collaborator_from_path: {
+        Args: { object_name: string }
+        Returns: boolean
+      }
       is_project_main_artist: {
         Args: { p_project_id: string }
         Returns: boolean

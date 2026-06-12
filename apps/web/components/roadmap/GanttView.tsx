@@ -358,7 +358,7 @@ export function GanttView({
                       barColour(task),
                       task.status === 'complete' && 'opacity-65',
                       isThisDragging && 'ring-2 ring-white/30 shadow-xl z-30',
-                      !isThisDragging && 'transition-[left,width] duration-[40ms]',
+                      !isThisDragging && 'transition-[left,width] [transition-duration:40ms]',
                       dragState?.kind === 'move' && isThisDragging ? 'cursor-grabbing' : 'cursor-grab',
                     )}
                     style={{ left, width, height: 38 }}

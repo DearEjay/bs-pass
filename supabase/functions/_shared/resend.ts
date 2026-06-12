@@ -1,5 +1,5 @@
 const BREVO_API_KEY = Deno.env.get('BREVO_API_KEY')!
-const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'ejaymallard@gmail.com'
+const FROM_EMAIL = Deno.env.get('RESEND_FROM_EMAIL') ?? 'no-reply@bspass.app'
 const FROM_NAME = 'BS-PASS'
 
 export interface EmailAttachment {
