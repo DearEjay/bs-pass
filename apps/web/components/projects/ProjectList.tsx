@@ -120,25 +120,52 @@ export function ProjectList({ userId }: { userId: string }) {
     <>
       {/* Search + filters */}
       <div className="space-y-2 mb-5">
-        <div className="relative">
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-          <input
-            type="text"
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Search projects…"
-            className="w-full pl-7 pr-3 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          {query && (
+        {/* Search + view switcher — always on the same line */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <input
+              type="text"
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              placeholder="Search projects…"
+              className="w-full pl-7 pr-3 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery('')}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X size={11} />
+              </button>
+            )}
+          </div>
+
+          <div className="flex rounded-md border border-border overflow-hidden shrink-0">
             <button
-              onClick={() => setQuery('')}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              onClick={() => setViewMode('grid')}
+              className={cn(
+                'px-2.5 py-1.5 text-xs flex items-center transition-colors',
+                viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+              title="Grid view"
             >
-              <X size={11} />
+              <LayoutGrid size={13} />
             </button>
-          )}
+            <button
+              onClick={() => setViewMode('list')}
+              className={cn(
+                'px-2.5 py-1.5 text-xs flex items-center transition-colors border-l border-border',
+                viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+              )}
+              title="List view"
+            >
+              <List size={13} />
+            </button>
+          </div>
         </div>
 
+        {/* Filters row */}
         <div className="flex items-center gap-2 flex-wrap">
           <FilterDropdown
             value={statusFilter}
@@ -173,29 +200,6 @@ export function ProjectList({ userId }: { userId: string }) {
               Clear
             </button>
           )}
-
-          <div className="ml-auto flex rounded-md border border-border overflow-hidden">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={cn(
-                'px-2.5 py-1.5 text-xs flex items-center transition-colors',
-                viewMode === 'grid' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-              title="Grid view"
-            >
-              <LayoutGrid size={13} />
-            </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={cn(
-                'px-2.5 py-1.5 text-xs flex items-center transition-colors border-l border-border',
-                viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
-              )}
-              title="List view"
-            >
-              <List size={13} />
-            </button>
-          </div>
         </div>
       </div>
 
