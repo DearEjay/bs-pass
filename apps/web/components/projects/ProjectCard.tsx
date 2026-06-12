@@ -31,26 +31,26 @@ export function ProjectCard({ project }: { project: Project }) {
   return (
     <Link
       href={`/projects/${project.id}/roadmap`}
-      className="block bg-card border border-border rounded-lg p-4 hover:border-primary/40 hover:bg-accent/50 transition-colors group"
+      className="flex flex-col bg-card border border-border rounded-lg overflow-hidden hover:border-primary/40 hover:bg-accent/50 transition-colors group aspect-[3/4]"
     >
-      {project.cover_url ? (
-        <div className="w-full aspect-square rounded-md overflow-hidden mb-4 bg-secondary">
-          <img src={project.cover_url} alt={project.title} className="w-full h-full object-cover" />
-        </div>
-      ) : (
-        <div className="w-full aspect-square rounded-md mb-4 bg-secondary flex items-center justify-center">
-          <span className="text-4xl">🎵</span>
-        </div>
-      )}
+      {/* Cover — fills top 65% of the card */}
+      <div className="w-full flex-[0_0_65%] bg-secondary flex items-center justify-center overflow-hidden">
+        {project.cover_url
+          ? <img src={project.cover_url} alt={project.title} className="w-full h-full object-cover" />
+          : <span className="text-4xl">🎵</span>
+        }
+      </div>
 
-      <div className="space-y-2">
-        <h3 className="font-semibold leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+      {/* Info — fills remaining 35% */}
+      <div className="flex-1 min-h-0 p-3 flex flex-col justify-between overflow-hidden">
+        <h3 className="font-semibold text-sm leading-tight line-clamp-2 group-hover:text-primary transition-colors">
           {project.title}
         </h3>
 
-        <div className="space-y-1">
+        <div className="mt-1 space-y-1">
           <p className="text-xs text-muted-foreground">
             {TYPE_LABEL[project.project_type] ?? project.project_type}
+            {project.genre ? ` · ${project.genre}` : ''}
           </p>
           <span className={cn(
             'inline-block text-xs px-1.5 py-0.5 rounded border whitespace-nowrap',
@@ -59,10 +59,6 @@ export function ProjectCard({ project }: { project: Project }) {
             {STATUS_LABEL[project.status] ?? project.status}
           </span>
         </div>
-
-        {project.genre && (
-          <p className="text-xs text-muted-foreground">{project.genre}</p>
-        )}
       </div>
     </Link>
   )
