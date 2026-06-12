@@ -113,25 +113,6 @@ export function AgentSection({ userId }: { userId: string }) {
         </div>
       </div>
 
-      {/* Timeline buffer */}
-      <div className="mb-5">
-        <label className="text-sm font-medium block mb-1">Timeline buffer</label>
-        <p className="text-xs text-muted-foreground mb-2">
-          Extra days the agent adds to each task deadline to account for delays.
-        </p>
-        <div className="flex items-center gap-3">
-          <input
-            type="number"
-            min={0}
-            max={30}
-            value={bufferDays}
-            onChange={e => change<number>(setBufferDays)(Number(e.target.value))}
-            className="w-20 px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
-          <span className="text-sm text-muted-foreground">days</span>
-        </div>
-      </div>
-
       {/* Communication tone */}
       <div className="mb-5">
         <p className="text-sm font-medium mb-2">Communication tone</p>
@@ -183,7 +164,7 @@ export function AgentSection({ userId }: { userId: string }) {
       </div>
 
       {/* Auto task triggers */}
-      <div className="flex items-start justify-between gap-4 mb-5">
+      <div className="flex items-start justify-between gap-4 mb-3">
         <div>
           <p className="text-sm font-medium">Auto-create tasks</p>
           <p className="text-xs text-muted-foreground mt-0.5">
@@ -209,12 +190,54 @@ export function AgentSection({ userId }: { userId: string }) {
         </button>
       </div>
 
-      {/* Learning toggle */}
-      <div className="flex items-start justify-between gap-4 mb-5 pb-5 border-b border-border">
+      {/* Timeline buffer — lives under auto-create tasks */}
+      <div className="mb-5 pl-0">
+        <label className="text-sm font-medium block mb-1">Timeline buffer</label>
+        <p className="text-xs text-muted-foreground mb-2">
+          Extra days the agent adds to each task deadline to account for delays.
+        </p>
+        <div className="flex items-center gap-3">
+          <input
+            type="number"
+            min={0}
+            max={30}
+            value={bufferDays}
+            onChange={e => change<number>(setBufferDays)(Number(e.target.value))}
+            className="w-20 px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+          <span className="text-sm text-muted-foreground">days</span>
+        </div>
+      </div>
+
+      {dirty && (
+        <div className="mt-5 pt-5 border-t border-border flex justify-end">
+          <button
+            type="button"
+            onClick={save}
+            disabled={updatePrefs.isPending}
+            className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+          >
+            {updatePrefs.isPending && <Loader2 size={13} className="animate-spin" />}
+            Save preferences
+          </button>
+        </div>
+      )}
+    </div>
+
+    {/* Agent learning — separate card */}
+    <div className="bg-card border border-border rounded-lg p-6 space-y-5">
+      <div>
+        <h2 className="font-semibold text-base">Agent learning</h2>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Agent learns from your task feedback to improve future suggestions.
+        </p>
+      </div>
+
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium">Agent learning</p>
+          <p className="text-sm font-medium">Enable learning</p>
           <p className="text-xs text-muted-foreground mt-0.5">
-            Agent learns from your task feedback to improve future suggestions.
+            Allow the agent to adapt based on your feedback.
           </p>
         </div>
         <button
@@ -236,8 +259,7 @@ export function AgentSection({ userId }: { userId: string }) {
         </button>
       </div>
 
-      {/* Avoided task types (agent-managed, read-only display) */}
-      <div className="mb-5">
+      <div className="pt-4 border-t border-border">
         <p className="text-sm font-medium mb-1">Learned task preferences</p>
         <p className="text-xs text-muted-foreground mb-2">
           Task types the agent has learned you prefer to avoid.
@@ -255,13 +277,10 @@ export function AgentSection({ userId }: { userId: string }) {
         )}
       </div>
 
-      {/* Reset learning */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pt-4 border-t border-border">
         <div>
           <p className="text-sm font-medium">Reset agent learning</p>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Clears all learned preferences and restores defaults.
-          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">Clears all learned preferences.</p>
         </div>
         <button
           type="button"
@@ -281,20 +300,6 @@ export function AgentSection({ userId }: { userId: string }) {
           {resetConfirm ? 'Confirm reset' : 'Reset'}
         </button>
       </div>
-
-      {dirty && (
-        <div className="mt-5 pt-5 border-t border-border flex justify-end">
-          <button
-            type="button"
-            onClick={save}
-            disabled={updatePrefs.isPending}
-            className="flex items-center gap-2 px-4 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-          >
-            {updatePrefs.isPending && <Loader2 size={13} className="animate-spin" />}
-            Save preferences
-          </button>
-        </div>
-      )}
     </div>
   )
 }
