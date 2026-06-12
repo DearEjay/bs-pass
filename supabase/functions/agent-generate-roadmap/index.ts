@@ -57,7 +57,7 @@ Deno.serve(async (req) => {
     const [existingRes, tracksRes, collabsRes, prefsRes] = await Promise.all([
       supabase.from('tasks').select('title,status,priority,start_date,due_date,description').eq('project_id', projectId).is('deleted_at', null),
       supabase.from('tracks').select('title,current_status').eq('project_id', projectId).is('deleted_at', null),
-      supabase.from('collaborators').select('id,user_id,roles,profiles:user_id(display_name)').eq('project_id', projectId).is('removed_at', null),
+      supabase.from('collaborators').select('id,user_id,roles,profiles:user_id(display_name,full_name)').eq('project_id', projectId).is('removed_at', null),
       supabase.from('user_agent_preferences').select('avoided_task_types,preferred_timeline_buffer_days,agent_tone,agent_verbosity,auto_task_triggers').eq('user_id', userId).maybeSingle(),
     ])
 
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     const existingTitles = existingTasks.map(t => t.title)
     const incompleteTasks = existingTasks.filter(t => t.status !== 'complete')
     const trackStatuses = (tracksRes.data ?? []) as Array<{ title: string; current_status: string }>
-    const collaborators = (collabsRes.data ?? []) as Array<{ id: string; user_id: string; roles: string[]; profiles: { display_name: string } | null }>
+    const collaborators = (collabsRes.data ?? []) as Array<{ id: string; user_id: string; roles: string[]; profiles: { display_name: string | null; full_name: string | null } | null }>
     const agentPrefs = prefsRes.data
 
     // ── 5. Build role → collaborator_id map ───────────────────────────────
@@ -76,6 +76,12 @@ Deno.serve(async (req) => {
         if (!roleToUserId[role]) roleToUserId[role] = c.user_id
       }
     }
+
+    // Collaborator summary for prompt (name + roles)
+    const collaboratorSummary = collaborators.map(c => ({
+      name: c.profiles?.full_name ?? c.profiles?.display_name ?? 'Unknown',
+      roles: c.roles ?? [],
+    }))
 
     // ── 6. Call Gemini ────────────────────────────────────────────────────
     const today = new Date().toISOString().split('T')[0]
@@ -91,6 +97,7 @@ Deno.serve(async (req) => {
       timeline_start: timelineStart,
       timeline_end: project.timeline_end ?? null,
       today,
+      collaborators: collaboratorSummary,
       collaborator_roles: collaborators.flatMap(c => c.roles ?? []),
       avoided_task_types: agentPrefs?.avoided_task_types ?? [],
       timeline_buffer_days: bufferDays,
@@ -134,7 +141,8 @@ RULES:
 - Add timeline_buffer_days padding between tasks
 - priority must be "high", "medium", or "low"
 - Tasks should reflect the current state of tracks (don't generate tasks for already-complete track stages)
-- assignee_role is optional — only include if that role exists in collaborator_roles
+- assignee_role is optional — only include if that role exists in collaborator_roles; assign tasks to collaborators based on their expertise (e.g. "mixing_engineer" for mixing tasks, "songwriter" for writing tasks)
+- The collaborators field in PROJECT CONTEXT lists each team member by name + roles — use this to make smart, specific assignments
 - Keep titles under 60 characters
 - ${toneInstruction}
 - ${verbosityInstruction}
@@ -224,6 +232,46 @@ Return a JSON array where each element has:
       sender_type: 'agent',
       body: `@here 📋 Roadmap ready — I've generated ${taskCount} tasks for "${project.title}". Check the Roadmap tab to review, reorder, or adjust.`,
     })
+
+    // ── 8b. Notify assigned collaborators ─────────────────────────────────
+    const assignedTaskIds = (inserted ?? [])
+      .filter((_, i) => rows[i]?.assignee_id)
+      .map(t => t.id)
+    if (assignedTaskIds.length > 0) {
+      // Post assignment notifications as chat messages via the existing pattern
+      const assignedTasks = (inserted ?? []).filter((_, i) => rows[i]?.assignee_id)
+      const byAssignee = new Map<string, { name: string; tasks: Array<{ title: string; due_date: string | null }> }>()
+      for (let i = 0; i < (inserted ?? []).length; i++) {
+        const row = rows[i]
+        const task = inserted![i]
+        if (!row.assignee_id || !task) continue
+        const collab = collaborators.find(c => c.user_id === row.assignee_id)
+        const name = collab?.profiles?.full_name ?? collab?.profiles?.display_name ?? 'there'
+        if (!byAssignee.has(row.assignee_id)) byAssignee.set(row.assignee_id, { name, tasks: [] })
+        byAssignee.get(row.assignee_id)!.tasks.push({ title: task.title, due_date: row.due_date ?? null })
+      }
+      const messages: string[] = []
+      for (const { name, tasks: assigned } of byAssignee.values()) {
+        if (assigned.length === 1) {
+          const t = assigned[0]
+          const due = t.due_date ? ` (due ${t.due_date})` : ''
+          messages.push(`@${name} you've been assigned: ${t.title}${due}`)
+        } else {
+          const list = assigned.map(t => {
+            const due = t.due_date ? ` (due ${t.due_date})` : ''
+            return `  • ${t.title}${due}`
+          }).join('\n')
+          messages.push(`@${name} you've been assigned ${assigned.length} tasks:\n${list}`)
+        }
+      }
+      if (messages.length > 0) {
+        await supabase.from('chat_messages').insert({
+          project_id: projectId,
+          sender_type: 'agent',
+          body: messages.join('\n\n'),
+        }).catch(e => console.warn('Assignment notification failed:', e))
+      }
+    }
 
     // ── 9. Audit log ──────────────────────────────────────────────────────
     await supabase.from('audit_logs').insert({

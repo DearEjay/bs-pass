@@ -365,24 +365,33 @@ export type Database = {
           avatar_url: string | null
           created_at: string | null
           display_name: string
+          full_name: string | null
           global_notif_prefs: Json | null
           id: string
+          ipi_number: string | null
+          pro_name: string | null
           updated_at: string | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string | null
           display_name: string
+          full_name?: string | null
           global_notif_prefs?: Json | null
           id: string
+          ipi_number?: string | null
+          pro_name?: string | null
           updated_at?: string | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string | null
           display_name?: string
+          full_name?: string | null
           global_notif_prefs?: Json | null
           id?: string
+          ipi_number?: string | null
+          pro_name?: string | null
           updated_at?: string | null
         }
         Relationships: []

@@ -67,6 +67,9 @@ const MAIN_ARTIST: Collaborator = {
   invited_at: null,
   accepted_at: null,
   display_name: 'Alice Owner',
+  full_name: null,
+  pro_name: null,
+  ipi_number: null,
   avatar_url: null,
 }
 
@@ -79,6 +82,9 @@ const REGULAR_COLLAB: Collaborator = {
   invited_at: null,
   accepted_at: null,
   display_name: 'Bob Producer',
+  full_name: null,
+  pro_name: null,
+  ipi_number: null,
   avatar_url: null,
 }
 

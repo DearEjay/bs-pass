@@ -46,7 +46,7 @@ function SignupForm() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-1.5">
-          <label htmlFor="name" className="text-sm font-medium">Display name</label>
+          <label htmlFor="name" className="text-sm font-medium">Full name</label>
           <input
             id="name"
             type="text"
@@ -54,6 +54,7 @@ function SignupForm() {
             onChange={e => setDisplayName(e.target.value)}
             required
             autoComplete="name"
+            placeholder="First and last legal name"
             className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>

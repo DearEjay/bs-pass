@@ -13,6 +13,9 @@ export interface Collaborator {
   invited_at: string | null
   accepted_at: string | null
   display_name: string | null
+  full_name: string | null
+  pro_name: string | null
+  ipi_number: string | null
   avatar_url: string | null
 }
 
@@ -32,22 +35,34 @@ export function useCollaborators(projectId: string) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('collaborators')
-        .select('id, user_id, is_main_artist, roles, status, invited_at, accepted_at, profiles:user_id(display_name, avatar_url)')
+        .select('id, user_id, is_main_artist, roles, status, invited_at, accepted_at, profiles:user_id(display_name, full_name, pro_name, ipi_number, avatar_url)')
         .eq('project_id', projectId)
         .is('removed_at', null)
         .order('is_main_artist', { ascending: false })
       if (error) throw error
-      return (data ?? []).map(c => ({
-        id: c.id,
-        user_id: c.user_id,
-        is_main_artist: c.is_main_artist,
-        roles: Array.isArray(c.roles) ? c.roles : [],
-        status: c.status ?? 'active',
-        invited_at: c.invited_at ?? null,
-        accepted_at: c.accepted_at ?? null,
-        display_name: (c.profiles as { display_name: string | null } | null)?.display_name ?? null,
-        avatar_url: (c.profiles as { avatar_url: string | null } | null)?.avatar_url ?? null,
-      })) as Collaborator[]
+      return (data ?? []).map(c => {
+        const p = c.profiles as {
+          display_name: string | null
+          full_name?: string | null
+          pro_name?: string | null
+          ipi_number?: string | null
+          avatar_url: string | null
+        } | null
+        return {
+          id: c.id,
+          user_id: c.user_id,
+          is_main_artist: c.is_main_artist,
+          roles: Array.isArray(c.roles) ? c.roles : [],
+          status: c.status ?? 'active',
+          invited_at: c.invited_at ?? null,
+          accepted_at: c.accepted_at ?? null,
+          display_name: p?.display_name ?? null,
+          full_name: p?.full_name ?? p?.display_name ?? null,
+          pro_name: p?.pro_name ?? null,
+          ipi_number: p?.ipi_number ?? null,
+          avatar_url: p?.avatar_url ?? null,
+        }
+      }) as Collaborator[]
     },
     enabled: !!projectId,
     staleTime: 30_000,

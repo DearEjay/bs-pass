@@ -125,8 +125,7 @@ export function EditTaskModal({ task, collaborators, onSave, onClose }: Props) {
               <option value="">Unassigned</option>
               {collaborators.map(c => (
                 <option key={c.user_id} value={c.user_id}>
-                  {c.display_name ?? c.user_id.slice(0, 8)}
-                  {(c.roles?.length ?? 0) > 0 ? ` — ${c.roles.join(', ')}` : ''}
+                  {(c as { full_name?: string | null }).full_name ?? c.display_name ?? c.user_id.slice(0, 8)}
                 </option>
               ))}
             </select>

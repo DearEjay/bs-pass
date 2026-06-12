@@ -24,7 +24,7 @@ import { EditTaskModal } from './EditTaskModal'
 import { RoadmapProgressBar } from './RoadmapProgressBar'
 import { RoadmapAISummary } from './RoadmapAISummary'
 import { GanttView } from './GanttView'
-import { Plus, Sparkles, List, BarChart2, Loader2, CheckCircle2, Clock, Circle, Trash2, X, Search } from 'lucide-react'
+import { Plus, Sparkles, List, BarChart2, Loader2, CheckCircle2, Clock, Circle, Trash2, X, Search, UserCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { FilterDropdown } from '@/components/ui/FilterDropdown'
@@ -50,20 +50,29 @@ export function RoadmapView({ projectId }: { projectId: string }) {
   const [viewMode,      setViewMode]      = useState<ViewMode>('list')
   const [generatingAI,  setGeneratingAI]  = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
+  const [autoAssigning, setAutoAssigning] = useState(false)
   const [selected,       setSelected]       = useState<Set<string>>(new Set())
   const [searchQuery,    setSearchQuery]    = useState('')
   const [statusFilter,   setStatusFilter]   = useState('')
   const [priorityFilter, setPriorityFilter] = useState('')
+  const [assigneeFilter, setAssigneeFilter] = useState('')
 
   const done  = tasks.filter(t => t.status === 'complete').length
   const total = tasks.length
 
-  const hasFilters = !!(searchQuery || statusFilter || priorityFilter)
+  const hasFilters = !!(searchQuery || statusFilter || priorityFilter || assigneeFilter)
 
   const filteredTasks = tasks.filter(t => {
-    if (searchQuery   && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
+    if (searchQuery    && !t.title.toLowerCase().includes(searchQuery.toLowerCase())) return false
     if (statusFilter   && t.status   !== statusFilter)   return false
     if (priorityFilter && t.priority !== priorityFilter) return false
+    if (assigneeFilter) {
+      if (assigneeFilter === '__unassigned__') {
+        if (t.assignee_id) return false
+      } else {
+        if (t.assignee_id !== assigneeFilter) return false
+      }
+    }
     return true
   })
 
@@ -146,6 +155,25 @@ export function RoadmapView({ projectId }: { projectId: string }) {
     }
   }
 
+  async function handleAutoAssign() {
+    const supabase = createClient()
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.access_token) return
+    setAutoAssigning(true)
+    try {
+      await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agent-auto-assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ projectId }),
+      })
+      await qc.invalidateQueries({ queryKey: ['tasks', projectId] })
+    } catch (e) {
+      console.warn('Auto-assign failed:', e)
+    } finally {
+      setAutoAssigning(false)
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-2">
@@ -156,7 +184,10 @@ export function RoadmapView({ projectId }: { projectId: string }) {
     )
   }
 
-  const displayName = currentUser?.user_metadata?.display_name ?? currentUser?.email?.split('@')[0] ?? 'there'
+  const displayName = currentUser?.user_metadata?.full_name
+    ?? currentUser?.user_metadata?.display_name
+    ?? currentUser?.email?.split('@')[0]
+    ?? 'there'
   const anySelected = selected.size > 0
 
   return (
@@ -186,7 +217,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             title="Add task"
           >
             <Plus size={13} />
-            Add
+            Add Task
           </button>
 
           <button
@@ -197,6 +228,18 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             {generatingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             {generatingAI ? 'Generating…' : 'Create tasks with AI'}
           </button>
+
+          {tasks.length > 0 && (
+            <button
+              onClick={handleAutoAssign}
+              disabled={autoAssigning}
+              title="Auto-assign existing tasks to collaborators based on their roles"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-colors"
+            >
+              {autoAssigning ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />}
+              {autoAssigning ? 'Assigning…' : 'Auto-assign'}
+            </button>
+          )}
 
           {generateError && (
             <span className="text-xs text-destructive max-w-[200px] truncate" title={generateError}>
@@ -272,9 +315,22 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             ]}
           />
 
+          <FilterDropdown
+            value={assigneeFilter}
+            onChange={setAssigneeFilter}
+            options={[
+              { value: '', label: 'All assignees' },
+              { value: '__unassigned__', label: 'Unassigned' },
+              ...collaborators.map(c => ({
+                value: c.user_id,
+                label: (c as { full_name?: string | null }).full_name ?? c.display_name ?? c.user_id.slice(0, 8),
+              })),
+            ]}
+          />
+
           {hasFilters && (
             <button
-              onClick={() => { setSearchQuery(''); setStatusFilter(''); setPriorityFilter('') }}
+              onClick={() => { setSearchQuery(''); setStatusFilter(''); setPriorityFilter(''); setAssigneeFilter('') }}
               className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
               title="Clear filters"
             >

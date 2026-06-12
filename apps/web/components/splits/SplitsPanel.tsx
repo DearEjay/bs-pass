@@ -255,9 +255,9 @@ function SplitEditor({
             <span className="text-right">Status</span>
           </div>
           {splits.map(s => (
-            <div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center px-4 py-3 border-b last:border-b-0 border-border">
-              <div>
-                <span className="text-sm font-medium">{s.collaborator.display_name ?? 'Unknown'}</span>
+            <div key={s.id} className="grid grid-cols-[1fr_auto_auto] items-center px-4 py-3 border-b last:border-b-0 border-border gap-x-2">
+              <div className="min-w-0">
+                <span className="text-sm font-medium">{s.collaborator.full_name ?? s.collaborator.display_name ?? 'Unknown'}</span>
                 <p className="text-xs text-muted-foreground truncate">
                   {s.collaborator.is_main_artist
                     ? 'Main Artist'
@@ -265,8 +265,13 @@ function SplitEditor({
                       ? (ROLE_LABELS[s.role] ?? s.role)
                       : s.collaborator.roles.filter(r => r !== 'main_artist').map(r => ROLE_LABELS[r] ?? r.replace(/_/g, ' ')).join(' · ')}
                 </p>
+                {(s.collaborator.pro_name || s.collaborator.ipi_number) && (
+                  <p className="text-[11px] text-muted-foreground/70 mt-0.5">
+                    {[s.collaborator.pro_name, s.collaborator.ipi_number && `IPI: ${s.collaborator.ipi_number}`].filter(Boolean).join(' · ')}
+                  </p>
+                )}
               </div>
-              <span className="text-sm font-semibold tabular-nums pr-8">{s.percentage.toFixed(2)}%</span>
+              <span className="text-sm font-semibold tabular-nums pr-4 sm:pr-8">{s.percentage.toFixed(2)}%</span>
               <SignatureStatusBadge status={s.split_status} />
             </div>
           ))}

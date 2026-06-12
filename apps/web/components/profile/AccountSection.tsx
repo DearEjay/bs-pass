@@ -11,19 +11,28 @@ export function AccountSection({ userId, email }: { userId: string; email: strin
   const uploadAvatar = useUploadAvatar(userId)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const [displayName, setDisplayName] = useState('')
+  const [fullName, setFullName] = useState('')
   const [nameEditing, setNameEditing] = useState(false)
   const [nameSaved, setNameSaved] = useState(false)
 
+  // Support both new full_name column and legacy display_name
+  const currentName = (profile as { full_name?: string | null; display_name?: string | null } | undefined)?.full_name
+    ?? profile?.display_name
+    ?? null
+
   function startEditing() {
-    setDisplayName(profile?.display_name ?? '')
+    setFullName(currentName ?? '')
     setNameEditing(true)
     setNameSaved(false)
   }
 
   async function saveName() {
-    if (!displayName.trim()) return
-    await updateProfile.mutateAsync({ display_name: displayName.trim() })
+    if (!fullName.trim()) return
+    const trimmed = fullName.trim()
+    await updateProfile.mutateAsync({
+      full_name: trimmed,
+      display_name: trimmed,  // keep in sync for backward compat
+    })
     setNameEditing(false)
     setNameSaved(true)
     setTimeout(() => setNameSaved(false), 2000)
@@ -66,7 +75,7 @@ export function AccountSection({ userId, email }: { userId: string; email: strin
           </div>
         </button>
         <div>
-          <p className="font-medium">{profile?.display_name || 'No name set'}</p>
+          <p className="font-medium">{currentName || 'No name set'}</p>
           <p className="text-sm text-muted-foreground">{email}</p>
           <button
             type="button"
@@ -85,17 +94,19 @@ export function AccountSection({ userId, email }: { userId: string; email: strin
         />
       </div>
 
-      {/* Display name */}
+      {/* Full name */}
       <div className="space-y-1.5">
-        <label className="text-sm font-medium">Display name</label>
+        <label className="text-sm font-medium">Full name</label>
+        <p className="text-xs text-muted-foreground mb-1">First and last legal name — used in splits agreements</p>
         {nameEditing ? (
           <div className="flex gap-2">
             <input
               type="text"
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
+              value={fullName}
+              onChange={e => setFullName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') setNameEditing(false) }}
               autoFocus
+              placeholder="First and last legal name"
               className="flex-1 px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
             />
             <button
@@ -117,7 +128,7 @@ export function AccountSection({ userId, email }: { userId: string; email: strin
         ) : (
           <div className="flex items-center gap-3">
             <span className="text-sm text-muted-foreground flex-1 px-3 py-2 rounded-md bg-muted">
-              {profile?.display_name || 'Not set'}
+              {currentName || 'Not set'}
             </span>
             {nameSaved && <Check size={14} className="text-emerald-600 shrink-0" />}
             <button

@@ -32,6 +32,9 @@ const COLLAB: Collaborator = {
   invited_at: null,
   accepted_at: null,
   display_name: 'Bob Producer',
+  full_name: null,
+  pro_name: null,
+  ipi_number: null,
   avatar_url: null,
 }
 

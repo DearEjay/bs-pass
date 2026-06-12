@@ -19,6 +19,9 @@ export interface Split {
     id: string
     user_id: string
     display_name: string | null
+    full_name: string | null
+    pro_name: string | null
+    ipi_number: string | null
     avatar_url: string | null
     roles: string[]
     is_main_artist: boolean
@@ -57,7 +60,7 @@ export function useSplits(trackId: string) {
             user_id,
             roles,
             is_main_artist,
-            profiles:user_id(display_name, avatar_url)
+            profiles:user_id(display_name, full_name, pro_name, ipi_number, avatar_url)
           )
         `)
         .eq('track_id', trackId)
@@ -69,7 +72,13 @@ export function useSplits(trackId: string) {
           user_id: string
           roles: string[]
           is_main_artist: boolean
-          profiles: { display_name: string | null; avatar_url: string | null } | null
+          profiles: {
+            display_name: string | null
+            full_name?: string | null
+            pro_name?: string | null
+            ipi_number?: string | null
+            avatar_url: string | null
+          } | null
         }
         return {
           id: s.id,
@@ -87,6 +96,9 @@ export function useSplits(trackId: string) {
             id: c.id,
             user_id: c.user_id,
             display_name: c.profiles?.display_name ?? null,
+            full_name: c.profiles?.full_name ?? c.profiles?.display_name ?? null,
+            pro_name: c.profiles?.pro_name ?? null,
+            ipi_number: c.profiles?.ipi_number ?? null,
             avatar_url: c.profiles?.avatar_url ?? null,
             roles: Array.isArray(c.roles) ? c.roles : [],
             is_main_artist: c.is_main_artist ?? false,
@@ -216,11 +228,11 @@ export function useAutoPopulateSplits(trackId: string, projectId: string) {
 
       const { data: collabs } = await supabase
         .from('collaborators')
-        .select('id, user_id, roles, profiles:user_id(display_name)')
+        .select('id, user_id, roles, profiles:user_id(display_name, full_name)')
         .eq('project_id', track?.project_id ?? projectId)
         .is('removed_at', null)
 
-      // Match credits to collaborators by display_name (case-insensitive)
+      // Match credits to collaborators by full_name or display_name (case-insensitive)
       const matched: Array<{ collaborator_id: string; percentage: number }> = []
       const matchedCollabIds = new Set<string>()
 
@@ -228,7 +240,8 @@ export function useAutoPopulateSplits(trackId: string, projectId: string) {
         const name = credit.name?.trim().toLowerCase()
         if (!name) continue
         const collab = (collabs ?? []).find(c => {
-          const cn = (c.profiles as { display_name: string | null } | null)?.display_name?.trim().toLowerCase()
+          const p = c.profiles as { display_name: string | null; full_name?: string | null } | null
+          const cn = (p?.full_name ?? p?.display_name)?.trim().toLowerCase()
           return cn === name
         })
         if (collab && !matchedCollabIds.has(collab.id)) {
@@ -238,7 +251,7 @@ export function useAutoPopulateSplits(trackId: string, projectId: string) {
       }
 
       if (matched.length === 0) {
-        throw new Error('No credits matched to collaborators. Make sure credit names match collaborator display names.')
+        throw new Error('No credits matched to collaborators. Make sure credit names match collaborator full names.')
       }
 
       // Equal distribution (last row absorbs rounding)

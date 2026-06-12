@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { Play, Pause, Loader2, Link2, Link2Off, X } from 'lucide-react'
+import { Play, Pause, Loader2, Link2, Link2Off, X, Volume2, VolumeX } from 'lucide-react'
 import { cn, formatTime } from '@/lib/utils'
 
 interface MiniPlayerProps {
@@ -15,6 +15,10 @@ interface MiniPlayerProps {
   onTimeUpdate: (t: number) => void
   externalPlay: boolean
   externalSeek: number | null
+  muted: boolean
+  resetSignal: number
+  showMuteToggle?: boolean
+  onMuteToggle?: () => void
 }
 
 function MiniPlayer({
@@ -28,6 +32,10 @@ function MiniPlayer({
   onTimeUpdate,
   externalPlay,
   externalSeek,
+  muted,
+  resetSignal,
+  showMuteToggle,
+  onMuteToggle,
 }: MiniPlayerProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -37,8 +45,24 @@ function MiniPlayer({
   const [duration, setDuration] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const suppressSyncRef = useRef(false)
+  const prevResetRef = useRef(resetSignal)
 
-  // Seek from external (sync from leader)
+  // Apply muted state to wavesurfer whenever it changes
+  useEffect(() => {
+    wsRef.current?.setVolume(muted ? 0 : 1)
+  }, [muted])
+
+  // Reset: stop + seek to 0 when signal increments
+  useEffect(() => {
+    if (resetSignal === prevResetRef.current) return
+    prevResetRef.current = resetSignal
+    if (!wsRef.current) return
+    wsRef.current.pause()
+    wsRef.current.setTime(0)
+    setCurrentTime(0)
+  }, [resetSignal])
+
+  // Seek from external (follower sync)
   useEffect(() => {
     if (externalSeek === null || !wsRef.current) return
     suppressSyncRef.current = true
@@ -47,13 +71,13 @@ function MiniPlayer({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [externalSeek])
 
-  // Play/pause from external (sync from leader)
+  // Play/pause driven by parent state
   useEffect(() => {
     if (!wsRef.current || isLoading) return
     if (externalPlay && !wsRef.current.isPlaying()) wsRef.current.play()
     if (!externalPlay && wsRef.current.isPlaying()) wsRef.current.pause()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [externalPlay])
+  }, [externalPlay, isLoading])
 
   useEffect(() => {
     if (!containerRef.current || !url) return
@@ -76,7 +100,12 @@ function MiniPlayer({
         url,
         interact: true,
       })
-      ws.on('ready', (dur: number) => { setDuration(dur); setIsLoading(false) })
+      ws.on('ready', (dur: number) => {
+        setDuration(dur)
+        setIsLoading(false)
+        // Apply initial muted state from closure (captured at effect-run time = mount)
+        ws.setVolume(muted ? 0 : 1)
+      })
       ws.on('play', () => setIsPlaying(true))
       ws.on('pause', () => setIsPlaying(false))
       ws.on('timeupdate', (t: number) => {
@@ -100,11 +129,12 @@ function MiniPlayer({
   function togglePlay() {
     if (!wsRef.current || isLoading) return
     if (wsRef.current.isPlaying()) {
+      // Pause directly then notify parent to update state
       wsRef.current.pause()
       onPause()
     } else {
-      if (isSynced) onPlay(syncedTimeRef.current ?? currentTime)
-      else wsRef.current.play()
+      // Route through parent so state stays authoritative; parent drives externalPlay
+      onPlay(isSynced ? (syncedTimeRef.current ?? currentTime) : currentTime)
     }
   }
 
@@ -117,22 +147,40 @@ function MiniPlayer({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <button
-            onClick={togglePlay}
-            disabled={isLoading}
-            className="w-6 h-6 flex items-center justify-center rounded-full bg-card border border-border hover:bg-accent transition-colors disabled:opacity-40 shrink-0"
-          >
-            {isLoading ? (
-              <Loader2 size={10} className="animate-spin" />
-            ) : isPlaying ? (
-              <Pause size={9} fill="currentColor" />
-            ) : (
-              <Play size={9} fill="currentColor" className="translate-x-px" />
-            )}
-          </button>
+          {/* In synced mode, only the leader (A) controls playback */}
+          {(!isSynced || isLeader) && (
+            <button
+              onClick={togglePlay}
+              disabled={isLoading}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-card border border-border hover:bg-accent transition-colors disabled:opacity-40 shrink-0"
+            >
+              {isLoading ? (
+                <Loader2 size={10} className="animate-spin" />
+              ) : isPlaying ? (
+                <Pause size={9} fill="currentColor" />
+              ) : (
+                <Play size={9} fill="currentColor" className="translate-x-px" />
+              )}
+            </button>
+          )}
           <span className="text-xs text-muted-foreground tabular-nums">
             {formatTime(currentTime)}<span className="mx-0.5 opacity-40">/</span>{formatTime(duration)}
           </span>
+          {showMuteToggle && onMuteToggle && (
+            <button
+              onClick={onMuteToggle}
+              className={cn(
+                'ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors',
+                muted
+                  ? 'text-muted-foreground hover:text-foreground bg-muted/50'
+                  : 'text-emerald-600 bg-emerald-500/10 hover:bg-emerald-500/20',
+              )}
+              title={muted ? 'Unmute Version B' : 'Mute Version B'}
+            >
+              {muted ? <VolumeX size={11} /> : <Volume2 size={11} />}
+              {muted ? 'Unmute' : 'Mute'}
+            </button>
+          )}
         </div>
         <div className="relative">
           <div ref={containerRef} className="w-full" />
@@ -155,28 +203,72 @@ interface TrackABPlayerProps {
 
 export function TrackABPlayer({ versionA, versionB, onClose }: TrackABPlayerProps) {
   const [synced, setSynced] = useState(true)
-  const [leaderPlaying, setLeaderPlaying] = useState(false)
+
+  // Synced mode: shared play state, A is leader, B follows
+  // Starts as true so both auto-start when waveforms are ready
+  const [playing, setPlaying] = useState(true)
+  // soloA: true = A audible / B muted; false = B audible / A muted
+  const [soloA, setSoloA] = useState(true)
+
+  // Independent mode: exclusive play — only one active at a time
+  const [aIndepPlaying, setAIndepPlaying] = useState(false)
+  const [bIndepPlaying, setBIndepPlaying] = useState(false)
+
+  // Follower sync (synced mode only)
   const [followerSeek, setFollowerSeek] = useState<number | null>(null)
   const syncedTimeRef = useRef<number | null>(null)
   const seekTickRef = useRef(0)
 
-  // When leader timeupdate fires in synced mode, throttle-push seeks to follower
+  // Incrementing this tells both MiniPlayers to stop + seek to 0
+  const [resetSignal, setResetSignal] = useState(0)
+
   const handleLeaderTime = useCallback((t: number) => {
     if (!synced) return
     seekTickRef.current++
-    if (seekTickRef.current % 10 === 0) {
-      setFollowerSeek(t)
-    }
+    if (seekTickRef.current % 10 === 0) setFollowerSeek(t)
   }, [synced])
 
+  // Synced mode: A's play/pause controls both
   function handleLeaderPlay(seekTo: number) {
     syncedTimeRef.current = seekTo
     setFollowerSeek(seekTo)
-    setLeaderPlaying(true)
+    setPlaying(true)
   }
 
   function handleLeaderPause() {
-    setLeaderPlaying(false)
+    setPlaying(false)
+  }
+
+  // Independent mode: A plays → stop B (exclusive)
+  function handleAIndepPlay(_seekTo: number) {
+    setAIndepPlaying(true)
+    setBIndepPlaying(false)
+  }
+
+  function handleAIndepPause() {
+    setAIndepPlaying(false)
+  }
+
+  // Independent mode: B plays → stop A (exclusive)
+  function handleBIndepPlay(_seekTo: number) {
+    setBIndepPlaying(true)
+    setAIndepPlaying(false)
+  }
+
+  function handleBIndepPause() {
+    setBIndepPlaying(false)
+  }
+
+  function toggleSync() {
+    const goingIndependent = synced
+    if (goingIndependent) {
+      // Turning sync off: immediately stop both and reset to 0:00
+      setPlaying(false)
+      setAIndepPlaying(false)
+      setBIndepPlaying(false)
+      setResetSignal(s => s + 1)
+    }
+    setSynced(v => !v)
   }
 
   return (
@@ -185,7 +277,7 @@ export function TrackABPlayer({ versionA, versionB, onClose }: TrackABPlayerProp
         <span className="text-xs font-medium text-muted-foreground">A / B Comparison</span>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setSynced(v => !v)}
+            onClick={toggleSync}
             className={cn(
               'flex items-center gap-1.5 px-2 py-1 text-xs rounded border transition-colors',
               synced
@@ -211,11 +303,13 @@ export function TrackABPlayer({ versionA, versionB, onClose }: TrackABPlayerProp
             syncedTimeRef={syncedTimeRef}
             isSynced={synced}
             isLeader={true}
-            onPlay={handleLeaderPlay}
-            onPause={handleLeaderPause}
+            onPlay={synced ? handleLeaderPlay : handleAIndepPlay}
+            onPause={synced ? handleLeaderPause : handleAIndepPause}
             onTimeUpdate={handleLeaderTime}
-            externalPlay={false}
+            externalPlay={synced ? playing : aIndepPlaying}
             externalSeek={null}
+            muted={synced ? !soloA : false}
+            resetSignal={resetSignal}
           />
         </div>
         <div>
@@ -226,11 +320,15 @@ export function TrackABPlayer({ versionA, versionB, onClose }: TrackABPlayerProp
             syncedTimeRef={syncedTimeRef}
             isSynced={synced}
             isLeader={false}
-            onPlay={() => {}}
-            onPause={() => {}}
+            onPlay={synced ? () => {} : handleBIndepPlay}
+            onPause={synced ? () => {} : handleBIndepPause}
             onTimeUpdate={() => {}}
-            externalPlay={leaderPlaying}
-            externalSeek={followerSeek}
+            externalPlay={synced ? playing : bIndepPlaying}
+            externalSeek={synced ? followerSeek : null}
+            muted={synced ? soloA : false}
+            resetSignal={resetSignal}
+            showMuteToggle={synced}
+            onMuteToggle={synced ? () => setSoloA(v => !v) : undefined}
           />
         </div>
       </div>

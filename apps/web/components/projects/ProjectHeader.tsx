@@ -7,6 +7,8 @@ import { Settings, ChevronLeft, Map, Music2, Users, MessageCircle, PieChart } fr
 import { cn } from '@/lib/utils'
 import { ProjectSettingsModal } from './ProjectSettingsModal'
 import { useProjectStatus } from '@/hooks/useTracks'
+import { NotificationBell } from '@/components/shared/NotificationBell'
+import { UserButton } from '@/components/shared/UserButton'
 import type { Database } from '@/types/database'
 
 type Project = Database['public']['Tables']['projects']['Row']
@@ -46,12 +48,12 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
     <>
       <div className="border-b border-border bg-card px-4 sm:px-6 pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1rem,env(safe-area-inset-top))] pb-0">
         <div className="flex items-start justify-between mb-3">
-          <div className="flex items-center gap-3">
-            <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors -ml-1 p-2 rounded-md">
+          <div className="flex items-center gap-3 min-w-0">
+            <Link href="/projects" className="text-muted-foreground hover:text-foreground transition-colors -ml-1 p-2 rounded-md shrink-0">
               <ChevronLeft size={18} />
             </Link>
-            <div>
-              <h1 className="font-semibold text-lg leading-tight">{project.title}</h1>
+            <div className="min-w-0">
+              <h1 className="font-semibold text-lg leading-tight truncate">{project.title}</h1>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-muted-foreground uppercase">{project.project_type}</span>
                 <span className="text-muted-foreground text-xs">·</span>
@@ -62,12 +64,17 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
             </div>
           </div>
 
-          <button
-            onClick={() => setShowSettings(true)}
-            className="text-muted-foreground hover:text-foreground transition-colors p-2 rounded-md -mr-1"
-          >
-            <Settings size={17} />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <NotificationBell userId={userId} />
+            <UserButton userId={userId} />
+            <button
+              onClick={() => setShowSettings(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground whitespace-nowrap"
+            >
+              <Settings size={13} />
+              Project Settings
+            </button>
+          </div>
         </div>
 
         <nav className="flex gap-1 -mb-px overflow-x-auto [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none' }}>

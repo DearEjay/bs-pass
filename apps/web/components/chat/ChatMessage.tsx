@@ -155,11 +155,7 @@ export function ChatMessage({
   currentUserId?: string
   onToggleReaction?: (messageId: string, emoji: string) => void
 }) {
-  // showTray: hover-driven (desktop). trayPinned: click-driven (mobile + desktop).
-  // Both feed into trayOpen. onMouseLeave only clears showTray — never trayPinned.
-  const [showTray, setShowTray] = useState(false)
-  const [trayPinned, setTrayPinned] = useState(false)
-  const trayOpen = showTray || trayPinned
+  const [trayOpen, setTrayOpen] = useState(false)
 
   const isAgent = message.sender_type === 'agent'
   const senderName = isAgent ? 'Manager' : (message.profiles?.display_name ?? 'Unknown')
@@ -170,28 +166,26 @@ export function ChatMessage({
 
   const body = renderBody(message.body ?? '', isOwnMessage, searchQuery)
 
-  // Close pinned tray when user clicks anywhere outside — listener is added after the
-  // triggering click completes (React effect runs post-paint), so no same-event race.
+  // Close tray when user clicks anywhere outside.
   useEffect(() => {
-    if (!trayPinned) return
-    function close() { setTrayPinned(false) }
+    if (!trayOpen) return
+    function close() { setTrayOpen(false) }
     document.addEventListener('click', close)
     return () => document.removeEventListener('click', close)
-  }, [trayPinned])
+  }, [trayOpen])
 
   function handleReact(emoji: string) {
     if (!onToggleReaction || !currentUserId) return
     onToggleReaction(message.id, emoji)
-    setShowTray(false)
-    setTrayPinned(false)
+    setTrayOpen(false)
   }
 
-  // stopPropagation prevents the document listener (added for trayPinned) from
-  // immediately closing the tray on the very click that opens it.
+  // stopPropagation prevents the document listener from immediately closing
+  // the tray on the very click that opens it.
   function handleBubbleClick(e: React.MouseEvent) {
     if (!onToggleReaction) return
     e.stopPropagation()
-    setTrayPinned(v => !v)
+    setTrayOpen(v => !v)
   }
 
   // ── Own message (right-aligned) ──────────────────────────────────────────
@@ -205,11 +199,7 @@ export function ChatMessage({
               <span className="text-[11px] text-muted-foreground">{time}</span>
               <span className="text-xs font-semibold">You</span>
             </div>
-            <div
-              className="flex flex-col items-end"
-              onMouseEnter={() => setShowTray(true)}
-              onMouseLeave={() => setShowTray(false)}
-            >
+            <div className="flex flex-col items-end">
               {trayOpen && onToggleReaction && (
                 <div className="mb-1.5">
                   <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="right" />
@@ -263,11 +253,7 @@ export function ChatMessage({
             <span className="text-xs font-semibold">{senderName}</span>
             <span className="text-[11px] text-muted-foreground">{time}</span>
           </div>
-          <div
-            className="flex flex-col items-start"
-            onMouseEnter={() => setShowTray(true)}
-            onMouseLeave={() => setShowTray(false)}
-          >
+          <div className="flex flex-col items-start">
             {trayOpen && onToggleReaction && (
               <div className="mb-1.5">
                 <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="left" />

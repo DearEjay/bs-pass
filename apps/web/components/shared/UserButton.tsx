@@ -20,7 +20,7 @@ export function UserButton({ userId }: { userId: string }) {
         )}
       </div>
       <span className="hidden sm:inline max-w-[120px] truncate">
-        {profile?.display_name ?? 'Profile'}
+        {(profile as { full_name?: string | null } | undefined)?.full_name ?? profile?.display_name ?? 'Profile'}
       </span>
     </Link>
   )

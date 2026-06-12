@@ -5,6 +5,8 @@ import { useUpdateProject, useDeleteProject, useUploadProjectCover } from '@/hoo
 import { useRouter } from 'next/navigation'
 import { X, ImagePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { AgentSection } from '@/components/profile/AgentSection'
+import { AgentPluginsSection } from '@/components/profile/AgentPluginsSection'
 import type { Database } from '@/types/database'
 
 type Project = Database['public']['Tables']['projects']['Row']
@@ -90,7 +92,7 @@ export function ProjectSettingsModal({
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 space-y-4">
+        <form onSubmit={handleSave} className="px-5 pt-5 pb-5 space-y-4">
           {/* Cover art */}
           <div className="relative">
             <button
@@ -257,6 +259,10 @@ export function ProjectSettingsModal({
             )}
           </div>
         </form>
+        <div className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 space-y-4 border-t border-border pt-5">
+          <AgentSection userId={userId} />
+          <AgentPluginsSection userId={userId} />
+        </div>
       </div>
     </div>
   )

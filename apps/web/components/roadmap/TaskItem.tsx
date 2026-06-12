@@ -1,5 +1,6 @@
 'use client'
 
+import { Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TaskWithDeps, Priority } from '@/hooks/useTasks'
 
@@ -39,19 +40,32 @@ export function TaskItem({ task, allTasks, isBlocked, selected, onToggleSelect, 
 
   return (
     <div
-      onClick={onToggleSelect}
       className={cn(
-        'flex items-center gap-3 px-3 py-3 rounded-lg border bg-card cursor-pointer transition-colors',
+        'flex items-center gap-3 px-3 py-3 rounded-lg border bg-card transition-colors',
         selected
-          ? 'border-primary/40 bg-primary/5 hover:bg-primary/10'
+          ? 'border-primary/40 bg-primary/5'
           : 'border-border hover:bg-accent/30',
         isDone && 'opacity-60',
       )}
     >
+      {/* Checkbox — clicking this selects the row */}
+      <button
+        onClick={onToggleSelect}
+        className={cn(
+          'shrink-0 w-4 h-4 rounded border flex items-center justify-center transition-colors',
+          selected
+            ? 'bg-primary border-primary text-primary-foreground'
+            : 'border-border hover:border-primary/50',
+        )}
+        aria-label={selected ? 'Deselect task' : 'Select task'}
+      >
+        {selected && <Check size={10} strokeWidth={3} />}
+      </button>
+
       <div className="flex-1 min-w-0">
         {onEdit ? (
           <button
-            onClick={e => { e.stopPropagation(); onEdit() }}
+            onClick={onEdit}
             className={cn(
               'text-sm leading-snug text-left hover:underline hover:text-primary transition-colors w-full',
               isDone && 'line-through text-muted-foreground',

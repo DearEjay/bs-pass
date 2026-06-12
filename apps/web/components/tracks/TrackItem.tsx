@@ -14,6 +14,7 @@ import {
   useUploadTrackVersion,
   TRACK_STATUSES,
   type TrackStatus,
+  type TrackVersion,
 } from '@/hooks/useTracks'
 import { useUndoToastStore } from '@/hooks/useUndoToast'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
@@ -80,11 +81,14 @@ export function TrackItem({
   const [confirmDeleteTrack, setConfirmDeleteTrack] = useState(false)
   const [activeTab, setActiveTab] = useState<ActiveTab>('player')
   const [currentTime, setCurrentTime] = useState(0)
-  const [compareVersion, setCompareVersion] = useState<{ filePath: string; label: string } | null>(null)
+  // A/B compare: 2-step selection — pick A first, then B
+  const [compareA, setCompareA] = useState<TrackVersion | null>(null)
+  const [compareB, setCompareB] = useState<TrackVersion | null>(null)
   const playerRef = useRef<AudioPlayerHandle>(null)
   const versionUploadRef = useRef<HTMLInputElement>(null)
 
-  const { data: compareUrl } = useVersionAudioUrl(compareVersion?.filePath ?? null)
+  const { data: compareAUrl } = useVersionAudioUrl(compareA?.file_path ?? null)
+  const { data: compareBUrl } = useVersionAudioUrl(compareB?.file_path ?? null)
 
   const hasAudio = !!track.current_version_id
   const currentVersion = versions.find(v => v.id === track.current_version_id) ?? null
@@ -351,22 +355,17 @@ export function TrackItem({
                 track={track}
                 projectId={projectId}
                 onAddVersion={() => versionUploadRef.current?.click()}
-                onCompare={(filePath, label) => {
-                  setCompareVersion(cv =>
-                    cv?.filePath === filePath ? null : { filePath, label }
-                  )
-                }}
-                compareVersionId={
-                  compareVersion
-                    ? (versions.find(v => v.file_path === compareVersion.filePath)?.id ?? null)
-                    : null
-                }
+                compareAId={compareA?.id ?? null}
+                compareBId={compareB?.id ?? null}
+                onSelectA={(v) => { setCompareA(v); setCompareB(null) }}
+                onSelectB={(v) => setCompareB(v)}
+                onClearCompare={() => { setCompareA(null); setCompareB(null) }}
               />
-              {compareVersion && compareUrl && audioUrl && (
+              {compareA && compareAUrl && compareB && compareBUrl && (
                 <TrackABPlayer
-                  versionA={{ url: audioUrl, label: currentVersion?.version_label ?? 'Current' }}
-                  versionB={{ url: compareUrl, label: compareVersion.label }}
-                  onClose={() => setCompareVersion(null)}
+                  versionA={{ url: compareAUrl, label: compareA.version_label }}
+                  versionB={{ url: compareBUrl, label: compareB.version_label }}
+                  onClose={() => { setCompareA(null); setCompareB(null) }}
                 />
               )}
             </>
