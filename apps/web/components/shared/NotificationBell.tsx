@@ -1,7 +1,11 @@
 'use client'
 
+import Link from 'next/link'
 import { useState } from 'react'
-import { Bell, CheckCheck, X, Map, Music2, Users, MessageCircle } from 'lucide-react'
+import {
+  Bell, CheckCheck, X,
+  AtSign, Users, CheckSquare, Music2, FileSignature,
+} from 'lucide-react'
 import { useNotifications, useMarkNotificationRead, useMarkAllNotificationsRead } from '@/hooks/useNotifications'
 import { cn } from '@/lib/utils'
 import { timeAgo } from '@/lib/chat-utils'
@@ -9,49 +13,127 @@ import type { Database } from '@/types/database'
 
 type Notification = Database['public']['Tables']['notifications']['Row']
 
-const TYPE_ICONS: Record<string, React.ElementType> = {
-  task_assigned: Map,
-  collaborator_added: Users,
-  collaborator_removed: Users,
-  track_status_changed: Music2,
-  chat_mention: MessageCircle,
+interface NotifConfig {
+  Icon: React.ElementType
+  iconBg: string
+  iconColor: string
+  text: string
+  href: string | null
+}
+
+function getConfig(n: Notification): NotifConfig {
+  const p = (n.payload ?? {}) as Record<string, string>
+  const pid = n.project_id
+
+  switch (n.type) {
+    case 'mention':
+      return {
+        Icon: AtSign,
+        iconBg: 'bg-violet-500/15',
+        iconColor: 'text-violet-500',
+        text: `${p.senderName ?? 'Someone'} mentioned you in ${p.projectTitle ?? 'a project'}`,
+        href: pid ? `/projects/${pid}/chat` : null,
+      }
+    case 'collaborator_added':
+      return {
+        Icon: Users,
+        iconBg: 'bg-blue-500/15',
+        iconColor: 'text-blue-500',
+        text: `You've been added to ${p.projectTitle ?? 'a project'}${p.role ? ` as ${p.role}` : ''}`,
+        href: pid ? `/projects/${pid}/roadmap` : null,
+      }
+    case 'collaborator_removed':
+      return {
+        Icon: Users,
+        iconBg: 'bg-destructive/15',
+        iconColor: 'text-destructive',
+        text: `You were removed from ${p.projectTitle ?? 'a project'}`,
+        href: null,
+      }
+    case 'task_assigned':
+      return {
+        Icon: CheckSquare,
+        iconBg: 'bg-amber-500/15',
+        iconColor: 'text-amber-500',
+        text: `${p.assignedBy ?? 'Someone'} assigned you${p.taskTitle ? ` "${p.taskTitle}"` : ' a task'}${p.projectTitle ? ` in ${p.projectTitle}` : ''}`,
+        href: pid ? `/projects/${pid}/roadmap` : null,
+      }
+    case 'track_status_changed':
+      return {
+        Icon: Music2,
+        iconBg: 'bg-teal-500/15',
+        iconColor: 'text-teal-500',
+        text: `"${p.trackTitle ?? 'A track'}" moved to ${p.newStatus ?? 'a new status'}${p.projectTitle ? ` in ${p.projectTitle}` : ''}`,
+        href: pid ? `/projects/${pid}/roadmap` : null,
+      }
+    case 'split_request':
+      return {
+        Icon: FileSignature,
+        iconBg: 'bg-orange-500/15',
+        iconColor: 'text-orange-500',
+        text: `Sign your split for "${p.trackTitle ?? 'a track'}"${p.projectTitle ? ` in ${p.projectTitle}` : ''}`,
+        href: p.signUrl ?? (pid ? `/projects/${pid}/splits` : null),
+      }
+    default:
+      return {
+        Icon: Bell,
+        iconBg: 'bg-muted',
+        iconColor: 'text-muted-foreground',
+        text: p.message ?? n.type.replace(/_/g, ' '),
+        href: pid ? `/projects/${pid}/roadmap` : null,
+      }
+  }
 }
 
 function NotificationItem({
   notification,
   onRead,
+  onClose,
 }: {
   notification: Notification
   onRead: (id: string) => void
+  onClose: () => void
 }) {
-  const payload = notification.payload as Record<string, string>
-  const Icon = TYPE_ICONS[notification.type] ?? Bell
+  const { Icon, iconBg, iconColor, text, href } = getConfig(notification)
   const isUnread = !notification.read_at
 
-  return (
-    <button
-      onClick={() => { if (isUnread) onRead(notification.id) }}
-      className={cn(
-        'w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/50',
-        isUnread && 'bg-primary/5',
-      )}
-    >
-      <div className={cn(
-        'mt-0.5 p-1.5 rounded-full shrink-0',
-        isUnread ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
-      )}>
-        <Icon size={12} />
+  function handleClick() {
+    if (isUnread) onRead(notification.id)
+    onClose()
+  }
+
+  const content = (
+    <div className={cn(
+      'w-full flex items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/50',
+      isUnread && 'bg-primary/5',
+    )}>
+      <div className={cn('mt-0.5 p-2 rounded-full shrink-0', isUnread ? iconBg : 'bg-muted')}>
+        <Icon size={13} className={isUnread ? iconColor : 'text-muted-foreground'} />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={cn('text-xs leading-relaxed', isUnread ? 'font-medium text-foreground' : 'text-muted-foreground')}>
-          {payload.message ?? notification.type.replace(/_/g, ' ')}
+        <p className={cn(
+          'text-xs leading-relaxed',
+          isUnread ? 'font-medium text-foreground' : 'text-muted-foreground',
+        )}>
+          {text}
         </p>
-        {payload.project_title && (
-          <p className="text-xs text-muted-foreground/70 mt-0.5 truncate">{payload.project_title}</p>
-        )}
-        <p className="text-xs text-muted-foreground/50 mt-0.5">{timeAgo(notification.created_at)}</p>
+        <p className="text-[10px] text-muted-foreground/50 mt-1">{timeAgo(notification.created_at)}</p>
       </div>
-      {isUnread && <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+      {isUnread && <div className="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+    </div>
+  )
+
+  if (href) {
+    return (
+      <Link href={href} onClick={handleClick} className="block">
+        {content}
+      </Link>
+    )
+  }
+
+  return (
+    <button onClick={handleClick} className="w-full">
+      {content}
     </button>
   )
 }
@@ -117,6 +199,7 @@ export function NotificationBell({ userId }: { userId: string }) {
                     key={n.id}
                     notification={n}
                     onRead={id => markRead.mutate(id)}
+                    onClose={() => setOpen(false)}
                   />
                 ))
               )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Bot } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -75,7 +75,7 @@ function TapbackTray({
         return (
           <button
             key={emoji}
-            onClick={() => onReact(emoji)}
+            onClick={e => { e.stopPropagation(); onReact(emoji) }}
             className={cn(
               'w-8 h-8 flex items-center justify-center rounded-full text-base transition-all hover:scale-110 active:scale-95',
               mine ? 'bg-primary/15' : 'hover:bg-accent',
@@ -109,7 +109,6 @@ function ReactionPills({
         mine: existing.mine || r.user_id === currentUserId,
       })
     }
-    // Return in tapback order
     return TAPBACKS.flatMap(e => {
       const d = map.get(e)
       return d ? [{ emoji: e, ...d }] : []
@@ -123,7 +122,7 @@ function ReactionPills({
       {grouped.map(({ emoji, count, mine }) => (
         <button
           key={emoji}
-          onClick={() => onReact(emoji)}
+          onClick={e => { e.stopPropagation(); onReact(emoji) }}
           className={cn(
             'flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs border transition-colors',
             mine
@@ -156,7 +155,12 @@ export function ChatMessage({
   currentUserId?: string
   onToggleReaction?: (messageId: string, emoji: string) => void
 }) {
+  // showTray: hover-driven (desktop). trayPinned: click-driven (mobile + desktop).
+  // Both feed into trayOpen. onMouseLeave only clears showTray — never trayPinned.
   const [showTray, setShowTray] = useState(false)
+  const [trayPinned, setTrayPinned] = useState(false)
+  const trayOpen = showTray || trayPinned
+
   const isAgent = message.sender_type === 'agent'
   const senderName = isAgent ? 'Manager' : (message.profiles?.display_name ?? 'Unknown')
   const avatarUrl = message.profiles?.avatar_url
@@ -166,10 +170,28 @@ export function ChatMessage({
 
   const body = renderBody(message.body ?? '', isOwnMessage, searchQuery)
 
+  // Close pinned tray when user clicks anywhere outside — listener is added after the
+  // triggering click completes (React effect runs post-paint), so no same-event race.
+  useEffect(() => {
+    if (!trayPinned) return
+    function close() { setTrayPinned(false) }
+    document.addEventListener('click', close)
+    return () => document.removeEventListener('click', close)
+  }, [trayPinned])
+
   function handleReact(emoji: string) {
     if (!onToggleReaction || !currentUserId) return
     onToggleReaction(message.id, emoji)
     setShowTray(false)
+    setTrayPinned(false)
+  }
+
+  // stopPropagation prevents the document listener (added for trayPinned) from
+  // immediately closing the tray on the very click that opens it.
+  function handleBubbleClick(e: React.MouseEvent) {
+    if (!onToggleReaction) return
+    e.stopPropagation()
+    setTrayPinned(v => !v)
   }
 
   // ── Own message (right-aligned) ──────────────────────────────────────────
@@ -177,26 +199,30 @@ export function ChatMessage({
     return (
       <div className={cn('flex justify-end', marginTop)}>
         <div className="flex items-end gap-1.5 max-w-[72%]">
-          {/* Bubble column: header + tray + bubble + reactions */}
+          {/* Bubble column — hover zone encompasses tray + bubble + reactions */}
           <div className="flex flex-col items-end">
             <div className="flex items-baseline gap-2 mb-1">
               <span className="text-[11px] text-muted-foreground">{time}</span>
               <span className="text-xs font-semibold">You</span>
             </div>
-            {showTray && onToggleReaction && (
-              <div className="mb-1.5">
-                <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="right" />
-              </div>
-            )}
             <div
-              className="bg-primary text-primary-foreground px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm cursor-pointer select-text"
+              className="flex flex-col items-end"
               onMouseEnter={() => setShowTray(true)}
               onMouseLeave={() => setShowTray(false)}
-              onClick={() => onToggleReaction && setShowTray(v => !v)}
             >
-              {body}
+              {trayOpen && onToggleReaction && (
+                <div className="mb-1.5">
+                  <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="right" />
+                </div>
+              )}
+              <div
+                className="bg-primary text-primary-foreground px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm cursor-pointer select-text"
+                onClick={handleBubbleClick}
+              >
+                {body}
+              </div>
+              <ReactionPills reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="right" />
             </div>
-            <ReactionPills reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="right" />
           </div>
           <Avatar name={senderName} avatarUrl={avatarUrl} />
         </div>
@@ -231,26 +257,30 @@ export function ChatMessage({
     <div className={cn('flex justify-start', marginTop)}>
       <div className="flex items-end gap-1.5 max-w-[72%]">
         <Avatar name={senderName} avatarUrl={avatarUrl} />
-        {/* Bubble column: header + tray + bubble + reactions */}
+        {/* Bubble column — hover zone encompasses tray + bubble + reactions */}
         <div className="flex flex-col items-start">
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-xs font-semibold">{senderName}</span>
             <span className="text-[11px] text-muted-foreground">{time}</span>
           </div>
-          {showTray && onToggleReaction && (
-            <div className="mb-1.5">
-              <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="left" />
-            </div>
-          )}
           <div
-            className="bg-card border border-border px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm inline-block cursor-pointer select-text"
+            className="flex flex-col items-start"
             onMouseEnter={() => setShowTray(true)}
             onMouseLeave={() => setShowTray(false)}
-            onClick={() => onToggleReaction && setShowTray(v => !v)}
           >
-            {body}
+            {trayOpen && onToggleReaction && (
+              <div className="mb-1.5">
+                <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="left" />
+              </div>
+            )}
+            <div
+              className="bg-card border border-border px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm inline-block cursor-pointer select-text"
+              onClick={handleBubbleClick}
+            >
+              {body}
+            </div>
+            <ReactionPills reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="left" />
           </div>
-          <ReactionPills reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="left" />
         </div>
       </div>
     </div>
