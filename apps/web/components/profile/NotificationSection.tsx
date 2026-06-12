@@ -77,7 +77,7 @@ export function NotificationSection({ userId }: { userId: string }) {
               type="button"
               onClick={() => setDigest(opt.value)}
               className={cn(
-                'px-4 py-2 rounded-md text-sm border transition-colors',
+                'px-4 py-2 rounded-md text-sm border transition-colors whitespace-nowrap',
                 prefs.digest === opt.value
                   ? 'border-primary bg-primary/10 text-primary'
                   : 'border-border text-muted-foreground hover:text-foreground',

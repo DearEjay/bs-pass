@@ -144,7 +144,9 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
           <label className="text-xs text-muted-foreground">Cover art</label>
           {coverUrl ? (
             <div className="relative w-20 h-20">
-              <img src={coverUrl} alt="Track cover" className="w-full h-full object-cover rounded-md" />
+              <div className="absolute inset-0 rounded-md overflow-hidden">
+                <img src={coverUrl} alt="Track cover" className="w-full h-full object-cover" />
+              </div>
               <button
                 onClick={removeCover}
                 className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors"

@@ -60,8 +60,8 @@ export function ProjectList({ userId }: { userId: string }) {
   return (
     <>
       {/* Search + filters */}
-      <div className="flex items-center gap-2 flex-wrap mb-5">
-        <div className="relative flex-1 min-w-[160px]">
+      <div className="space-y-2 mb-5">
+        <div className="relative">
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
           <input
             type="text"
@@ -80,27 +80,29 @@ export function ProjectList({ userId }: { userId: string }) {
           )}
         </div>
 
-        <FilterDropdown
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={STATUS_FILTERS}
-        />
+        <div className="flex items-center gap-2">
+          <FilterDropdown
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={STATUS_FILTERS}
+          />
 
-        <FilterDropdown
-          value={typeFilter}
-          onChange={setTypeFilter}
-          options={TYPE_FILTERS}
-        />
+          <FilterDropdown
+            value={typeFilter}
+            onChange={setTypeFilter}
+            options={TYPE_FILTERS}
+          />
 
-        {hasActiveFilter && (
-          <button
-            onClick={() => { setQuery(''); setStatusFilter('all'); setTypeFilter('all') }}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
-          >
-            <X size={11} />
-            Clear
-          </button>
-        )}
+          {hasActiveFilter && (
+            <button
+              onClick={() => { setQuery(''); setStatusFilter('all'); setTypeFilter('all') }}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
+            >
+              <X size={11} />
+              Clear
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">

@@ -54,7 +54,7 @@ export function ProjectCard({ project }: { project: Project }) {
           </span>
           <span className="text-muted-foreground">·</span>
           <span className={cn(
-            'text-xs px-1.5 py-0.5 rounded border',
+            'text-xs px-1.5 py-0.5 rounded border whitespace-nowrap',
             STATUS_COLOR[project.status] ?? 'text-muted-foreground border-border',
           )}>
             {STATUS_LABEL[project.status] ?? project.status}

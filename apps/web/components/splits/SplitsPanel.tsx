@@ -193,7 +193,7 @@ function SplitEditor({
               <button
                 onClick={() => resetLock.mutate()}
                 disabled={resetLock.isPending}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors whitespace-nowrap"
               >
                 <Unlock size={11} />
                 Reset to track credits
@@ -204,7 +204,7 @@ function SplitEditor({
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
-                className="px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-accent transition-colors"
+                className="px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-accent transition-colors whitespace-nowrap"
               >
                 Edit splits
               </button>
@@ -214,7 +214,7 @@ function SplitEditor({
             {splits.length > 0 && !editing && !allSigned && (
               <button
                 onClick={() => setShowRequestModal(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
               >
                 <Send size={11} />
                 {hasUnsignedSignatureRequest ? 'Resend' : 'Request signatures'}

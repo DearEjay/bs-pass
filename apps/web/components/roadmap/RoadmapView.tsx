@@ -222,9 +222,9 @@ export function RoadmapView({ projectId }: { projectId: string }) {
 
       {/* Search + filters — shown whenever there are tasks */}
       {tasks.length > 0 && (
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="space-y-2">
           {/* Search */}
-          <div className="relative flex-1 min-w-[160px]">
+          <div className="relative">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               value={searchQuery}
@@ -242,40 +242,42 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             )}
           </div>
 
-          {/* Status filter */}
-          <FilterDropdown
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={[
-              { value: '', label: 'All statuses' },
-              { value: 'not_started', label: 'Not started', dot: 'bg-gray-400' },
-              { value: 'in_progress',  label: 'In progress',  dot: 'bg-blue-500' },
-              { value: 'complete',     label: 'Complete',     dot: 'bg-teal-500' },
-            ]}
-          />
+          <div className="flex items-center gap-2">
+            {/* Status filter */}
+            <FilterDropdown
+              value={statusFilter}
+              onChange={setStatusFilter}
+              options={[
+                { value: '', label: 'All statuses' },
+                { value: 'not_started', label: 'Not started', dot: 'bg-gray-400' },
+                { value: 'in_progress',  label: 'In progress',  dot: 'bg-blue-500' },
+                { value: 'complete',     label: 'Complete',     dot: 'bg-teal-500' },
+              ]}
+            />
 
-          {/* Priority filter */}
-          <FilterDropdown
-            value={priorityFilter}
-            onChange={setPriorityFilter}
-            options={[
-              { value: '',       label: 'All priorities' },
-              { value: 'high',   label: 'High',   dot: 'bg-red-500' },
-              { value: 'medium', label: 'Medium', dot: 'bg-amber-500' },
-              { value: 'low',    label: 'Low',    dot: 'bg-slate-400' },
-            ]}
-          />
+            {/* Priority filter */}
+            <FilterDropdown
+              value={priorityFilter}
+              onChange={setPriorityFilter}
+              options={[
+                { value: '',       label: 'All priorities' },
+                { value: 'high',   label: 'High',   dot: 'bg-red-500' },
+                { value: 'medium', label: 'Medium', dot: 'bg-amber-500' },
+                { value: 'low',    label: 'Low',    dot: 'bg-slate-400' },
+              ]}
+            />
 
-          {/* Clear all filters */}
-          {hasFilters && (
-            <button
-              onClick={() => { setSearchQuery(''); setStatusFilter(''); setPriorityFilter('') }}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
-            >
-              <X size={11} />
-              Clear
-            </button>
-          )}
+            {/* Clear all filters */}
+            {hasFilters && (
+              <button
+                onClick={() => { setSearchQuery(''); setStatusFilter(''); setPriorityFilter('') }}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
+              >
+                <X size={11} />
+                Clear
+              </button>
+            )}
+          </div>
         </div>
       )}
 
