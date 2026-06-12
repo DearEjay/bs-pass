@@ -397,9 +397,55 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             ))}
           </div>
 
-          {/* Bulk action bar */}
+          {/* Bulk action bar — mobile: full-width bottom bar */}
           {anySelected && (
-            <div className="fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-3 py-2 bg-card border border-border rounded-full shadow-2xl">
+            <div className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-card border-t border-border shadow-2xl flex items-center gap-2 px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <span className="text-sm font-semibold shrink-0">{selected.size} selected</span>
+              <div className="flex-1 flex items-center justify-center gap-2">
+                {allComplete ? (
+                  <button
+                    onClick={() => bulkSetStatus('not_started')}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-muted text-muted-foreground hover:bg-muted/80 transition-colors text-xs font-medium"
+                  >
+                    <Circle size={18} />
+                    Undo
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => bulkSetStatus('complete')}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors text-xs font-medium"
+                  >
+                    <CheckCircle2 size={18} />
+                    Done
+                  </button>
+                )}
+                <button
+                  onClick={() => bulkSetStatus('in_progress')}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-400/10 text-amber-600 hover:bg-amber-400/20 transition-colors text-xs font-medium"
+                >
+                  <Clock size={18} />
+                  Progress
+                </button>
+                <button
+                  onClick={bulkDelete}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors text-xs font-medium"
+                >
+                  <Trash2 size={18} />
+                  Delete
+                </button>
+              </div>
+              <button
+                onClick={clearSelection}
+                className="p-2 text-muted-foreground hover:text-foreground rounded-full hover:bg-accent transition-colors shrink-0"
+              >
+                <X size={18} />
+              </button>
+            </div>
+          )}
+
+          {/* Bulk action bar — desktop: floating pill */}
+          {anySelected && (
+            <div className="hidden sm:flex fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 z-50 items-center gap-1.5 px-3 py-2 bg-card border border-border rounded-full shadow-2xl">
               <span className="text-xs text-muted-foreground font-medium px-1.5">
                 {selected.size} selected
               </span>
@@ -407,38 +453,34 @@ export function RoadmapView({ projectId }: { projectId: string }) {
               {allComplete ? (
                 <button
                   onClick={() => bulkSetStatus('not_started')}
-                  title="Mark incomplete"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-muted text-muted-foreground hover:bg-muted/80 transition-colors font-medium"
                 >
                   <Circle size={12} />
-                  <span className="hidden sm:inline">Mark incomplete</span>
+                  Mark incomplete
                 </button>
               ) : (
                 <button
                   onClick={() => bulkSetStatus('complete')}
-                  title="Mark complete"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors font-medium"
                 >
                   <CheckCircle2 size={12} />
-                  <span className="hidden sm:inline">Mark complete</span>
+                  Mark complete
                 </button>
               )}
               <button
                 onClick={() => bulkSetStatus('in_progress')}
-                title="In progress"
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-amber-400/10 text-amber-600 hover:bg-amber-400/20 transition-colors font-medium"
               >
                 <Clock size={12} />
-                <span className="hidden sm:inline">In progress</span>
+                In progress
               </button>
               <div className="w-px h-4 bg-border mx-1" />
               <button
                 onClick={bulkDelete}
-                title="Delete"
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors font-medium"
               >
                 <Trash2 size={12} />
-                <span className="hidden sm:inline">Delete</span>
+                Delete
               </button>
               <button
                 onClick={clearSelection}
