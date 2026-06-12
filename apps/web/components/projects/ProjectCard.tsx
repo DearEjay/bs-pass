@@ -70,16 +70,23 @@ export function ProjectCard({ project }: { project: Project }) {
           {project.title}
         </p>
 
-        <div className="flex items-center gap-1.5 mt-1.5">
+        {/* Mobile: two lines so nothing truncates; desktop: single row */}
+        <div className="mt-1.5 sm:hidden space-y-0.5">
+          <p className="text-xs text-muted-foreground truncate">
+            {typeLabel}{project.genre ? ` · ${project.genre}` : ''}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusDot)} />
+            <span className={cn('text-xs font-medium', statusText)}>{statusLabel}</span>
+          </div>
+        </div>
+        <div className="hidden sm:flex items-center gap-1.5 mt-1.5">
           <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', statusDot)} />
           <span className="text-xs text-muted-foreground truncate">
-            {typeLabel}
-            {project.genre ? ` · ${project.genre}` : ''}
+            {typeLabel}{project.genre ? ` · ${project.genre}` : ''}
           </span>
           <span className="text-muted-foreground/40 text-xs shrink-0">·</span>
-          <span className={cn('text-xs font-medium truncate shrink-0', statusText)}>
-            {statusLabel}
-          </span>
+          <span className={cn('text-xs font-medium shrink-0', statusText)}>{statusLabel}</span>
         </div>
       </div>
     </Link>
