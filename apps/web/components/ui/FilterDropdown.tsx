@@ -38,7 +38,7 @@ export function FilterDropdown({
         )}
       >
         <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', selected.dot ?? 'bg-muted-foreground/30')} />
-        {selected.label}
+        <span className="truncate flex-1 text-left">{selected.label}</span>
         <ChevronDown size={11} className="shrink-0 opacity-60" />
       </button>
 

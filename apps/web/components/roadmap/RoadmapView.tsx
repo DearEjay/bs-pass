@@ -253,7 +253,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             </span>
           )}
 
-          <div className="flex rounded-md border border-border overflow-hidden">
+          <div className="hidden sm:flex rounded-md border border-border overflow-hidden">
             <button
               onClick={() => setViewMode('list')}
               className={cn(
@@ -281,23 +281,47 @@ export function RoadmapView({ projectId }: { projectId: string }) {
       {/* Search + filters — 1 row on desktop, 2 rows on mobile */}
       {tasks.length > 0 && (
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          {/* Row 1: search */}
-          <div className="relative w-full sm:flex-1 sm:min-w-0">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
-            <input
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search tasks…"
-              className="w-full pl-7 pr-3 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-            {searchQuery && (
+          {/* Row 1: search + view toggle (toggle visible on mobile only) */}
+          <div className="flex items-center gap-2 sm:flex-1 sm:min-w-0">
+            <div className="relative flex-1 min-w-0">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+              <input
+                value={searchQuery}
+                onChange={e => setSearchQuery(e.target.value)}
+                placeholder="Search tasks…"
+                className="w-full pl-7 pr-3 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+            <div className="flex sm:hidden rounded-md border border-border overflow-hidden shrink-0">
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                onClick={() => setViewMode('list')}
+                className={cn(
+                  'px-2.5 py-1.5 text-xs flex items-center transition-colors',
+                  viewMode === 'list' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+                title="List view"
               >
-                <X size={11} />
+                <List size={13} />
               </button>
-            )}
+              <button
+                onClick={() => setViewMode('gantt')}
+                className={cn(
+                  'px-2.5 py-1.5 text-xs flex items-center transition-colors border-l border-border',
+                  viewMode === 'gantt' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground',
+                )}
+                title="Timeline view"
+              >
+                <BarChart2 size={13} />
+              </button>
+            </div>
           </div>
 
           {/* Row 2 on mobile: filters fill full width equally */}
