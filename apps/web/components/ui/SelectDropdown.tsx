@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -25,28 +26,41 @@ export function SelectDropdown({
   className?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const [mounted, setMounted] = useState(false)
+  const triggerRef = useRef<HTMLButtonElement>(null)
   const selected = options.find(o => o.value === value)
 
-  return (
-    <div className={cn('relative', className)}>
-      <button
-        type="button"
-        disabled={disabled}
-        onClick={() => setOpen(o => !o)}
-        className={cn(
-          'w-full flex items-center justify-between px-2 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring',
-          disabled && 'opacity-50 cursor-not-allowed',
-          !selected && 'text-muted-foreground',
-        )}
-      >
-        <span className="truncate">{selected?.label ?? placeholder ?? '—'}</span>
-        <ChevronDown size={12} className="shrink-0 ml-1 opacity-60" />
-      </button>
+  useEffect(() => { setMounted(true) }, [])
 
-      {open && (
+  function handleOpen() {
+    if (disabled) return
+    if (!open && triggerRef.current) {
+      setRect(triggerRef.current.getBoundingClientRect())
+    }
+    setOpen(o => !o)
+  }
+
+  // Close on scroll/resize so the menu doesn't drift
+  useEffect(() => {
+    if (!open) return
+    const close = () => setOpen(false)
+    window.addEventListener('scroll', close, true)
+    window.addEventListener('resize', close)
+    return () => {
+      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('resize', close)
+    }
+  }, [open])
+
+  const menu = open && rect && mounted
+    ? createPortal(
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="dropdown-menu left-0 top-full mt-1 w-full min-w-[5rem]">
+          <div
+            className="fixed z-50 bg-card border border-border rounded-lg shadow-xl py-1 overflow-y-auto max-h-60"
+            style={{ top: rect.bottom + 4, left: rect.left, width: rect.width }}
+          >
             {options.map(opt => (
               <button
                 key={opt.value}
@@ -58,8 +72,28 @@ export function SelectDropdown({
               </button>
             ))}
           </div>
-        </>
-      )}
+        </>,
+        document.body,
+      )
+    : null
+
+  return (
+    <div className={cn('relative', className)}>
+      <button
+        ref={triggerRef}
+        type="button"
+        disabled={disabled}
+        onClick={handleOpen}
+        className={cn(
+          'w-full flex items-center justify-between px-2 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring',
+          disabled && 'opacity-50 cursor-not-allowed',
+          !selected && 'text-muted-foreground',
+        )}
+      >
+        <span className="truncate">{selected?.label ?? placeholder ?? '—'}</span>
+        <ChevronDown size={12} className="shrink-0 ml-1 opacity-60" />
+      </button>
+      {menu}
     </div>
   )
 }

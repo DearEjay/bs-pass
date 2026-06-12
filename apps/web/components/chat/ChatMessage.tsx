@@ -176,17 +176,18 @@ export function ChatMessage({
   if (isOwnMessage) {
     return (
       <div className={cn('flex justify-end', marginTop)}>
-        <div className="flex flex-col items-end max-w-[72%]">
-          <div className="flex items-baseline gap-2 mb-1">
-            <span className="text-[11px] text-muted-foreground">{time}</span>
-            <span className="text-xs font-semibold">You</span>
-          </div>
-          {showTray && onToggleReaction && (
-            <div className="mb-1.5">
-              <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="right" />
+        <div className="flex items-end gap-1.5 max-w-[72%]">
+          {/* Bubble column: header + tray + bubble + reactions */}
+          <div className="flex flex-col items-end">
+            <div className="flex items-baseline gap-2 mb-1">
+              <span className="text-[11px] text-muted-foreground">{time}</span>
+              <span className="text-xs font-semibold">You</span>
             </div>
-          )}
-          <div className="flex items-end gap-1.5">
+            {showTray && onToggleReaction && (
+              <div className="mb-1.5">
+                <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="right" />
+              </div>
+            )}
             <div
               className="bg-primary text-primary-foreground px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tr-sm cursor-pointer select-text"
               onMouseEnter={() => setShowTray(true)}
@@ -195,9 +196,9 @@ export function ChatMessage({
             >
               {body}
             </div>
-            <Avatar name={senderName} avatarUrl={avatarUrl} />
+            <ReactionPills reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="right" />
           </div>
-          <ReactionPills reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="right" />
+          <Avatar name={senderName} avatarUrl={avatarUrl} />
         </div>
       </div>
     )
@@ -228,18 +229,19 @@ export function ChatMessage({
   // ── Other collaborator (left-aligned) ────────────────────────────────────
   return (
     <div className={cn('flex justify-start', marginTop)}>
-      <div className="flex flex-col items-start max-w-[72%]">
-        <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-xs font-semibold">{senderName}</span>
-          <span className="text-[11px] text-muted-foreground">{time}</span>
-        </div>
-        {showTray && onToggleReaction && (
-          <div className="mb-1.5">
-            <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="left" />
+      <div className="flex items-end gap-1.5 max-w-[72%]">
+        <Avatar name={senderName} avatarUrl={avatarUrl} />
+        {/* Bubble column: header + tray + bubble + reactions */}
+        <div className="flex flex-col items-start">
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-xs font-semibold">{senderName}</span>
+            <span className="text-[11px] text-muted-foreground">{time}</span>
           </div>
-        )}
-        <div className="flex items-end gap-1.5">
-          <Avatar name={senderName} avatarUrl={avatarUrl} />
+          {showTray && onToggleReaction && (
+            <div className="mb-1.5">
+              <TapbackTray reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="left" />
+            </div>
+          )}
           <div
             className="bg-card border border-border px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words rounded-2xl rounded-tl-sm inline-block cursor-pointer select-text"
             onMouseEnter={() => setShowTray(true)}
@@ -248,8 +250,8 @@ export function ChatMessage({
           >
             {body}
           </div>
+          <ReactionPills reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="left" />
         </div>
-        <ReactionPills reactions={reactions} currentUserId={currentUserId} onReact={handleReact} align="left" />
       </div>
     </div>
   )

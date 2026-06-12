@@ -8,8 +8,6 @@ import { ChatInput } from './ChatInput'
 import { TypingIndicator } from './TypingIndicator'
 import type { ChatMessage as ChatMessageType } from '@/hooks/useChat'
 import { format, isToday, isYesterday, isSameDay } from 'date-fns'
-import { extractMentionNames } from '@/lib/chat-utils'
-import { createClient } from '@/lib/supabase/client'
 
 function DateSeparator({ date }: { date: Date }) {
   const label = isToday(date) ? 'Today' : isYesterday(date) ? 'Yesterday' : format(date, 'MMMM d, yyyy')
@@ -78,21 +76,6 @@ export function ChatFeed({
 
   async function handleSend(body: string) {
     await sendMessage.mutateAsync({ body, senderId: userId })
-
-    const mentionedNames = extractMentionNames(body)
-    if (mentionedNames.length > 0 && collaborators) {
-      const supabase = createClient()
-      const notifications = mentionedNames.flatMap(name => {
-        const collab = collaborators.find(
-          c => (c.profiles?.display_name ?? '').toLowerCase() === name.toLowerCase()
-        )
-        if (!collab || collab.user_id === userId) return []
-        return [{ user_id: collab.user_id, project_id: projectId, type: 'mention', payload: { senderName: displayName, messageBody: body } }]
-      })
-      if (notifications.length > 0) {
-        await supabase.from('notifications').insert(notifications)
-      }
-    }
   }
 
   function handleToggleReaction(messageId: string, emoji: string) {
