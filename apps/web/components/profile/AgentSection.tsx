@@ -82,6 +82,7 @@ export function AgentSection({ userId }: { userId: string }) {
   const avoididTypes = prefs?.avoided_task_types ?? []
 
   return (
+    <>
     <div className="bg-card border border-border rounded-lg p-6">
       <h2 className="font-semibold text-base mb-1">AI Agent</h2>
       <p className="text-xs text-muted-foreground mb-5">
@@ -301,5 +302,6 @@ export function AgentSection({ userId }: { userId: string }) {
         </button>
       </div>
     </div>
+    </>
   )
 }

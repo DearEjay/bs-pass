@@ -115,24 +115,22 @@ export function AgentPluginsSection({ userId }: { userId: string }) {
                 enabled ? 'border-primary/40 bg-primary/5' : 'border-border',
               )}
             >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3 min-w-0">
-                  <div className={cn(
-                    'mt-0.5 p-1.5 rounded-md shrink-0',
-                    enabled ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
-                  )}>
-                    <Icon size={14} />
-                  </div>
-                  <div className="min-w-0">
-                    <p className={cn('text-sm font-medium', enabled && 'text-primary')}>{label}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
-                  </div>
+              <div className="absolute top-3 right-3">
+                {saving === id
+                  ? <Loader2 size={16} className="animate-spin text-muted-foreground" />
+                  : <Toggle checked={enabled} onChange={() => handleToggle(id)} />
+                }
+              </div>
+              <div className="flex items-start gap-3 pr-10">
+                <div className={cn(
+                  'mt-0.5 p-1.5 rounded-md shrink-0',
+                  enabled ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground',
+                )}>
+                  <Icon size={14} />
                 </div>
-                <div className="shrink-0 mt-0.5">
-                  {saving === id
-                    ? <Loader2 size={16} className="animate-spin text-muted-foreground" />
-                    : <Toggle checked={enabled} onChange={() => handleToggle(id)} />
-                  }
+                <div>
+                  <p className={cn('text-sm font-medium', enabled && 'text-primary')}>{label}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{description}</p>
                 </div>
               </div>
             </div>
