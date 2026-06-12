@@ -233,7 +233,7 @@ export function useAutoPopulateSplits(trackId: string, projectId: string) {
         .is('removed_at', null)
 
       // Match credits to collaborators by full_name or display_name (case-insensitive)
-      const matched: Array<{ collaborator_id: string; percentage: number }> = []
+      const matched: Array<{ collaborator_id: string; percentage: number; role: string | null }> = []
       const matchedCollabIds = new Set<string>()
 
       for (const credit of credits) {
@@ -246,7 +246,7 @@ export function useAutoPopulateSplits(trackId: string, projectId: string) {
         })
         if (collab && !matchedCollabIds.has(collab.id)) {
           matchedCollabIds.add(collab.id)
-          matched.push({ collaborator_id: collab.id, percentage: 0 })
+          matched.push({ collaborator_id: collab.id, percentage: 0, role: credit.role ?? null })
         }
       }
 
@@ -277,6 +277,7 @@ export function useAutoPopulateSplits(trackId: string, projectId: string) {
           track_id: trackId,
           collaborator_id: s.collaborator_id,
           percentage: s.percentage,
+          role: s.role ?? null,
           split_status: 'pending',
         }))
       )
