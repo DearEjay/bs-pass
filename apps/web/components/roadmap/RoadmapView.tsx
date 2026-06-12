@@ -181,6 +181,15 @@ export function RoadmapView({ projectId }: { projectId: string }) {
 
         <div className="flex items-center gap-2 ml-auto">
           <button
+            onClick={() => setShowAddModal(true)}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-accent transition-colors"
+            title="Add task"
+          >
+            <Plus size={13} />
+            Add
+          </button>
+
+          <button
             onClick={handleGenerateWithAI}
             disabled={generatingAI}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors"
@@ -220,11 +229,10 @@ export function RoadmapView({ projectId }: { projectId: string }) {
         </div>
       </div>
 
-      {/* Search + filters — shown whenever there are tasks */}
+      {/* Search + filters — one row */}
       {tasks.length > 0 && (
-        <div className="space-y-2">
-          {/* Search */}
-          <div className="relative">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
             <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
             <input
               value={searchQuery}
@@ -242,42 +250,37 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Status filter */}
-            <FilterDropdown
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={[
-                { value: '', label: 'All statuses' },
-                { value: 'not_started', label: 'Not started', dot: 'bg-gray-400' },
-                { value: 'in_progress',  label: 'In progress',  dot: 'bg-blue-500' },
-                { value: 'complete',     label: 'Complete',     dot: 'bg-teal-500' },
-              ]}
-            />
+          <FilterDropdown
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: '', label: 'All statuses' },
+              { value: 'not_started', label: 'Not started', dot: 'bg-gray-400' },
+              { value: 'in_progress',  label: 'In progress',  dot: 'bg-blue-500' },
+              { value: 'complete',     label: 'Complete',     dot: 'bg-teal-500' },
+            ]}
+          />
 
-            {/* Priority filter */}
-            <FilterDropdown
-              value={priorityFilter}
-              onChange={setPriorityFilter}
-              options={[
-                { value: '',       label: 'All priorities' },
-                { value: 'high',   label: 'High',   dot: 'bg-red-500' },
-                { value: 'medium', label: 'Medium', dot: 'bg-amber-500' },
-                { value: 'low',    label: 'Low',    dot: 'bg-slate-400' },
-              ]}
-            />
+          <FilterDropdown
+            value={priorityFilter}
+            onChange={setPriorityFilter}
+            options={[
+              { value: '',       label: 'All priorities' },
+              { value: 'high',   label: 'High',   dot: 'bg-red-500' },
+              { value: 'medium', label: 'Medium', dot: 'bg-amber-500' },
+              { value: 'low',    label: 'Low',    dot: 'bg-slate-400' },
+            ]}
+          />
 
-            {/* Clear all filters */}
-            {hasFilters && (
-              <button
-                onClick={() => { setSearchQuery(''); setStatusFilter(''); setPriorityFilter('') }}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-xs text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
-              >
-                <X size={11} />
-                Clear
-              </button>
-            )}
-          </div>
+          {hasFilters && (
+            <button
+              onClick={() => { setSearchQuery(''); setStatusFilter(''); setPriorityFilter('') }}
+              className="shrink-0 p-1.5 text-muted-foreground hover:text-foreground rounded-md border border-border hover:bg-accent transition-colors"
+              title="Clear filters"
+            >
+              <X size={11} />
+            </button>
+          )}
         </div>
       )}
 
@@ -305,14 +308,6 @@ export function RoadmapView({ projectId }: { projectId: string }) {
         </div>
       ) : viewMode === 'list' ? (
         <>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="flex items-center gap-2 w-full px-3 py-2.5 rounded-lg border border-dashed border-border text-sm text-muted-foreground hover:text-foreground hover:border-border/80 transition-colors"
-          >
-            <Plus size={14} />
-            Add task
-          </button>
-
           {filteredTasks.length === 0 && hasFilters && (
             <p className="text-center text-sm text-muted-foreground py-8">
               No tasks match your filters.

@@ -29,6 +29,7 @@ export function SelectDropdown({
   const [rect, setRect] = useState<DOMRect | null>(null)
   const [mounted, setMounted] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const selected = options.find(o => o.value === value)
 
   useEffect(() => { setMounted(true) }, [])
@@ -41,14 +42,18 @@ export function SelectDropdown({
     setOpen(o => !o)
   }
 
-  // Close on scroll/resize so the menu doesn't drift
+  // Close on page scroll/resize — but NOT when the scroll originates inside the menu itself
   useEffect(() => {
     if (!open) return
     const close = () => setOpen(false)
-    window.addEventListener('scroll', close, true)
+    function handleScroll(e: Event) {
+      if (menuRef.current?.contains(e.target as Node)) return
+      setOpen(false)
+    }
+    window.addEventListener('scroll', handleScroll, true)
     window.addEventListener('resize', close)
     return () => {
-      window.removeEventListener('scroll', close, true)
+      window.removeEventListener('scroll', handleScroll, true)
       window.removeEventListener('resize', close)
     }
   }, [open])
@@ -58,6 +63,7 @@ export function SelectDropdown({
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
           <div
+            ref={menuRef}
             className="fixed z-50 bg-card border border-border rounded-lg shadow-xl py-1 overflow-y-auto max-h-60"
             style={{ top: rect.bottom + 4, left: rect.left, width: rect.width }}
           >

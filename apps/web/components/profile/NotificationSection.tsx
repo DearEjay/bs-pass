@@ -70,7 +70,7 @@ export function NotificationSection({ userId }: { userId: string }) {
 
       <div className="mt-6 pt-5 border-t border-border">
         <p className="text-sm font-medium mb-3">Email frequency</p>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {DIGEST_OPTIONS.map(opt => (
             <button
               key={opt.value}

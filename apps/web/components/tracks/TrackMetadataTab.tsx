@@ -143,20 +143,20 @@ export function TrackMetadataTab({ track, projectId }: { track: Track; projectId
         <div className="space-y-1.5">
           <label className="text-xs text-muted-foreground">Cover art</label>
           {coverUrl ? (
-            <div className="relative w-20 h-20">
-              <div className="absolute inset-0 rounded-md overflow-hidden">
+            <div className="relative w-full aspect-square">
+              <div className="absolute inset-0 rounded-lg overflow-hidden">
                 <img src={coverUrl} alt="Track cover" className="w-full h-full object-cover" />
               </div>
               <button
                 onClick={removeCover}
-                className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors"
+                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black transition-colors"
               >
-                <X size={10} />
+                <X size={11} />
               </button>
             </div>
           ) : (
-            <label className="flex items-center gap-2 px-3 py-2 rounded-md border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer transition-colors">
-              <Upload size={13} />
+            <label className="flex flex-col items-center justify-center gap-1.5 w-full aspect-square rounded-lg border border-dashed border-border text-xs text-muted-foreground hover:text-foreground hover:border-border/80 cursor-pointer transition-colors">
+              <Upload size={16} />
               {coverUploading ? 'Uploading…' : 'Upload image'}
               <input
                 type="file"

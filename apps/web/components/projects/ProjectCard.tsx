@@ -5,9 +5,9 @@ import type { Database } from '@/types/database'
 type Project = Database['public']['Tables']['projects']['Row']
 
 const STATUS_LABEL: Record<string, string> = {
-  in_pre_production: 'Pre-Production',
-  in_production: 'Production',
-  in_post_production: 'Post-Production',
+  in_pre_production: 'Pre-Prod',
+  in_production: 'In Prod',
+  in_post_production: 'Post-Prod',
   ready_for_release: 'Ready',
   released: 'Released',
 }
@@ -48,13 +48,13 @@ export function ProjectCard({ project }: { project: Project }) {
           {project.title}
         </h3>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className="text-xs text-muted-foreground shrink-0">
             {TYPE_LABEL[project.project_type] ?? project.project_type}
           </span>
-          <span className="text-muted-foreground">·</span>
+          <span className="text-muted-foreground shrink-0">·</span>
           <span className={cn(
-            'text-xs px-1.5 py-0.5 rounded border whitespace-nowrap',
+            'text-xs px-1.5 py-0.5 rounded border shrink-0',
             STATUS_COLOR[project.status] ?? 'text-muted-foreground border-border',
           )}>
             {STATUS_LABEL[project.status] ?? project.status}

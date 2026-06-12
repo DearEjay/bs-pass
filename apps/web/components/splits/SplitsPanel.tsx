@@ -175,16 +175,16 @@ function SplitEditor({
         </div>
 
         {isMainArtist && (
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-nowrap">
             {/* Auto-populate CTA */}
             {!agentLocked && (
               <button
                 onClick={handleAutoPopulate}
                 disabled={autoPopulate.isPending}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors"
+                className="flex items-center gap-1 px-2 py-1 rounded-md border border-primary/30 bg-primary/5 text-primary text-[11px] font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors whitespace-nowrap"
               >
-                {autoPopulate.isPending ? <Loader2 size={11} className="animate-spin" /> : <Sparkles size={11} />}
-                Auto-populate from credits
+                {autoPopulate.isPending ? <Loader2 size={10} className="animate-spin" /> : <Sparkles size={10} />}
+                Auto-populate
               </button>
             )}
 
@@ -193,10 +193,10 @@ function SplitEditor({
               <button
                 onClick={() => resetLock.mutate()}
                 disabled={resetLock.isPending}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors whitespace-nowrap"
+                className="flex items-center gap-1 px-2 py-1 rounded-md border border-border text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50 transition-colors whitespace-nowrap"
               >
-                <Unlock size={11} />
-                Reset to track credits
+                <Unlock size={10} />
+                Reset credits
               </button>
             )}
 
@@ -204,7 +204,7 @@ function SplitEditor({
             {!editing && (
               <button
                 onClick={() => setEditing(true)}
-                className="px-2.5 py-1.5 rounded-md border border-border text-xs hover:bg-accent transition-colors whitespace-nowrap"
+                className="px-2 py-1 rounded-md border border-border text-[11px] hover:bg-accent transition-colors whitespace-nowrap"
               >
                 Edit splits
               </button>
@@ -214,10 +214,10 @@ function SplitEditor({
             {splits.length > 0 && !editing && !allSigned && (
               <button
                 onClick={() => setShowRequestModal(true)}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
+                className="flex items-center gap-1 px-2 py-1 rounded-md bg-primary text-primary-foreground text-[11px] font-medium hover:opacity-90 transition-opacity whitespace-nowrap"
               >
-                <Send size={11} />
-                {hasUnsignedSignatureRequest ? 'Resend' : 'Request signatures'}
+                <Send size={10} />
+                {hasUnsignedSignatureRequest ? 'Resend' : 'Request sigs'}
               </button>
             )}
 
