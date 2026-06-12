@@ -17,11 +17,6 @@ const PROJECT_TYPES = [
   { value: 'album', label: 'Album' },
   { value: 'mixtape', label: 'Mixtape' },
 ] as const
-const AGENT_MODES = [
-  { value: 'minimal', label: 'Minimal', desc: 'Only when asked' },
-  { value: 'moderate', label: 'Moderate', desc: 'On key events' },
-  { value: 'aggressive', label: 'Aggressive', desc: 'Always active' },
-] as const
 
 export function ProjectSettingsModal({
   project,
@@ -41,7 +36,6 @@ export function ProjectSettingsModal({
   const [title, setTitle] = useState(project.title)
   const [projectType, setProjectType] = useState(project.project_type as typeof PROJECT_TYPES[number]['value'])
   const [genre, setGenre] = useState(project.genre ?? '')
-  const [agentMode, setAgentMode] = useState(project.agent_mode as typeof AGENT_MODES[number]['value'])
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   // null = removed, undefined = unchanged, string = local preview URL, existing = project.cover_url
@@ -67,7 +61,6 @@ export function ProjectSettingsModal({
       title,
       project_type: projectType,
       genre: genre || null,
-      agent_mode: agentMode,
     })
     // Upload new cover or clear it if explicitly removed
     if (coverFile !== undefined) {
@@ -181,29 +174,7 @@ export function ProjectSettingsModal({
             />
           </div>
 
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">AI Agent mode</label>
-            <div className="space-y-2">
-              {AGENT_MODES.map(mode => (
-                <button
-                  key={mode.value}
-                  type="button"
-                  onClick={() => setAgentMode(mode.value)}
-                  className={cn(
-                    'w-full flex items-center justify-between px-3 py-2.5 rounded-md border text-sm transition-colors',
-                    agentMode === mode.value
-                      ? 'border-primary bg-primary/10'
-                      : 'border-border hover:border-border/80',
-                  )}
-                >
-                  <span className={agentMode === mode.value ? 'text-primary font-medium' : 'text-foreground'}>
-                    {mode.label}
-                  </span>
-                  <span className="text-muted-foreground text-xs">{mode.desc}</span>
-                </button>
-              ))}
-            </div>
-          </div>
+
 
           {updateProject.error && (
             <p className="text-destructive text-sm">{(updateProject.error as Error).message}</p>
