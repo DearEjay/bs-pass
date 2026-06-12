@@ -406,34 +406,38 @@ export function RoadmapView({ projectId }: { projectId: string }) {
               {allComplete ? (
                 <button
                   onClick={() => bulkSetStatus('not_started')}
+                  title="Mark incomplete"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-muted text-muted-foreground hover:bg-muted/80 transition-colors font-medium"
                 >
                   <Circle size={12} />
-                  Mark incomplete
+                  <span className="hidden sm:inline">Mark incomplete</span>
                 </button>
               ) : (
                 <button
                   onClick={() => bulkSetStatus('complete')}
+                  title="Mark complete"
                   className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500/20 transition-colors font-medium"
                 >
                   <CheckCircle2 size={12} />
-                  Mark complete
+                  <span className="hidden sm:inline">Mark complete</span>
                 </button>
               )}
               <button
                 onClick={() => bulkSetStatus('in_progress')}
+                title="In progress"
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-amber-400/10 text-amber-600 hover:bg-amber-400/20 transition-colors font-medium"
               >
                 <Clock size={12} />
-                In progress
+                <span className="hidden sm:inline">In progress</span>
               </button>
               <div className="w-px h-4 bg-border mx-1" />
               <button
                 onClick={bulkDelete}
+                title="Delete"
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors font-medium"
               >
                 <Trash2 size={12} />
-                Delete
+                <span className="hidden sm:inline">Delete</span>
               </button>
               <button
                 onClick={clearSelection}
