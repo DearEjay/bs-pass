@@ -3,6 +3,7 @@ import { ProjectList } from '@/components/projects/ProjectList'
 import { UserButton } from '@/components/shared/UserButton'
 import { NotificationBell } from '@/components/shared/NotificationBell'
 import { CommandPalette } from '@/components/shared/CommandPalette'
+import { OnboardingModal } from '@/components/onboarding/OnboardingModal'
 
 export default async function ProjectsPage() {
   const supabase = await createClient()
@@ -19,6 +20,7 @@ export default async function ProjectsPage() {
       </div>
       <ProjectList userId={user!.id} />
       <CommandPalette userId={user!.id} />
+      <OnboardingModal userId={user!.id} />
     </div>
   )
 }

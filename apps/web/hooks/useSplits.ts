@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { track } from '@/lib/analytics'
 
 export interface Split {
   id: string
@@ -198,6 +199,7 @@ export function useUpsertSplits(trackId: string, projectId: string) {
       qc.invalidateQueries({ queryKey: ['splits', trackId] })
       qc.invalidateQueries({ queryKey: ['track_splits_lock', trackId] })
       qc.invalidateQueries({ queryKey: ['split_audit', trackId] })
+      track.splitUpdated({ project_id: projectId, track_id: trackId })
     },
   })
 }
@@ -303,9 +305,10 @@ export function useAutoPopulateSplits(trackId: string, projectId: string) {
 
       return splits
     },
-    onSuccess: () => {
+    onSuccess: (splits) => {
       qc.invalidateQueries({ queryKey: ['splits', trackId] })
       qc.invalidateQueries({ queryKey: ['split_audit', trackId] })
+      track.splitsAutoPopulated({ project_id: projectId, track_id: trackId, count: splits.length })
     },
   })
 }
@@ -347,9 +350,10 @@ export function useRequestSignatures(projectId: string) {
       if (!res.ok) throw new Error(body.error ?? `Error ${res.status}`)
       return body
     },
-    onSuccess: (_, trackId) => {
+    onSuccess: (body, trackId) => {
       qc.invalidateQueries({ queryKey: ['splits', trackId] })
       qc.invalidateQueries({ queryKey: ['split_audit', trackId] })
+      track.splitSignatureRequested({ project_id: projectId, track_id: trackId, parties: body?.parties ?? 0 })
     },
   })
 }

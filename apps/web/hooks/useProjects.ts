@@ -1,5 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { track } from '@/lib/analytics'
 import type { Database } from '@/types/database'
 
 type Project = Database['public']['Tables']['projects']['Row']
@@ -84,7 +85,10 @@ export function useCreateProject(userId: string) {
 
       return project as Project
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects', userId] }),
+    onSuccess: (project) => {
+      qc.invalidateQueries({ queryKey: ['projects', userId] })
+      track.projectCreated({ type: project.project_type, genre: project.genre ?? undefined })
+    },
   })
 }
 

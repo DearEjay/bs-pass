@@ -1,13 +1,20 @@
+'use client'
+
+import { GoogleReCaptchaProvider } from 'react-google-recaptcha-v3'
+
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const siteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY ?? ''
   return (
-    <div className="min-h-[100dvh] flex items-center justify-center px-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold tracking-tight">BS-PASS</h1>
-          <p className="text-muted-foreground text-sm mt-1">Music project management</p>
+    <GoogleReCaptchaProvider reCaptchaKey={siteKey} scriptProps={{ async: true, defer: true }}>
+      <div className="min-h-[100dvh] flex items-center justify-center px-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))] pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <h1 className="text-2xl font-bold tracking-tight">BS-PASS</h1>
+            <p className="text-muted-foreground text-sm mt-1">Music project management</p>
+          </div>
+          {children}
         </div>
-        {children}
       </div>
-    </div>
+    </GoogleReCaptchaProvider>
   )
 }

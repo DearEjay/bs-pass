@@ -2,6 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { track } from '@/lib/analytics'
 import type { Database } from '@/types/database'
 
 type Task = Database['public']['Tables']['tasks']['Row']
@@ -106,7 +107,10 @@ export function useCreateTask(projectId: string) {
       if (error) throw error
       return data as Task
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', projectId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', projectId] })
+      track.taskCreated({ project_id: projectId, source: 'manual' })
+    },
   })
 }
 
@@ -156,6 +160,7 @@ export function useCompleteTask(projectId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ taskId, userId }: { taskId: string; userId: string }) => {
+      const { data: task } = await supabase.from('tasks').select('priority').eq('id', taskId).single()
       const { error } = await supabase
         .from('tasks')
         .update({
@@ -165,8 +170,12 @@ export function useCompleteTask(projectId: string) {
         })
         .eq('id', taskId)
       if (error) throw error
+      return task
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', projectId] }),
+    onSuccess: (task) => {
+      qc.invalidateQueries({ queryKey: ['tasks', projectId] })
+      track.taskCompleted({ project_id: projectId, priority: task?.priority ?? 'medium' })
+    },
   })
 }
 
@@ -198,7 +207,10 @@ export function useDeleteTask(projectId: string) {
         .eq('id', taskId)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks', projectId] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tasks', projectId] })
+      track.taskDeleted({ project_id: projectId })
+    },
   })
 }
 

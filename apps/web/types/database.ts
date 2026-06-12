@@ -370,6 +370,8 @@ export type Database = {
           id: string
           ipi_number: string | null
           pro_name: string | null
+          tos_accepted_at: string | null
+          tos_version: string | null
           updated_at: string | null
         }
         Insert: {
@@ -381,6 +383,8 @@ export type Database = {
           id: string
           ipi_number?: string | null
           pro_name?: string | null
+          tos_accepted_at?: string | null
+          tos_version?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -392,6 +396,8 @@ export type Database = {
           id?: string
           ipi_number?: string | null
           pro_name?: string | null
+          tos_accepted_at?: string | null
+          tos_version?: string | null
           updated_at?: string | null
         }
         Relationships: []
