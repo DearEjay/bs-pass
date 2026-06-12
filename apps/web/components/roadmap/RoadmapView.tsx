@@ -231,8 +231,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             {generatingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-            <span className="sm:hidden">{generatingAI ? 'Generating…' : 'Create with AI'}</span>
-            <span className="hidden sm:inline">{generatingAI ? 'Generating…' : 'Create tasks with AI'}</span>
+            {generatingAI ? 'Generating…' : 'Create with AI'}
           </button>
 
           {tasks.length > 0 && (
