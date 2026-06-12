@@ -5,6 +5,7 @@ import { useCreateProject } from '@/hooks/useProjects'
 import { createClient } from '@/lib/supabase/client'
 import { X, ImagePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { SelectDropdown } from '@/components/ui/SelectDropdown'
 
 const PROJECT_TYPES = [
   { value: 'single', label: 'Single' },
@@ -12,6 +13,34 @@ const PROJECT_TYPES = [
   { value: 'album', label: 'Album' },
   { value: 'mixtape', label: 'Mixtape' },
 ] as const
+
+const GENRE_OPTIONS = [
+  { value: '',              label: 'Select genre…' },
+  { value: 'Hip Hop',       label: 'Hip Hop' },
+  { value: 'R&B/Soul',      label: 'R&B/Soul' },
+  { value: 'Pop',           label: 'Pop' },
+  { value: 'Country',       label: 'Country' },
+  { value: 'Rock',          label: 'Rock' },
+  { value: 'Jazz',          label: 'Jazz' },
+  { value: 'Funk',          label: 'Funk' },
+  { value: 'Gospel',        label: 'Gospel' },
+  { value: 'Electronic',    label: 'Electronic' },
+  { value: 'Afrobeats',     label: 'Afrobeats' },
+  { value: 'Reggae',        label: 'Reggae' },
+  { value: 'Latin',         label: 'Latin' },
+  { value: 'Classical',     label: 'Classical' },
+  { value: 'Alternative',   label: 'Alternative' },
+  { value: 'Indie',         label: 'Indie' },
+  { value: 'Blues',         label: 'Blues' },
+  { value: 'Metal',         label: 'Metal' },
+  { value: 'Punk',          label: 'Punk' },
+  { value: 'Folk',          label: 'Folk' },
+  { value: 'Dance/EDM',     label: 'Dance/EDM' },
+  { value: 'Trap',          label: 'Trap' },
+  { value: 'Drill',         label: 'Drill' },
+  { value: 'Amapiano',      label: 'Amapiano' },
+  { value: 'Other',         label: 'Other' },
+]
 
 export function NewProjectModal({
   userId,
@@ -23,6 +52,7 @@ export function NewProjectModal({
   const createProject = useCreateProject(userId)
   const [title, setTitle] = useState('')
   const [projectType, setProjectType] = useState<typeof PROJECT_TYPES[number]['value']>('single')
+  const [genre, setGenre] = useState('')
   const [budgetLevel, setBudgetLevel] = useState('')
   const [coverFile, setCoverFile] = useState<File | null>(null)
   const [coverPreview, setCoverPreview] = useState<string | null>(null)
@@ -53,6 +83,7 @@ export function NewProjectModal({
     const project = await createProject.mutateAsync({
       title,
       project_type: projectType,
+      genre: genre || null,
       budget_level: budgetLevel || null,
       agent_mode: 'moderate',
       coverFile: coverFile ?? undefined,
@@ -159,6 +190,16 @@ export function NewProjectModal({
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Genre <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <SelectDropdown
+              value={genre}
+              onChange={setGenre}
+              options={GENRE_OPTIONS}
+              placeholder="Select genre…"
+            />
           </div>
 
           {createProject.error && (

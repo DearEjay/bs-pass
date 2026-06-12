@@ -1,6 +1,7 @@
 import { requireAuth } from '../_shared/auth.ts'
 import { db } from '../_shared/db.ts'
 import { generateContent } from '../_shared/gemini.ts'
+import { buildAgentContext, formatContextForPrompt } from '../_shared/context.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +15,15 @@ function json(data: unknown, status = 200) {
   })
 }
 
+const PLUGIN_TASK_SCOPE: Record<string, string> = {
+  marketing:      'Include marketing tasks: release strategy, press outreach, promotional campaigns, playlist pitching.',
+  social_media:   'Include social media tasks: content calendar, post scheduling, platform-specific rollout (Instagram, TikTok, YouTube).',
+  opportunities:  'Include opportunity tasks: sync licensing pitches, brand partnerships, playlist submission.',
+  creative:       'Include creative tasks: artwork direction, music video production, visual asset creation.',
+  booking:        'Include booking tasks: live show planning, tour logistics, venue outreach.',
+  fan_engagement: 'Include fan engagement tasks: newsletter drafts, community updates, fan-facing content.',
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: CORS })
 
@@ -24,16 +34,7 @@ Deno.serve(async (req) => {
 
     const supabase = db()
 
-    // ── 1. Load project ───────────────────────────────────────────────────
-    const { data: project } = await supabase
-      .from('projects')
-      .select('id,title,project_type,agent_mode,timeline_start,timeline_end,budget_level,genre,auto_tasks_enabled')
-      .eq('id', projectId)
-      .single()
-
-    if (!project) return json({ error: 'Project not found' }, 404)
-
-    // ── 2. Verify caller is a collaborator ────────────────────────────────
+    // Verify caller is a collaborator
     const { data: collab } = await supabase
       .from('collaborators')
       .select('id')
@@ -41,125 +42,64 @@ Deno.serve(async (req) => {
       .eq('user_id', userId)
       .is('removed_at', null)
       .maybeSingle()
-
     if (!collab) return json({ error: 'Forbidden' }, 403)
 
-    // ── 3. Load template ──────────────────────────────────────────────────
+    // Build full project context
+    const ctx = await buildAgentContext(projectId, userId)
+    const contextBlock = formatContextForPrompt(ctx)
+
+    // Load roadmap template for the project type
     const { data: template } = await supabase
       .from('roadmap_templates')
       .select('tasks')
-      .eq('project_type', project.project_type)
+      .eq('project_type', ctx.project.type)
       .maybeSingle()
 
     if (!template) return json({ error: 'No template for project type' }, 422)
 
-    // ── 4. Context: existing tasks, tracks, collaborator roles, agent prefs ─
-    const [existingRes, tracksRes, collabsRes, prefsRes] = await Promise.all([
-      supabase.from('tasks').select('title,status,priority,start_date,due_date,description').eq('project_id', projectId).is('deleted_at', null),
-      supabase.from('tracks').select('title,current_status').eq('project_id', projectId).is('deleted_at', null),
-      supabase.from('collaborators').select('id,user_id,roles,profiles:user_id(display_name,full_name)').eq('project_id', projectId).is('removed_at', null),
-      supabase.from('user_agent_preferences').select('avoided_task_types,preferred_timeline_buffer_days,agent_tone,agent_verbosity,auto_task_triggers').eq('user_id', userId).maybeSingle(),
-    ])
-
-    const existingTasks = (existingRes.data ?? []) as Array<{ title: string; status: string; priority: string | null; start_date: string | null; due_date: string | null; description: string | null }>
-    const existingTitles = existingTasks.map(t => t.title)
-    const incompleteTasks = existingTasks.filter(t => t.status !== 'complete')
-    const trackStatuses = (tracksRes.data ?? []) as Array<{ title: string; current_status: string }>
-    const collaborators = (collabsRes.data ?? []) as Array<{ id: string; user_id: string; roles: string[]; profiles: { display_name: string | null; full_name: string | null } | null }>
-    const agentPrefs = prefsRes.data
-
-    // ── 5. Build role → collaborator_id map ───────────────────────────────
-    // Map role → profile user_id (assignee_id is a FK to profiles, not collaborators)
+    // Build role → userId map for assignment
     const roleToUserId: Record<string, string> = {}
-    for (const c of collaborators) {
-      for (const role of c.roles ?? []) {
-        if (!roleToUserId[role]) roleToUserId[role] = c.user_id
+    for (const c of ctx.collaborators) {
+      for (const role of c.roles) {
+        if (!roleToUserId[role]) roleToUserId[role] = c.userId
       }
     }
 
-    // Collaborator summary for prompt (name + roles)
-    const collaboratorSummary = collaborators.map(c => ({
-      name: c.profiles?.full_name ?? c.profiles?.display_name ?? 'Unknown',
-      roles: c.roles ?? [],
-    }))
+    // Plugin scope additions
+    const pluginInstructions = ctx.agentPrefs.plugins
+      .map(p => PLUGIN_TASK_SCOPE[p])
+      .filter(Boolean)
+      .join('\n- ')
 
-    // ── 6. Call Gemini ────────────────────────────────────────────────────
-    const today = new Date().toISOString().split('T')[0]
-    const timelineStart = project.timeline_start ?? today
-    const bufferDays = agentPrefs?.preferred_timeline_buffer_days ?? 0
-
-    const context = {
-      project_type: project.project_type,
-      title: project.title,
-      genre: project.genre ?? 'unspecified',
-      budget_level: project.budget_level ?? 'indie',
-      agent_mode: project.agent_mode,
-      timeline_start: timelineStart,
-      timeline_end: project.timeline_end ?? null,
-      today,
-      collaborators: collaboratorSummary,
-      collaborator_roles: collaborators.flatMap(c => c.roles ?? []),
-      avoided_task_types: agentPrefs?.avoided_task_types ?? [],
-      timeline_buffer_days: bufferDays,
-      agent_tone: agentPrefs?.agent_tone ?? 'professional',
-      agent_verbosity: agentPrefs?.agent_verbosity ?? 'balanced',
-    }
-
-    const incompleteTasksSummary = incompleteTasks.length > 0
-      ? incompleteTasks.map(t =>
-          `- [${t.status}] "${t.title}"${t.start_date ? ` starts ${t.start_date}` : ''}${t.due_date ? ` due ${t.due_date}` : ''}${t.description ? ` — ${t.description}` : ''}`
-        ).join('\n')
-      : '(none)'
-
-    const trackStatusSummary = trackStatuses.length > 0
-      ? trackStatuses.map(t => `- "${t.title}": ${t.current_status}`).join('\n')
-      : '(no tracks yet)'
-
-    const toneInstruction = context.agent_tone === 'casual'
-      ? 'Write descriptions in a casual, conversational tone.'
-      : context.agent_tone === 'direct'
-      ? 'Write descriptions in a direct, action-focused tone with minimal fluff.'
-      : 'Write descriptions in a professional, business-appropriate tone.'
-
-    const verbosityInstruction = context.agent_verbosity === 'concise'
-      ? 'Keep task descriptions to 1 short sentence (under 15 words).'
-      : context.agent_verbosity === 'detailed'
-      ? 'Write detailed task descriptions with full context (2–3 sentences).'
-      : 'Write moderate task descriptions (1–2 sentences).'
+    const existingTitles = ctx.tasks.map(t => t.title)
+    const maxTasks = ctx.agentPrefs.verbosity === 'concise' ? 8 : 12
 
     const prompt = `You are an AI music project manager. Generate a roadmap for this project.
 
-RULES:
+=== FULL PROJECT CONTEXT ===
+${contextBlock}
+
+=== TASK GENERATION RULES ===
 - Return ONLY a valid JSON array — no markdown, no code fences, no explanation
-- Maximum 12 tasks (max 6 if agent_mode is "minimal")
-- Do NOT duplicate any task in existing_incomplete_tasks
-- Skip any task types matching avoided_task_types
-- EVERY task MUST have both start_date AND due_date as ISO dates (YYYY-MM-DD)
-- Tasks must be scheduled SEQUENTIALLY — each task's start_date must be AFTER the previous task's due_date
-- Start the first new task from timeline_start (or after the latest existing task's due_date if there are incomplete tasks)
-- Typical task durations: writing/recording = 14 days, mixing/mastering = 7 days, admin/planning = 3 days
-- Add timeline_buffer_days padding between tasks
-- priority must be "high", "medium", or "low"
-- Tasks should reflect the current state of tracks (don't generate tasks for already-complete track stages)
-- assignee_role is optional — only include if that role exists in collaborator_roles; assign tasks to collaborators based on their expertise (e.g. "mixing_engineer" for mixing tasks, "songwriter" for writing tasks)
-- The collaborators field in PROJECT CONTEXT lists each team member by name + roles — use this to make smart, specific assignments
-- Keep titles under 60 characters
-- ${toneInstruction}
-- ${verbosityInstruction}
+- Maximum ${maxTasks} tasks
+- Do NOT duplicate any of these existing tasks: ${JSON.stringify(existingTitles)}
+- Skip any task types matching AVOID TASK TYPES above
+- EVERY task MUST have start_date AND due_date as ISO dates (YYYY-MM-DD)
+- Schedule tasks SEQUENTIALLY — each start_date must be after the previous due_date
+- Start from timeline_start (or after the latest incomplete task's due_date)
+- Typical durations: writing/recording = 14 days, mixing/mastering = 7 days, admin = 3 days
+- Add ${ctx.agentPrefs.bufferDays} buffer day(s) between tasks
+- Priority must be "high", "medium", or "low"
+- Assign tasks to collaborators based on their roles using assignee_role
+- assignee_role must exactly match a role in the COLLABORATORS list above
+- Address COMPLETION GAPS above — prioritise tasks that move tracks toward "released"
+- Tasks should NOT recreate work already done (check TRACKS status)
+${pluginInstructions ? `\nPLUGIN SCOPE (enabled — include tasks for these areas):\n- ${pluginInstructions}` : ''}
 
-PROJECT CONTEXT:
-${JSON.stringify(context, null, 2)}
-
-EXISTING INCOMPLETE TASKS (do not duplicate these):
-${incompleteTasksSummary}
-
-TRACK STATUSES (use to determine what stages are already done):
-${trackStatusSummary}
-
-TEMPLATE (use as inspiration, adapt to fit the project state):
+=== TEMPLATE (use as inspiration, adapt to project state) ===
 ${JSON.stringify(template.tasks, null, 2)}
 
-Return a JSON array where each element has:
+Return JSON array where each element is:
 { "title": string, "description": string|null, "priority": "high"|"medium"|"low", "start_date": "YYYY-MM-DD", "due_date": "YYYY-MM-DD", "assignee_role": string|null, "sort_order": number }`
 
     let taskDrafts: Array<{
@@ -179,8 +119,9 @@ Return a JSON array where each element has:
       if (!Array.isArray(parsed)) throw new Error('not array')
       taskDrafts = parsed
     } catch (e) {
-      console.warn('Gemini parse failed, using raw template:', e)
-      // Fallback: space template tasks 7 days apart from timeline_start
+      console.warn('LLM parse failed, using template fallback:', e)
+      const bufferDays = ctx.agentPrefs.bufferDays
+      const timelineStart = ctx.project.timeline_start ?? ctx.project.today
       taskDrafts = (template.tasks as typeof taskDrafts).map((t, i) => {
         const start = new Date(timelineStart)
         start.setDate(start.getDate() + i * (7 + bufferDays))
@@ -199,9 +140,8 @@ Return a JSON array where each element has:
       })
     }
 
-    taskDrafts = taskDrafts.slice(0, 12)
+    taskDrafts = taskDrafts.slice(0, maxTasks)
 
-    // ── 7. Insert tasks ───────────────────────────────────────────────────
     const rows = taskDrafts.map((t, i) => ({
       project_id: projectId,
       title: String(t.title ?? `Task ${i + 1}`).slice(0, 200),
@@ -221,65 +161,54 @@ Return a JSON array where each element has:
 
     if (insertErr) {
       console.error('Task insert error:', insertErr)
-      return json({ error: `Insert failed: ${insertErr.message} (${insertErr.code})` }, 500)
+      return json({ error: `Insert failed: ${insertErr.message}` }, 500)
     }
 
     const taskCount = inserted?.length ?? rows.length
 
-    // ── 8. Post to chat ───────────────────────────────────────────────────
+    // Post @here notification to chat
     await supabase.from('chat_messages').insert({
       project_id: projectId,
       sender_type: 'agent',
-      body: `@here 📋 Roadmap ready — I've generated ${taskCount} tasks for "${project.title}". Check the Roadmap tab to review, reorder, or adjust.`,
+      body: `@here 📋 Roadmap ready — I've generated ${taskCount} tasks for "${ctx.project.title}". Check the Roadmap tab to review, reorder, or adjust.`,
     })
 
-    // ── 8b. Notify assigned collaborators ─────────────────────────────────
-    const assignedTaskIds = (inserted ?? [])
-      .filter((_, i) => rows[i]?.assignee_id)
-      .map(t => t.id)
-    if (assignedTaskIds.length > 0) {
-      // Post assignment notifications as chat messages via the existing pattern
-      const assignedTasks = (inserted ?? []).filter((_, i) => rows[i]?.assignee_id)
-      const byAssignee = new Map<string, { name: string; tasks: Array<{ title: string; due_date: string | null }> }>()
-      for (let i = 0; i < (inserted ?? []).length; i++) {
-        const row = rows[i]
-        const task = inserted![i]
-        if (!row.assignee_id || !task) continue
-        const collab = collaborators.find(c => c.user_id === row.assignee_id)
-        const name = collab?.profiles?.full_name ?? collab?.profiles?.display_name ?? 'there'
-        if (!byAssignee.has(row.assignee_id)) byAssignee.set(row.assignee_id, { name, tasks: [] })
-        byAssignee.get(row.assignee_id)!.tasks.push({ title: task.title, due_date: row.due_date ?? null })
-      }
+    // Notify assigned collaborators
+    const assignedByUser = new Map<string, { name: string; tasks: Array<{ title: string; due_date: string | null }> }>()
+    for (let i = 0; i < (inserted ?? []).length; i++) {
+      const row = rows[i]
+      const task = inserted![i]
+      if (!row.assignee_id || !task) continue
+      const collaborator = ctx.collaborators.find(c => c.userId === row.assignee_id)
+      const name = collaborator?.name ?? 'there'
+      if (!assignedByUser.has(row.assignee_id)) assignedByUser.set(row.assignee_id, { name, tasks: [] })
+      assignedByUser.get(row.assignee_id)!.tasks.push({ title: task.title, due_date: row.due_date })
+    }
+
+    if (assignedByUser.size > 0) {
       const messages: string[] = []
-      for (const { name, tasks: assigned } of byAssignee.values()) {
+      for (const { name, tasks: assigned } of assignedByUser.values()) {
         if (assigned.length === 1) {
-          const t = assigned[0]
-          const due = t.due_date ? ` (due ${t.due_date})` : ''
-          messages.push(`@${name} you've been assigned: ${t.title}${due}`)
+          const due = assigned[0].due_date ? ` (due ${assigned[0].due_date})` : ''
+          messages.push(`@${name} you've been assigned: ${assigned[0].title}${due}`)
         } else {
-          const list = assigned.map(t => {
-            const due = t.due_date ? ` (due ${t.due_date})` : ''
-            return `  • ${t.title}${due}`
-          }).join('\n')
+          const list = assigned.map(t => `  • ${t.title}${t.due_date ? ` (due ${t.due_date})` : ''}`).join('\n')
           messages.push(`@${name} you've been assigned ${assigned.length} tasks:\n${list}`)
         }
       }
-      if (messages.length > 0) {
-        await supabase.from('chat_messages').insert({
-          project_id: projectId,
-          sender_type: 'agent',
-          body: messages.join('\n\n'),
-        }).catch(e => console.warn('Assignment notification failed:', e))
-      }
+      await supabase.from('chat_messages').insert({
+        project_id: projectId,
+        sender_type: 'agent',
+        body: messages.join('\n\n'),
+      }).catch(e => console.warn('Assignment notification failed:', e))
     }
 
-    // ── 9. Audit log ──────────────────────────────────────────────────────
     await supabase.from('audit_logs').insert({
       project_id: projectId,
       actor_type: 'agent',
       entity_type: 'tasks',
       action: 'roadmap_generated',
-      diff: { task_count: taskCount, project_type: project.project_type },
+      diff: { task_count: taskCount, project_type: ctx.project.type },
     })
 
     return json({ success: true, task_count: taskCount })

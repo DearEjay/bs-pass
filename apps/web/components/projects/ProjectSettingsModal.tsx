@@ -7,6 +7,7 @@ import { X, ImagePlus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AgentSection } from '@/components/profile/AgentSection'
 import { AgentPluginsSection } from '@/components/profile/AgentPluginsSection'
+import { SelectDropdown } from '@/components/ui/SelectDropdown'
 import type { Database } from '@/types/database'
 
 type Project = Database['public']['Tables']['projects']['Row']
@@ -17,6 +18,34 @@ const PROJECT_TYPES = [
   { value: 'album', label: 'Album' },
   { value: 'mixtape', label: 'Mixtape' },
 ] as const
+
+const GENRE_OPTIONS = [
+  { value: '',              label: 'Select genre…' },
+  { value: 'Hip Hop',       label: 'Hip Hop' },
+  { value: 'R&B/Soul',      label: 'R&B/Soul' },
+  { value: 'Pop',           label: 'Pop' },
+  { value: 'Country',       label: 'Country' },
+  { value: 'Rock',          label: 'Rock' },
+  { value: 'Jazz',          label: 'Jazz' },
+  { value: 'Funk',          label: 'Funk' },
+  { value: 'Gospel',        label: 'Gospel' },
+  { value: 'Electronic',    label: 'Electronic' },
+  { value: 'Afrobeats',     label: 'Afrobeats' },
+  { value: 'Reggae',        label: 'Reggae' },
+  { value: 'Latin',         label: 'Latin' },
+  { value: 'Classical',     label: 'Classical' },
+  { value: 'Alternative',   label: 'Alternative' },
+  { value: 'Indie',         label: 'Indie' },
+  { value: 'Blues',         label: 'Blues' },
+  { value: 'Metal',         label: 'Metal' },
+  { value: 'Punk',          label: 'Punk' },
+  { value: 'Folk',          label: 'Folk' },
+  { value: 'Dance/EDM',     label: 'Dance/EDM' },
+  { value: 'Trap',          label: 'Trap' },
+  { value: 'Drill',         label: 'Drill' },
+  { value: 'Amapiano',      label: 'Amapiano' },
+  { value: 'Other',         label: 'Other' },
+]
 
 export function ProjectSettingsModal({
   project,
@@ -166,11 +195,11 @@ export function ProjectSettingsModal({
 
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Genre <span className="text-muted-foreground font-normal">(optional)</span></label>
-            <input
-              type="text"
+            <SelectDropdown
               value={genre}
-              onChange={e => setGenre(e.target.value)}
-              className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              onChange={setGenre}
+              options={GENRE_OPTIONS}
+              placeholder="Select genre…"
             />
           </div>
 
