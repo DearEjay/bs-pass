@@ -231,6 +231,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-primary/30 bg-primary/5 text-primary text-xs font-medium hover:bg-primary/10 disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             {generatingAI ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+            <span className="sm:hidden">{generatingAI ? 'Generating…' : 'Create with AI'}</span>
             <span className="hidden sm:inline">{generatingAI ? 'Generating…' : 'Create tasks with AI'}</span>
           </button>
 
@@ -242,6 +243,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-border text-xs text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-50 transition-colors whitespace-nowrap"
             >
               {autoAssigning ? <Loader2 size={12} className="animate-spin" /> : <UserCheck size={12} />}
+              <span className="sm:hidden">{autoAssigning ? 'Assigning…' : 'Auto Assign'}</span>
               <span className="hidden sm:inline">{autoAssigning ? 'Assigning…' : 'Auto-assign'}</span>
             </button>
           )}
