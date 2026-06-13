@@ -196,11 +196,12 @@ Return JSON array where each element is:
           messages.push(`@${name} you've been assigned ${assigned.length} tasks:\n${list}`)
         }
       }
-      await supabase.from('chat_messages').insert({
+      const { error: notifErr } = await supabase.from('chat_messages').insert({
         project_id: projectId,
         sender_type: 'agent',
         body: messages.join('\n\n'),
-      }).catch(e => console.warn('Assignment notification failed:', e))
+      })
+      if (notifErr) console.warn('Assignment notification failed:', notifErr)
     }
 
     await supabase.from('audit_logs').insert({

@@ -183,11 +183,12 @@ ${JSON.stringify(taskList, null, 2)}`
       }
 
       if (messages.length > 0) {
-        await supabase.from('chat_messages').insert({
+        const { error: notifErr } = await supabase.from('chat_messages').insert({
           project_id: projectId,
           sender_type: 'agent',
           body: `📌 Tasks auto-assigned based on collaborator roles.\n\n${messages.join('\n\n')}`,
-        }).catch(e => console.warn('Notification failed:', e))
+        })
+        if (notifErr) console.warn('Notification failed:', notifErr)
       }
     }
 
