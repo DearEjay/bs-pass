@@ -6,7 +6,7 @@ import type { Database } from '@/types/database'
 type Project = Database['public']['Tables']['projects']['Row']
 type NewProject = Pick<
   Database['public']['Tables']['projects']['Insert'],
-  'title' | 'project_type' | 'genre' | 'timeline_start' | 'timeline_end' | 'budget_level' | 'agent_mode' | 'upc' | 'record_label'
+  'title' | 'project_type' | 'genre' | 'timeline_start' | 'timeline_end' | 'budget_level' | 'agent_mode' | 'upc' | 'record_label' | 'release_date' | 'target_track_count'
 >
 
 export function useProjects(userId: string) {

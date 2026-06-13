@@ -75,7 +75,23 @@ export function ChatFeed({
   const groups = buildGroups(filtered)
 
   async function handleSend(body: string) {
-    await sendMessage.mutateAsync({ body, senderId: userId })
+    const msg = await sendMessage.mutateAsync({ body, senderId: userId })
+
+    // If the message mentions @manager, trigger the AI chat agent
+    if (/‌?@manager/i.test(body)) {
+      const supabase = (await import('@/lib/supabase/client')).createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session?.access_token) {
+        fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agent-chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ projectId, messageId: msg.id }),
+        }).catch(e => console.warn('agent-chat fetch failed:', e))
+      }
+    }
   }
 
   function handleToggleReaction(messageId: string, emoji: string) {
