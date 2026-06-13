@@ -2,10 +2,10 @@ const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')!
 const BASE_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 // Model tiers — pick based on task complexity and expected input size:
-//   FAST  (llama-3.1-8b-instant)    : 6K TPM,  500K TPD — lightweight tasks, short prompts
-//   SMART (llama-3.3-70b-versatile) : 12K TPM, 100K TPD — complex reasoning, large user messages
+//   FAST  (llama-3.1-8b-instant) : 6K TPM,  500K TPD — lightweight tasks, short prompts
+//   SMART (gemma2-9b-it)         : 15K TPM, 500K TPD — chat, roadmap gen, large user messages
 export const GROQ_FAST  = 'llama-3.1-8b-instant'
-export const GROQ_SMART = 'llama-3.3-70b-versatile'
+export const GROQ_SMART = 'gemma2-9b-it'
 
 export interface GeminiMessage {
   role: 'user' | 'model'
