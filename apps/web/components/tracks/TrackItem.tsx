@@ -400,7 +400,7 @@ export function TrackItem({
       <input
         ref={versionUploadRef}
         type="file"
-        accept=".mp3,.wav,.flac,.aac,.ogg"
+        accept=".mp3,.wav,.flac,.aac,.ogg,.m4a"
         className="hidden"
         onChange={handleVersionFileSelect}
       />

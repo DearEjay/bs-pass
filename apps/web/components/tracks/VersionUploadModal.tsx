@@ -4,8 +4,8 @@ import { useState, useRef } from 'react'
 import { useUploadTrackVersion } from '@/hooks/useTracks'
 import { X, Upload, Music } from 'lucide-react'
 
-const ACCEPTED = '.mp3,.wav,.flac,.aac,.ogg'
-const ACCEPTED_MIME = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg', 'audio/x-wav']
+const ACCEPTED = '.mp3,.wav,.flac,.aac,.ogg,.m4a'
+const ACCEPTED_MIME = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a', 'audio/m4a']
 
 interface VersionUploadModalProps {
   trackId: string
