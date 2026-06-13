@@ -163,19 +163,11 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
     if (ttsState !== 'idle') { stopAudio(); return }
 
     setTtsState('loading')
-
-    // iOS Safari blocks audio.play() after any await — create and "unlock" the element
-    // synchronously inside the gesture handler before the first await.
-    const audio = new Audio()
-    audioRef.current = audio
-    audio.play().catch(() => {}) // intentionally swallowed — just unlocking iOS audio context
-
     try {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (!session?.access_token) throw new Error('Not authenticated')
 
-      // Proxy through our edge function — avoids CORS from StreamElements blocking browser requests
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/tts-speak`,
         {
@@ -184,20 +176,21 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
           body: JSON.stringify({ text: summary }),
         }
       )
-      if (!res.ok) throw new Error('TTS unavailable')
+      if (!res.ok) throw new Error(`TTS failed (${res.status})`)
 
       const blob = await res.blob()
       const url  = URL.createObjectURL(blob)
       blobUrlRef.current = url
 
-      audio.pause()
-      audio.src = url
+      const audio = new Audio(url)
+      audioRef.current = audio
       audio.onended = () => { URL.revokeObjectURL(url); blobUrlRef.current = null; audioRef.current = null; setTtsState('idle') }
       audio.onerror = () => { URL.revokeObjectURL(url); blobUrlRef.current = null; audioRef.current = null; setTtsState('idle') }
 
       await audio.play()
       setTtsState('playing')
-    } catch {
+    } catch (e) {
+      console.error('TTS error:', e)
       stopAudio()
     }
   }
