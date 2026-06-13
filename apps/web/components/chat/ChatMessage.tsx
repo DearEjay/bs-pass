@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo, useEffect } from 'react'
-import { Bot } from 'lucide-react'
+import { Bot, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { parseChatBody, findHighlight } from '@/lib/chat-utils'
@@ -146,6 +146,7 @@ export function ChatMessage({
   searchQuery = '',
   currentUserId = '',
   onToggleReaction,
+  onDelete,
 }: {
   message: ChatMessageType
   isOwnMessage: boolean
@@ -154,8 +155,10 @@ export function ChatMessage({
   searchQuery?: string
   currentUserId?: string
   onToggleReaction?: (messageId: string, emoji: string) => void
+  onDelete?: (messageId: string) => void
 }) {
   const [trayOpen, setTrayOpen] = useState(false)
+  const [hovered, setHovered] = useState(false)
 
   const isAgent = message.sender_type === 'agent'
   const senderName = isAgent ? 'Manager' : (message.profiles?.display_name ?? 'Unknown')
@@ -191,7 +194,21 @@ export function ChatMessage({
   // ── Own message (right-aligned) ──────────────────────────────────────────
   if (isOwnMessage) {
     return (
-      <div className={cn('flex justify-end', marginTop)}>
+      <div
+        className={cn('flex justify-end items-center gap-1.5', marginTop)}
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+      >
+        {/* Delete button — visible on hover (desktop) or when tray open (mobile) */}
+        {onDelete && (hovered || trayOpen) && (
+          <button
+            onClick={e => { e.stopPropagation(); onDelete(message.id) }}
+            className="p-1.5 rounded-full text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors shrink-0"
+            title="Delete message"
+          >
+            <Trash2 size={13} />
+          </button>
+        )}
         <div className="flex items-end gap-1.5 max-w-[72%]">
           {/* Bubble column — hover zone encompasses tray + bubble + reactions */}
           <div className="flex flex-col items-end">

@@ -161,6 +161,30 @@ export function useSendMessage(projectId: string) {
   })
 }
 
+export function useDeleteMessage(projectId: string) {
+  const supabase = createClient()
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (messageId: string) => {
+      const { error } = await supabase
+        .from('chat_messages')
+        .update({ is_deleted: true })
+        .eq('id', messageId)
+      if (error) throw error
+    },
+    onMutate: async (messageId) => {
+      const prev = qc.getQueryData<ChatMessage[]>(['chat', projectId])
+      qc.setQueryData<ChatMessage[]>(['chat', projectId], old =>
+        old?.filter(m => m.id !== messageId)
+      )
+      return { prev }
+    },
+    onError: (_err, _id, ctx) => {
+      if (ctx?.prev) qc.setQueryData(['chat', projectId], ctx.prev)
+    },
+  })
+}
+
 export function useProjectCollaborators(projectId: string) {
   const supabase = createClient()
   return useQuery({

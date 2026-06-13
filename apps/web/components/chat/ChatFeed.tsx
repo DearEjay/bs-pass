@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from 'react'
 import { MessageSquare, Search, X } from 'lucide-react'
-import { useMessages, useSendMessage, useToggleReaction, useProjectCollaborators, useTypingPresence } from '@/hooks/useChat'
+import { useMessages, useSendMessage, useToggleReaction, useDeleteMessage, useProjectCollaborators, useTypingPresence } from '@/hooks/useChat'
 import { ChatMessage } from './ChatMessage'
 import { ChatInput } from './ChatInput'
 import { TypingIndicator } from './TypingIndicator'
@@ -42,6 +42,7 @@ export function ChatFeed({
   const { data: messages, isLoading, error } = useMessages(projectId)
   const sendMessage = useSendMessage(projectId)
   const toggleReaction = useToggleReaction(projectId)
+  const deleteMessage = useDeleteMessage(projectId)
   const { data: collaborators } = useProjectCollaborators(projectId)
   const { typerNames, broadcastTyping } = useTypingPresence(projectId, userId, displayName)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -96,6 +97,10 @@ export function ChatFeed({
 
   function handleToggleReaction(messageId: string, emoji: string) {
     toggleReaction.mutate({ messageId, emoji, userId })
+  }
+
+  function handleDeleteMessage(messageId: string) {
+    deleteMessage.mutate(messageId)
   }
 
   return (
@@ -170,6 +175,7 @@ export function ChatFeed({
                     searchQuery={searchQuery}
                     currentUserId={userId}
                     onToggleReaction={handleToggleReaction}
+                    onDelete={message.sender_id === userId ? handleDeleteMessage : undefined}
                   />
                 </div>
               ))}
