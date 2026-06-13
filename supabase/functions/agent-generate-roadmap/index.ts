@@ -72,7 +72,22 @@ Deno.serve(async (req) => {
       .join('\n- ')
 
     const existingTitles = ctx.tasks.map(t => t.title)
-    const maxTasks = ctx.agentPrefs.verbosity === 'concise' ? 8 : 12
+
+    // Calculate minimum tasks needed: every track needs a task per remaining pipeline stage.
+    // Add headroom for project-level tasks (distribution, promo, etc.)
+    const incompleteTracks = ctx.tracks.filter(t => t.needsWork.length > 0)
+    const minTrackTasks = incompleteTracks.reduce((sum, t) => sum + t.needsWork.length, 0)
+    const maxTasks = Math.max(minTrackTasks + 8, ctx.agentPrefs.verbosity === 'concise' ? 15 : 25)
+
+    // Build explicit per-track task requirements the LLM MUST satisfy
+    const perTrackRequirements = incompleteTracks.length > 0
+      ? `=== MANDATORY PER-TRACK TASKS (you MUST create these — do not skip any) ===
+${incompleteTracks.map(t =>
+  `Track "${t.title}" [current: ${t.status}] → MUST have tasks for: ${t.needsWork.join(', ')}`
+).join('\n')}
+
+Each stage above needs its own dedicated task. Do not combine multiple tracks into one task.`
+      : ''
 
     const trackCountRule = ctx.project.target_track_count !== null && ctx.tracks.length < ctx.project.target_track_count
       ? `- TRACK COUNT GAP: project targets ${ctx.project.target_track_count} tracks but only ${ctx.tracks.length} exist. Include tasks to source, write, or produce the missing ${ctx.project.target_track_count - ctx.tracks.length} track(s) — e.g. "Find producer for track ${ctx.tracks.length + 1}", "Write and demo song ${ctx.tracks.length + 1}", "Book studio session for remaining tracks".`
@@ -84,31 +99,34 @@ Deno.serve(async (req) => {
         : `- RELEASE DATE ${ctx.project.release_date} HAS PASSED. Focus tasks on any remaining post-release work (royalty registration, promo follow-up, etc.).`
       : ''
 
-    const prompt = `You are an AI music project manager. Generate a roadmap for this project.
+    const prompt = `You are an AI music project manager generating a COMPLETE roadmap for this project.
+Your job is to create every task needed to get this project to completion — do not be conservative.
 
 === FULL PROJECT CONTEXT ===
 ${contextBlock}
 
+${perTrackRequirements}
+
 === TASK GENERATION RULES ===
 - Return ONLY a valid JSON array — no markdown, no code fences, no explanation
-- Maximum ${maxTasks} tasks
+- Up to ${maxTasks} tasks — use as many as needed to fully cover the project
+- COMPLETENESS IS MANDATORY: every incomplete track must have tasks covering every remaining pipeline stage
 - Do NOT duplicate any of these existing tasks: ${JSON.stringify(existingTitles)}
 - Skip any task types matching AVOID TASK TYPES above
 - EVERY task MUST have start_date AND due_date as ISO dates (YYYY-MM-DD)
-- Schedule tasks SEQUENTIALLY — each start_date must be after the previous due_date
-- Start from timeline_start (or after the latest incomplete task's due_date)
-- Typical durations: writing/recording = 14 days, mixing/mastering = 7 days, admin = 3 days
-- Add ${ctx.agentPrefs.bufferDays} buffer day(s) between tasks
-- Priority must be "high", "medium", or "low"
+- Schedule tasks realistically — stages for the same track should be sequential (recording before mixing before mastering)
+- Tracks can be worked on in parallel — don't force all tracks to be fully sequential with each other
+- Start scheduling from today (or after the latest existing task's due_date if tasks exist)
+- Typical durations: writing = 7–14 days, recording = 7–14 days, mixing = 5–7 days, mastering = 3–5 days, admin = 2–3 days
+- Add ${ctx.agentPrefs.bufferDays} buffer day(s) between stages within a track
+- Priority: "high" for any task blocking release, "medium" for important but not blocking, "low" for nice-to-have
 - Assign tasks to collaborators based on their roles using assignee_role
-- assignee_role must exactly match a role in the COLLABORATORS list above
-- Address COMPLETION GAPS above — prioritise tasks that move tracks toward "released"
-- Tasks should NOT recreate work already done (check TRACKS status)
+- assignee_role must exactly match a role in the COLLABORATORS list above, or null
 ${trackCountRule}
 ${releaseDateRule}
 ${pluginInstructions ? `\nPLUGIN SCOPE (enabled — include tasks for these areas):\n- ${pluginInstructions}` : ''}
 
-=== TEMPLATE (use as inspiration, adapt to project state) ===
+=== TEMPLATE (reference only — real project state above takes priority) ===
 ${JSON.stringify(template.tasks, null, 2)}
 
 Return JSON array where each element is:
