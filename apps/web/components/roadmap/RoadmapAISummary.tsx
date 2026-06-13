@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Sparkles, RefreshCw } from 'lucide-react'
+import { Sparkles, RefreshCw, Volume2, Square } from 'lucide-react'
 import type { TaskWithDeps } from '@/hooks/useTasks'
 import type { Database } from '@/types/database'
 
@@ -79,6 +79,7 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
 
   // Track last-updated time separately so it reflects the localStorage timestamp
   const [lastTs, setLastTs] = useState<number | null>(null)
+  const [speaking, setSpeaking] = useState(false)
 
   // Guard refs: mountedRef prevents the mount effect from running twice (React StrictMode);
   // fetchedRef ensures we only trigger one automatic fetch per mount lifecycle.
@@ -135,12 +136,45 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks.length])
 
+  // Stop speaking when the component unmounts
+  useEffect(() => () => { window.speechSynthesis?.cancel() }, [])
+
   if (!tasks.length) return null
 
   function handleRegenerate() {
+    window.speechSynthesis?.cancel()
+    setSpeaking(false)
     clearStore(projectId)
     fetchedRef.current = true
     refetch()
+  }
+
+  function getBestVoice(): SpeechSynthesisVoice | null {
+    const voices = window.speechSynthesis.getVoices()
+    // Prefer voices that sound natural: Samantha (macOS), Google US English (Chrome), any en-US
+    return voices.find(v => v.name === 'Samantha')
+      ?? voices.find(v => /Google.*English/i.test(v.name))
+      ?? voices.find(v => v.lang === 'en-US')
+      ?? voices.find(v => v.lang.startsWith('en'))
+      ?? null
+  }
+
+  function handleSpeak() {
+    if (!summary) return
+    if (speaking) {
+      window.speechSynthesis.cancel()
+      setSpeaking(false)
+      return
+    }
+    const utterance = new SpeechSynthesisUtterance(summary)
+    utterance.rate = 0.92   // slightly under 1.0 — conversational, not rushed
+    utterance.pitch = 1.0
+    const voice = getBestVoice()
+    if (voice) utterance.voice = voice
+    utterance.onend = () => setSpeaking(false)
+    utterance.onerror = () => setSpeaking(false)
+    setSpeaking(true)
+    window.speechSynthesis.speak(utterance)
   }
 
   const isLoading = isFetching && !summary
@@ -179,6 +213,20 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
       >
         <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
       </button>
+
+      {summary && !isLoading && (
+        <button
+          onClick={handleSpeak}
+          className={`absolute bottom-3 right-3 p-1.5 rounded-md transition-colors ${
+            speaking
+              ? 'text-primary bg-primary/10 hover:bg-primary/20'
+              : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+          }`}
+          title={speaking ? 'Stop reading' : 'Listen to summary'}
+        >
+          {speaking ? <Square size={13} fill="currentColor" /> : <Volume2 size={13} />}
+        </button>
+      )}
     </div>
   )
 }
