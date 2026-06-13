@@ -149,13 +149,15 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
     refetch()
   }
 
-  function getBestVoice(): SpeechSynthesisVoice | null {
-    const voices = window.speechSynthesis.getVoices()
-    // Prefer voices that sound natural: Samantha (macOS), Google US English (Chrome), any en-US
-    return voices.find(v => v.name === 'Samantha')
-      ?? voices.find(v => /Google.*English/i.test(v.name))
-      ?? voices.find(v => v.lang === 'en-US')
-      ?? voices.find(v => v.lang.startsWith('en'))
+  function getBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
+    const en = voices.filter(v => v.lang.startsWith('en'))
+    // "Enhanced" and "Premium" voices on macOS are neural — night-and-day vs standard
+    return en.find(v => v.name.includes('Enhanced') && v.lang === 'en-US')
+      ?? en.find(v => v.name.includes('Premium') && v.lang === 'en-US')
+      ?? en.find(v => /Google.*English/i.test(v.name))
+      ?? en.find(v => v.lang === 'en-US' && v.name !== 'Samantha') // Samantha is very robotic
+      ?? en.find(v => v.lang === 'en-US')
+      ?? en[0]
       ?? null
   }
 
@@ -167,14 +169,28 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
       return
     }
     const utterance = new SpeechSynthesisUtterance(summary)
-    utterance.rate = 0.92   // slightly under 1.0 — conversational, not rushed
+    utterance.rate = 0.92
     utterance.pitch = 1.0
-    const voice = getBestVoice()
-    if (voice) utterance.voice = voice
     utterance.onend = () => setSpeaking(false)
     utterance.onerror = () => setSpeaking(false)
-    setSpeaking(true)
-    window.speechSynthesis.speak(utterance)
+
+    const doSpeak = (voices: SpeechSynthesisVoice[]) => {
+      const voice = getBestVoice(voices)
+      if (voice) utterance.voice = voice
+      setSpeaking(true)
+      window.speechSynthesis.speak(utterance)
+    }
+
+    // Chrome loads voices asynchronously — getVoices() may return [] on first call
+    const voices = window.speechSynthesis.getVoices()
+    if (voices.length > 0) {
+      doSpeak(voices)
+    } else {
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.onvoiceschanged = null
+        doSpeak(window.speechSynthesis.getVoices())
+      }
+    }
   }
 
   const isLoading = isFetching && !summary
