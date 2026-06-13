@@ -71,6 +71,12 @@ export function ProjectSettingsModal({
   const [upc, setUpc] = useState(
     (project as Project & { upc?: string | null }).upc ?? ''
   )
+  const [releaseDate, setReleaseDate] = useState(
+    (project as Project & { release_date?: string | null }).release_date ?? ''
+  )
+  const [targetTrackCount, setTargetTrackCount] = useState(
+    String((project as Project & { target_track_count?: number | null }).target_track_count ?? '')
+  )
   const [confirmDelete, setConfirmDelete] = useState(false)
 
   // null = removed, undefined = unchanged, string = local preview URL, existing = project.cover_url
@@ -98,6 +104,8 @@ export function ProjectSettingsModal({
       genre: genre || null,
       record_label: recordLabel.trim() || null,
       upc: upc.trim() || null,
+      release_date: releaseDate || null,
+      target_track_count: targetTrackCount ? parseInt(targetTrackCount, 10) : null,
     })
     // Upload new cover or clear it if explicitly removed
     if (coverFile !== undefined) {
@@ -234,6 +242,41 @@ export function ProjectSettingsModal({
                 maxLength={13}
                 className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono"
               />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Release date <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <input
+                type="date"
+                value={releaseDate}
+                onChange={e => setReleaseDate(e.target.value)}
+                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              {releaseDate && (() => {
+                const days = Math.ceil((new Date(releaseDate).getTime() - Date.now()) / 86_400_000)
+                return (
+                  <p className="text-xs text-muted-foreground">
+                    {days > 0 ? `${days} days from today` : days === 0 ? 'Today' : `${Math.abs(days)} days ago`}
+                  </p>
+                )
+              })()}
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium"># of tracks <span className="text-muted-foreground font-normal">(target)</span></label>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={99}
+                value={targetTrackCount}
+                onChange={e => setTargetTrackCount(e.target.value.replace(/\D/g, ''))}
+                placeholder="e.g. 10"
+                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <p className="text-xs text-muted-foreground">AI will create tasks for missing tracks</p>
             </div>
           </div>
 

@@ -74,6 +74,16 @@ Deno.serve(async (req) => {
     const existingTitles = ctx.tasks.map(t => t.title)
     const maxTasks = ctx.agentPrefs.verbosity === 'concise' ? 8 : 12
 
+    const trackCountRule = ctx.project.target_track_count !== null && ctx.tracks.length < ctx.project.target_track_count
+      ? `- TRACK COUNT GAP: project targets ${ctx.project.target_track_count} tracks but only ${ctx.tracks.length} exist. Include tasks to source, write, or produce the missing ${ctx.project.target_track_count - ctx.tracks.length} track(s) — e.g. "Find producer for track ${ctx.tracks.length + 1}", "Write and demo song ${ctx.tracks.length + 1}", "Book studio session for remaining tracks".`
+      : ''
+
+    const releaseDateRule = ctx.project.release_date && ctx.project.days_until_release !== null
+      ? ctx.project.days_until_release > 0
+        ? `- HARD DEADLINE: release date is ${ctx.project.release_date} (${ctx.project.days_until_release} days away). ALL task due_dates MUST fall before this date. Work backwards from the release date — final tasks (distribution, mastering sign-off) should land 5–7 days before release. Compress durations if needed to fit.`
+        : `- RELEASE DATE ${ctx.project.release_date} HAS PASSED. Focus tasks on any remaining post-release work (royalty registration, promo follow-up, etc.).`
+      : ''
+
     const prompt = `You are an AI music project manager. Generate a roadmap for this project.
 
 === FULL PROJECT CONTEXT ===
@@ -94,6 +104,8 @@ ${contextBlock}
 - assignee_role must exactly match a role in the COLLABORATORS list above
 - Address COMPLETION GAPS above — prioritise tasks that move tracks toward "released"
 - Tasks should NOT recreate work already done (check TRACKS status)
+${trackCountRule}
+${releaseDateRule}
 ${pluginInstructions ? `\nPLUGIN SCOPE (enabled — include tasks for these areas):\n- ${pluginInstructions}` : ''}
 
 === TEMPLATE (use as inspiration, adapt to project state) ===

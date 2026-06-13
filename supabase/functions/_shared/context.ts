@@ -13,6 +13,9 @@ export interface AgentContext {
     budget: string
     timeline_start: string | null
     timeline_end: string | null
+    release_date: string | null
+    days_until_release: number | null
+    target_track_count: number | null
     today: string
   }
   agentPrefs: {
@@ -75,7 +78,7 @@ export async function buildAgentContext(
   const [projectRes, collabsRes, tracksRes, tasksRes, prefsRes] = await Promise.all([
     supabase
       .from('projects')
-      .select('id,title,project_type,genre,budget_level,timeline_start,timeline_end,agent_mode')
+      .select('id,title,project_type,genre,budget_level,timeline_start,timeline_end,release_date,target_track_count,agent_mode')
       .eq('id', projectId)
       .single(),
 
@@ -170,6 +173,11 @@ export async function buildAgentContext(
         .map(([k]) => k)
     : []
 
+  const releaseDate = project?.release_date ?? null
+  const daysUntilRelease = releaseDate
+    ? Math.ceil((new Date(releaseDate).getTime() - new Date(today).getTime()) / 86_400_000)
+    : null
+
   return {
     project: {
       id: projectId,
@@ -179,6 +187,9 @@ export async function buildAgentContext(
       budget: project?.budget_level ?? 'indie',
       timeline_start: project?.timeline_start ?? today,
       timeline_end: project?.timeline_end ?? null,
+      release_date: releaseDate,
+      days_until_release: daysUntilRelease,
+      target_track_count: project?.target_track_count ?? null,
       today,
     },
     agentPrefs: {
@@ -237,8 +248,24 @@ export function formatContextForPrompt(ctx: AgentContext): string {
     ? 'Write detailed descriptions with full context (2–3 sentences).'
     : 'Write moderate descriptions (1–2 sentences).'
 
+  const releaseLine = project.release_date
+    ? `RELEASE DATE: ${project.release_date} (${
+        project.days_until_release !== null && project.days_until_release > 0
+          ? `${project.days_until_release} days from today — ALL tasks must complete before this date`
+          : project.days_until_release === 0
+          ? 'TODAY — release is imminent'
+          : `${Math.abs(project.days_until_release!)} days PAST — release date has passed`
+      })`
+    : 'RELEASE DATE: not set'
+
+  const trackCountLine = project.target_track_count !== null
+    ? `TARGET TRACK COUNT: ${project.target_track_count} tracks (currently ${tracks.length} uploaded${tracks.length < project.target_track_count ? ` — ${project.target_track_count - tracks.length} more needed` : ' — target reached'})`
+    : ''
+
   return `PROJECT: "${project.title}" — ${project.type} | genre: ${project.genre} | budget: ${project.budget}
 TIMELINE: ${project.timeline_start ?? 'not set'} → ${project.timeline_end ?? 'open-ended'} | today: ${project.today}
+${releaseLine}
+${trackCountLine ? trackCountLine + '\n' : ''}
 AGENT PREFS: tone=${agentPrefs.tone} | verbosity=${agentPrefs.verbosity} | buffer=${agentPrefs.bufferDays}d | plugins=[${agentPrefs.plugins.join(', ') || 'none'}]
 AVOID TASK TYPES: ${agentPrefs.avoidedTaskTypes.join(', ') || 'none'}
 

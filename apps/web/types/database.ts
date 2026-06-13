@@ -397,7 +397,9 @@ export type Database = {
           owner_id: string
           project_type: string
           record_label: string | null
+          release_date: string | null
           status: string
+          target_track_count: number | null
           timeline_end: string | null
           timeline_start: string | null
           title: string
@@ -416,7 +418,9 @@ export type Database = {
           owner_id: string
           project_type: string
           record_label?: string | null
+          release_date?: string | null
           status?: string
+          target_track_count?: number | null
           timeline_end?: string | null
           timeline_start?: string | null
           title: string
@@ -435,7 +439,9 @@ export type Database = {
           owner_id?: string
           project_type?: string
           record_label?: string | null
+          release_date?: string | null
           status?: string
+          target_track_count?: number | null
           timeline_end?: string | null
           timeline_start?: string | null
           title?: string
