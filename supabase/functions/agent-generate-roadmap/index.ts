@@ -74,15 +74,56 @@ Deno.serve(async (req) => {
     const existingTitles = ctx.tasks.map(t => t.title)
 
     const incompleteTracks = ctx.tracks.filter(t => t.needsWork.length > 0)
+    const projectType = ctx.project.type // 'single' | 'album' | 'ep' | 'mixtape'
+    const isSingle = projectType === 'single'
 
-    // Build explicit per-track task requirements the LLM MUST satisfy
+    // Pipeline stages that map to actual work tasks.
+    // 'recorded', 'mixed', 'mastered' are STATUS CONFIRMATIONS (engineer marks complete),
+    // not tasks themselves. 'released', 'not_started' are not tasks either.
+    const ACTIONABLE: Record<string, string> = {
+      writing:   'Finish Writing',
+      recording: 'Recording Session',
+      mixing:    'Mixing Session',
+      mastering: 'Mastering Session',
+    }
+
+    // For each incomplete track, compute the exact list of required task titles.
+    // IMPORTANT: a track's CURRENT status is in-progress, not complete.
+    // A track in 'writing' still needs "Finish Writing" — include the current stage.
+    const perTrackTaskLists = incompleteTracks.flatMap(t => {
+      const currentStage = ACTIONABLE[t.status] ? [`${ACTIONABLE[t.status]} – ${t.title}`] : []
+      const futureStages = t.needsWork
+        .filter(s => ACTIONABLE[s])
+        .map(s => `${ACTIONABLE[s]} – ${t.title}`)
+      const releaseTasks = isSingle ? [`Release – ${t.title}`] : []
+      return [...currentStage, ...futureStages, ...releaseTasks]
+    })
+
+    const releaseType = isSingle
+      ? ''
+      : projectType === 'album' ? 'album'
+      : projectType === 'ep' ? 'EP'
+      : projectType === 'mixtape' ? 'mixtape'
+      : 'project'
+
+    const releaseContext = isSingle
+      ? 'This is a SINGLE — each track is an individual release. Include a release task per track.'
+      : `This is a ${releaseType.toUpperCase() || 'PROJECT'}. It ships as ONE body of work.
+Do NOT add individual release tasks per track — the whole ${releaseType || 'project'} drops together.
+Pre-release singles from a ${releaseType || 'project'} are rare and should only be added if explicitly requested.`
+
     const perTrackRequirements = incompleteTracks.length > 0
-      ? `=== MANDATORY PER-TRACK TASKS (you MUST create these — do not skip any) ===
-${incompleteTracks.map(t =>
-  `Track "${t.title}" [current: ${t.status}] → MUST have tasks for: ${t.needsWork.join(', ')}`
-).join('\n')}
+      ? `=== MANDATORY PER-TRACK TASKS — YOU MUST CREATE ALL OF THESE ===
 
-Each stage above needs its own dedicated task. Do not combine multiple tracks into one task.`
+RELEASE RULE: ${releaseContext}
+
+NAMING RULE: Every per-track task MUST include the track name.
+Format: "[Stage] – [Track Name]"  (e.g. "Recording Session – Pretty Face")
+NEVER create a generic "Recording Session" covering all tracks. One task per stage, per track.
+
+REQUIRED TASKS — include every one of these (unless it matches an existing task to skip):
+${perTrackTaskLists.map(title => `  ✦ "${title}"`).join('\n')}
+${!isSingle ? `\nPROJECT-LEVEL RELEASE (exactly one):\n  ✦ "Release ${ctx.project.title}"` : ''}`
       : ''
 
     const trackCountRule = ctx.project.target_track_count !== null && ctx.tracks.length < ctx.project.target_track_count
@@ -96,7 +137,7 @@ Each stage above needs its own dedicated task. Do not combine multiple tracks in
       : ''
 
     const prompt = `You are an AI music project manager generating a COMPLETE roadmap for this project.
-Your job is to create every task needed to get this project to completion. Create as many tasks as required — there is no limit.
+Create every task needed to get this project to completion — no limit on count.
 
 === FULL PROJECT CONTEXT ===
 ${contextBlock}
@@ -105,24 +146,22 @@ ${perTrackRequirements}
 
 === TASK GENERATION RULES ===
 - Return ONLY a valid JSON array — no markdown, no code fences, no explanation
-- Create as many tasks as needed — do not stop early, do not group stages together to save space
-- COMPLETENESS IS MANDATORY: every incomplete track must have its own task for every remaining pipeline stage
-- Do NOT duplicate any of these existing tasks: ${JSON.stringify(existingTitles)}
-- Skip any task types matching AVOID TASK TYPES above
+- The MANDATORY PER-TRACK TASKS above are non-negotiable — every ✦ item must appear in your output
+- Tracks can be worked on in parallel — do not serialize all tracks end-to-end; overlap where possible
+- Do NOT duplicate any of these existing tasks (skip if title matches): ${JSON.stringify(existingTitles)}
+- Skip task types matching AVOID TASK TYPES above
 - EVERY task MUST have start_date AND due_date as ISO dates (YYYY-MM-DD)
-- Schedule tasks realistically — stages for the same track should be sequential (recording before mixing before mastering)
-- Tracks can be worked on in parallel — don't force all tracks to be fully sequential with each other
-- Start scheduling from today (or after the latest existing task's due_date if tasks exist)
-- Typical durations: writing = 7–14 days, recording = 7–14 days, mixing = 5–7 days, mastering = 3–5 days, admin = 2–3 days
+- Scheduling: stages within one track must be sequential (finish writing → record → mix → master)
+- Start from today: ${ctx.project.today}
+- Typical durations: writing/recording = 7–14 days, mixing = 5–7 days, mastering = 3–5 days, admin = 2–3 days
 - Add ${ctx.agentPrefs.bufferDays} buffer day(s) between stages within a track
-- Priority: "high" for any task blocking release, "medium" for important but not blocking, "low" for nice-to-have
-- Assign tasks to collaborators based on their roles using assignee_role
-- assignee_role must exactly match a role in the COLLABORATORS list above, or null
+- Priority: "high" for anything on the critical path to release, "medium" otherwise, "low" for nice-to-have
+- assignee_role must exactly match a role from the COLLABORATORS list, or null
 ${trackCountRule}
 ${releaseDateRule}
-${pluginInstructions ? `\nPLUGIN SCOPE (enabled — include tasks for these areas):\n- ${pluginInstructions}` : ''}
+${pluginInstructions ? `\nPLUGIN SCOPE:\n- ${pluginInstructions}` : ''}
 
-=== TEMPLATE (reference only — real project state above takes priority) ===
+=== TEMPLATE (secondary reference — per-track tasks above take priority) ===
 ${JSON.stringify(template.tasks, null, 2)}
 
 Return JSON array where each element is:
