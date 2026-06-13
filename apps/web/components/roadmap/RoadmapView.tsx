@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   useTasks,
@@ -78,10 +78,20 @@ export function RoadmapView({ projectId }: { projectId: string }) {
     return true
   })
 
-  function toggleSelect(id: string) {
+  const lastSelectedIndexRef = useRef<number>(-1)
+
+  function toggleSelect(id: string, index: number, shiftKey: boolean) {
     setSelected(prev => {
       const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
+      if (shiftKey && lastSelectedIndexRef.current !== -1) {
+        const lo = Math.min(lastSelectedIndexRef.current, index)
+        const hi = Math.max(lastSelectedIndexRef.current, index)
+        const adding = !prev.has(id)
+        sortedTasks.slice(lo, hi + 1).forEach(t => adding ? next.add(t.id) : next.delete(t.id))
+      } else {
+        next.has(id) ? next.delete(id) : next.add(id)
+        lastSelectedIndexRef.current = index
+      }
       return next
     })
   }
@@ -408,14 +418,14 @@ export function RoadmapView({ projectId }: { projectId: string }) {
           )}
 
           <div className="space-y-1.5">
-            {sortedTasks.map(task => (
+            {sortedTasks.map((task, index) => (
               <TaskItem
                 key={task.id}
                 task={task}
                 allTasks={tasks}
                 isBlocked={isTaskBlocked(task, tasks)}
                 selected={selected.has(task.id)}
-                onToggleSelect={() => toggleSelect(task.id)}
+                onToggleSelect={(e) => toggleSelect(task.id, index, e?.shiftKey ?? false)}
                 onEdit={() => setEditingTask(task)}
               />
             ))}

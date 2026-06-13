@@ -21,7 +21,7 @@ interface Props {
   allTasks: TaskWithDeps[]
   isBlocked: boolean
   selected: boolean
-  onToggleSelect: () => void
+  onToggleSelect: (e: React.MouseEvent) => void
   onEdit?: () => void
 }
 
