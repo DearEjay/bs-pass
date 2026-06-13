@@ -16,12 +16,12 @@ function json(data: unknown, status = 200) {
 }
 
 const PLUGIN_TASK_SCOPE: Record<string, string> = {
-  marketing:      'Include marketing tasks: release strategy, press outreach, promotional campaigns, playlist pitching.',
-  social_media:   'Include social media tasks: content calendar, post scheduling, platform-specific rollout (Instagram, TikTok, YouTube).',
-  opportunities:  'Include opportunity tasks: sync licensing pitches, brand partnerships, playlist submission.',
-  creative:       'Include creative tasks: artwork direction, music video production, visual asset creation.',
-  booking:        'Include booking tasks: live show planning, tour logistics, venue outreach.',
-  fan_engagement: 'Include fan engagement tasks: newsletter drafts, community updates, fan-facing content.',
+  marketing:    'Include marketing tasks: release strategy, press outreach, promotional campaigns, playlist pitching.',
+  social:       'Include social media tasks: content calendar, post scheduling, platform-specific rollout (Instagram, TikTok, YouTube).',
+  opportunities:'Include opportunity tasks: sync licensing pitches, brand partnerships, playlist submission.',
+  creative:     'Include creative tasks: artwork direction, music video production, visual asset creation.',
+  booking:      'Include booking tasks: live show planning, tour logistics, venue outreach.',
+  fan:          'Include fan engagement tasks: newsletter drafts, community updates, fan-facing content.',
 }
 
 Deno.serve(async (req) => {
