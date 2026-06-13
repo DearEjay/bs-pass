@@ -73,11 +73,7 @@ Deno.serve(async (req) => {
 
     const existingTitles = ctx.tasks.map(t => t.title)
 
-    // Calculate minimum tasks needed: every track needs a task per remaining pipeline stage.
-    // Add headroom for project-level tasks (distribution, promo, etc.)
     const incompleteTracks = ctx.tracks.filter(t => t.needsWork.length > 0)
-    const minTrackTasks = incompleteTracks.reduce((sum, t) => sum + t.needsWork.length, 0)
-    const maxTasks = Math.max(minTrackTasks + 8, ctx.agentPrefs.verbosity === 'concise' ? 15 : 25)
 
     // Build explicit per-track task requirements the LLM MUST satisfy
     const perTrackRequirements = incompleteTracks.length > 0
@@ -100,7 +96,7 @@ Each stage above needs its own dedicated task. Do not combine multiple tracks in
       : ''
 
     const prompt = `You are an AI music project manager generating a COMPLETE roadmap for this project.
-Your job is to create every task needed to get this project to completion — do not be conservative.
+Your job is to create every task needed to get this project to completion. Create as many tasks as required — there is no limit.
 
 === FULL PROJECT CONTEXT ===
 ${contextBlock}
@@ -109,8 +105,8 @@ ${perTrackRequirements}
 
 === TASK GENERATION RULES ===
 - Return ONLY a valid JSON array — no markdown, no code fences, no explanation
-- Up to ${maxTasks} tasks — use as many as needed to fully cover the project
-- COMPLETENESS IS MANDATORY: every incomplete track must have tasks covering every remaining pipeline stage
+- Create as many tasks as needed — do not stop early, do not group stages together to save space
+- COMPLETENESS IS MANDATORY: every incomplete track must have its own task for every remaining pipeline stage
 - Do NOT duplicate any of these existing tasks: ${JSON.stringify(existingTitles)}
 - Skip any task types matching AVOID TASK TYPES above
 - EVERY task MUST have start_date AND due_date as ISO dates (YYYY-MM-DD)
@@ -169,8 +165,6 @@ Return JSON array where each element is:
         }
       })
     }
-
-    taskDrafts = taskDrafts.slice(0, maxTasks)
 
     const rows = taskDrafts.map((t, i) => ({
       project_id: projectId,
