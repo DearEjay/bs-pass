@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
-import { Sparkles, RefreshCw, Volume2, Square } from 'lucide-react'
+import { Sparkles, RefreshCw, Volume2, Square, Loader2 } from 'lucide-react'
 import type { TaskWithDeps } from '@/hooks/useTasks'
 import type { Database } from '@/types/database'
 
@@ -79,7 +79,10 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
 
   // Track last-updated time separately so it reflects the localStorage timestamp
   const [lastTs, setLastTs] = useState<number | null>(null)
-  const [speaking, setSpeaking] = useState(false)
+  const [ttsState, setTtsState] = useState<'idle' | 'loading' | 'playing'>('idle')
+
+  const audioRef   = useRef<HTMLAudioElement | null>(null)
+  const blobUrlRef = useRef<string | null>(null)
 
   // Guard refs: mountedRef prevents the mount effect from running twice (React StrictMode);
   // fetchedRef ensures we only trigger one automatic fetch per mount lifecycle.
@@ -136,60 +139,51 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks.length])
 
-  // Stop speaking when the component unmounts
-  useEffect(() => () => { window.speechSynthesis?.cancel() }, [])
+  // Clean up audio on unmount
+  useEffect(() => () => stopAudio(), []) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!tasks.length) return null
 
+  function stopAudio() {
+    audioRef.current?.pause()
+    audioRef.current = null
+    if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
+    setTtsState('idle')
+  }
+
   function handleRegenerate() {
-    window.speechSynthesis?.cancel()
-    setSpeaking(false)
+    stopAudio()
     clearStore(projectId)
     fetchedRef.current = true
     refetch()
   }
 
-  function getBestVoice(voices: SpeechSynthesisVoice[]): SpeechSynthesisVoice | null {
-    const en = voices.filter(v => v.lang.startsWith('en'))
-    // "Enhanced" and "Premium" voices on macOS are neural — night-and-day vs standard
-    return en.find(v => v.name.includes('Enhanced') && v.lang === 'en-US')
-      ?? en.find(v => v.name.includes('Premium') && v.lang === 'en-US')
-      ?? en.find(v => /Google.*English/i.test(v.name))
-      ?? en.find(v => v.lang === 'en-US' && v.name !== 'Samantha') // Samantha is very robotic
-      ?? en.find(v => v.lang === 'en-US')
-      ?? en[0]
-      ?? null
-  }
-
-  function handleSpeak() {
+  async function handleSpeak() {
     if (!summary) return
-    if (speaking) {
-      window.speechSynthesis.cancel()
-      setSpeaking(false)
-      return
-    }
-    const utterance = new SpeechSynthesisUtterance(summary)
-    utterance.rate = 0.92
-    utterance.pitch = 1.0
-    utterance.onend = () => setSpeaking(false)
-    utterance.onerror = () => setSpeaking(false)
+    if (ttsState !== 'idle') { stopAudio(); return }
 
-    const doSpeak = (voices: SpeechSynthesisVoice[]) => {
-      const voice = getBestVoice(voices)
-      if (voice) utterance.voice = voice
-      setSpeaking(true)
-      window.speechSynthesis.speak(utterance)
-    }
+    setTtsState('loading')
+    try {
+      // StreamElements proxies Amazon Polly — Joanna is a neural US-English female voice,
+      // sounds like a real person vs any Web Speech API voice.
+      const res = await fetch(
+        `https://api.streamelements.com/kappa/v2/speech?voice=Joanna&text=${encodeURIComponent(summary)}`
+      )
+      if (!res.ok) throw new Error('TTS request failed')
 
-    // Chrome loads voices asynchronously — getVoices() may return [] on first call
-    const voices = window.speechSynthesis.getVoices()
-    if (voices.length > 0) {
-      doSpeak(voices)
-    } else {
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.onvoiceschanged = null
-        doSpeak(window.speechSynthesis.getVoices())
-      }
+      const blob = await res.blob()
+      const url  = URL.createObjectURL(blob)
+      blobUrlRef.current = url
+
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => { URL.revokeObjectURL(url); blobUrlRef.current = null; audioRef.current = null; setTtsState('idle') }
+      audio.onerror = () => { URL.revokeObjectURL(url); blobUrlRef.current = null; audioRef.current = null; setTtsState('idle') }
+
+      await audio.play()
+      setTtsState('playing')
+    } catch {
+      stopAudio()
     }
   }
 
@@ -234,13 +228,17 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
         <button
           onClick={handleSpeak}
           className={`absolute bottom-3 right-3 p-1.5 rounded-md transition-colors ${
-            speaking
+            ttsState !== 'idle'
               ? 'text-primary bg-primary/10 hover:bg-primary/20'
               : 'text-muted-foreground hover:text-foreground hover:bg-accent'
           }`}
-          title={speaking ? 'Stop reading' : 'Listen to summary'}
+          title={ttsState !== 'idle' ? 'Stop reading' : 'Listen to summary'}
         >
-          {speaking ? <Square size={13} fill="currentColor" /> : <Volume2 size={13} />}
+          {ttsState === 'loading'
+            ? <Loader2 size={13} className="animate-spin" />
+            : ttsState === 'playing'
+            ? <Square size={13} fill="currentColor" />
+            : <Volume2 size={13} />}
         </button>
       )}
     </div>
