@@ -1,6 +1,6 @@
 import { requireAuth } from '../_shared/auth.ts'
 import { db } from '../_shared/db.ts'
-import { generateContent } from '../_shared/gemini.ts'
+import { generateContent, GROQ_FAST } from '../_shared/gemini.ts'
 import { buildAgentContext, formatContextForPrompt } from '../_shared/context.ts'
 
 const CORS = {
@@ -187,7 +187,7 @@ Rules:
       }
 
       try {
-        const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }])
+        const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }], GROQ_FAST)
         const parsed = JSON.parse(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim())
         if (Array.isArray(parsed.new_tasks)) result.new_tasks = parsed.new_tasks.slice(0, maxNew)
         if (typeof parsed.chat_message === 'string') result.chat_message = parsed.chat_message
@@ -272,7 +272,7 @@ Rules:
     }
 
     try {
-      const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }])
+      const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }], GROQ_FAST)
       const parsed = JSON.parse(raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim())
       if (Array.isArray(parsed.new_tasks)) result.new_tasks = parsed.new_tasks.slice(0, maxNew)
       if (typeof parsed.chat_message === 'string') result.chat_message = parsed.chat_message

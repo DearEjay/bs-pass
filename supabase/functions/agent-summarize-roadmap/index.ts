@@ -1,6 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
 import { requireAuth } from '../_shared/auth.ts'
-import { generateContent } from '../_shared/gemini.ts'
+import { generateContent, GROQ_FAST } from '../_shared/gemini.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -93,7 +93,7 @@ TRACKS:\n${trackSummary}
 ALL TASKS:\n${taskSummary}
 UPCOMING (not yet complete, priority-sorted):\n${upcomingSummary}`
 
-    const summary = await generateContent([{ role: 'user', parts: [{ text: prompt }] }])
+    const summary = await generateContent([{ role: 'user', parts: [{ text: prompt }] }], GROQ_FAST)
     return json({ summary })
 
   } catch (err) {

@@ -1,6 +1,6 @@
 import { requireAuth } from '../_shared/auth.ts'
 import { db } from '../_shared/db.ts'
-import { generateContent } from '../_shared/gemini.ts'
+import { generateContent, GROQ_FAST } from '../_shared/gemini.ts'
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -97,7 +97,7 @@ ${JSON.stringify(taskList, null, 2)}`
     let assignments: Array<{ task_id: string; assignee_user_id: string | null }>
 
     try {
-      const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }])
+      const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }], GROQ_FAST)
       const cleaned = raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim()
       const parsed = JSON.parse(cleaned)
       if (!Array.isArray(parsed)) throw new Error('not array')

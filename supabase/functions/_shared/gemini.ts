@@ -1,14 +1,21 @@
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')!
-// llama-3.1-8b-instant: 500K TPD (5× more than 70b), fast, same quality for structured tasks
-const MODEL = 'llama-3.1-8b-instant'
 const BASE_URL = 'https://api.groq.com/openai/v1/chat/completions'
+
+// Model tiers — pick based on task complexity and expected input size:
+//   FAST  (llama-3.1-8b-instant)    : 6K TPM,  500K TPD — lightweight tasks, short prompts
+//   SMART (llama-3.3-70b-versatile) : 12K TPM, 100K TPD — complex reasoning, large user messages
+export const GROQ_FAST  = 'llama-3.1-8b-instant'
+export const GROQ_SMART = 'llama-3.3-70b-versatile'
 
 export interface GeminiMessage {
   role: 'user' | 'model'
   parts: { text: string }[]
 }
 
-export async function generateContent(messages: GeminiMessage[]): Promise<string> {
+export async function generateContent(
+  messages: GeminiMessage[],
+  model = GROQ_SMART,
+): Promise<string> {
   // Map Gemini message format → OpenAI/Groq format
   const mapped = messages.map(m => ({
     role: m.role === 'model' ? 'assistant' : 'user',
@@ -21,7 +28,7 @@ export async function generateContent(messages: GeminiMessage[]): Promise<string
       'Content-Type': 'application/json',
       Authorization: `Bearer ${GROQ_API_KEY}`,
     },
-    body: JSON.stringify({ model: MODEL, messages: mapped }),
+    body: JSON.stringify({ model, messages: mapped }),
   })
 
   if (!res.ok) {

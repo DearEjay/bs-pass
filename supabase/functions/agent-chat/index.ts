@@ -60,28 +60,38 @@ Deno.serve(async (req) => {
     const senderProfile = triggerMsg.profiles as { display_name: string | null; full_name: string | null } | null
     const senderName = senderProfile?.full_name ?? senderProfile?.display_name ?? 'Someone'
 
-    // Fetch last 20 chat messages for conversation context
+    // Last 8 messages — enough for conversation continuity without blowing token budget
     const { data: recentMsgs } = await supabase
       .from('chat_messages')
       .select('body, sender_type, sender_id, profiles:sender_id(display_name, full_name), created_at')
       .eq('project_id', projectId)
       .eq('is_deleted', false)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(8)
 
     const history = (recentMsgs ?? [])
       .reverse()
       .map(m => {
-        if (m.sender_type === 'agent') return `[Manager]: ${m.body}`
+        if (m.sender_type === 'agent') return `[Manager]: ${m.body.slice(0, 300)}`
         const p = m.profiles as { display_name: string | null; full_name: string | null } | null
         const name = p?.full_name ?? p?.display_name ?? 'User'
-        return `[${name}]: ${m.body}`
+        return `[${name}]: ${m.body.slice(0, 400)}`
       })
       .join('\n')
 
-    // Build project context for role-to-userId assignment
+    // Build project context — for chat we use a lightweight summary, not the full task list
     const ctx = await buildAgentContext(projectId, userId)
-    const contextBlock = formatContextForPrompt(ctx)
+
+    const collabList = ctx.collaborators.map(c => `  - ${c.name} [${c.roles.join(', ')}]`).join('\n')
+    const trackList = ctx.tracks.map(t => `  - "${t.title}": ${t.status}`).join('\n') || '  (none)'
+    const taskSummary = ctx.tasks.length > 0
+      ? `${ctx.tasks.filter(t => t.status !== 'complete').length} incomplete, ${ctx.tasks.filter(t => t.status === 'complete').length} complete`
+      : 'none yet'
+
+    const contextBlock = `PROJECT: "${ctx.project.title}" — ${ctx.project.type} | genre: ${ctx.project.genre}
+COLLABORATORS:\n${collabList}
+TRACKS (${ctx.tracks.length}):\n${trackList}
+TASKS: ${taskSummary}`
 
     const roleToUserId: Record<string, string> = {}
     for (const c of ctx.collaborators) {
