@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     // Post one message per assignee (or one combined message if multiple)
     const messages: string[] = []
     for (const { name, tasks: assigned } of byAssignee.values()) {
-      const mention = `@${name}`
+      const mention = `@[${name}]`
       if (assigned.length === 1) {
         const t = assigned[0]
         const due = t.due_date ? ` (due ${t.due_date})` : ''

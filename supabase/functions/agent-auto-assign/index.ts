@@ -172,13 +172,13 @@ ${JSON.stringify(taskList, null, 2)}`
         if (assigned.length === 1) {
           const t = assigned[0]
           const due = t.due_date ? ` (due ${t.due_date})` : ''
-          messages.push(`@${name} you've been assigned: ${t.title}${due}`)
+          messages.push(`@[${name}] you've been assigned: ${t.title}${due}`)
         } else {
           const list = assigned.map(t => {
             const due = t.due_date ? ` (due ${t.due_date})` : ''
             return `  • ${t.title}${due}`
           }).join('\n')
-          messages.push(`@${name} you've been assigned ${assigned.length} tasks:\n${list}`)
+          messages.push(`@[${name}] you've been assigned ${assigned.length} tasks:\n${list}`)
         }
       }
 

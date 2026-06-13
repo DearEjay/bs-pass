@@ -253,10 +253,10 @@ Return JSON array where each element is:
       for (const { name, tasks: assigned } of assignedByUser.values()) {
         if (assigned.length === 1) {
           const due = assigned[0].due_date ? ` (due ${assigned[0].due_date})` : ''
-          messages.push(`@${name} you've been assigned: ${assigned[0].title}${due}`)
+          messages.push(`@[${name}] you've been assigned: ${assigned[0].title}${due}`)
         } else {
           const list = assigned.map(t => `  • ${t.title}${t.due_date ? ` (due ${t.due_date})` : ''}`).join('\n')
-          messages.push(`@${name} you've been assigned ${assigned.length} tasks:\n${list}`)
+          messages.push(`@[${name}] you've been assigned ${assigned.length} tasks:\n${list}`)
         }
       }
       const { error: notifErr } = await supabase.from('chat_messages').insert({
