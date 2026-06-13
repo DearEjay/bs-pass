@@ -1,5 +1,6 @@
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY')!
-const MODEL = 'llama-3.3-70b-versatile'
+// llama-3.1-8b-instant: 500K TPD (5× more than 70b), fast, same quality for structured tasks
+const MODEL = 'llama-3.1-8b-instant'
 const BASE_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
 export interface GeminiMessage {

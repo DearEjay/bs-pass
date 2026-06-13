@@ -140,8 +140,7 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tasks.length])
 
-  // Clean up audio on unmount
-  useEffect(() => () => stopAudio(), []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => () => { audioRef.current?.pause(); window.speechSynthesis?.cancel() }, [])
 
   if (!tasks.length) return null
 
@@ -149,6 +148,7 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
     audioRef.current?.pause()
     audioRef.current = null
     if (blobUrlRef.current) { URL.revokeObjectURL(blobUrlRef.current); blobUrlRef.current = null }
+    window.speechSynthesis?.cancel()
     setTtsState('idle')
   }
 
@@ -190,12 +190,37 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
 
       await audio.play()
       setTtsState('playing')
-    } catch (e) {
-      console.error('TTS error:', e)
-      stopAudio()
-      setTtsError(e instanceof Error ? e.message : String(e))
-      setTimeout(() => setTtsError(null), 4000)
+    } catch {
+      // Edge function failed (Google TTS blocked from server IPs) — fall back to Web Speech API
+      audioRef.current = null
+      blobUrlRef.current = null
+      speakWithWebSpeech(summary)
     }
+  }
+
+  function speakWithWebSpeech(text: string) {
+    if (!window.speechSynthesis) { setTtsState('idle'); return }
+    setTtsState('playing')
+    const utter = new SpeechSynthesisUtterance(text)
+    utter.rate = 0.92
+    utter.pitch = 1.0
+    utter.onend = () => setTtsState('idle')
+    utter.onerror = () => setTtsState('idle')
+
+    const trySpeak = (voices: SpeechSynthesisVoice[]) => {
+      const en = voices.filter(v => v.lang.startsWith('en'))
+      const voice = en.find(v => v.name.includes('Enhanced') && v.lang === 'en-US')
+        ?? en.find(v => v.name.includes('Premium') && v.lang === 'en-US')
+        ?? en.find(v => /Google.*English/i.test(v.name))
+        ?? en.find(v => v.lang === 'en-US' && v.name !== 'Samantha')
+        ?? en[0] ?? null
+      if (voice) utter.voice = voice
+      window.speechSynthesis.speak(utter)
+    }
+
+    const voices = window.speechSynthesis.getVoices()
+    if (voices.length > 0) trySpeak(voices)
+    else { window.speechSynthesis.onvoiceschanged = () => { window.speechSynthesis.onvoiceschanged = null; trySpeak(window.speechSynthesis.getVoices()) } }
   }
 
   const isLoading = isFetching && !summary
