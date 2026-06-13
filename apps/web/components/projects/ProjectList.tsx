@@ -29,6 +29,23 @@ const TYPE_FILTERS = [
   { value: 'mixtape',  label: 'Mixtape',  dot: 'bg-cyan-500' },
 ]
 
+const SORT_OPTIONS = [
+  { value: 'newest',  label: 'Newest first' },
+  { value: 'oldest',  label: 'Oldest first' },
+  { value: 'updated', label: 'Recently updated' },
+  { value: 'a_z',     label: 'A → Z' },
+  { value: 'z_a',     label: 'Z → A' },
+  { value: 'status',  label: 'By status' },
+]
+
+const STATUS_ORDER: Record<string, number> = {
+  in_pre_production: 0,
+  in_production: 1,
+  in_post_production: 2,
+  ready_for_release: 3,
+  released: 4,
+}
+
 const STATUS_LABEL: Record<string, string> = {
   in_pre_production: 'Pre-Production',
   in_production: 'In Production',
@@ -88,17 +105,26 @@ export function ProjectList({ userId }: { userId: string }) {
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [myProjectsOnly, setMyProjectsOnly] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+  const [sortBy, setSortBy] = useState<string>('newest')
 
   const filtered = useMemo(() => {
     if (!projects) return []
-    return projects.filter(p => {
+    const list = projects.filter(p => {
       const matchesQuery = query.trim() === '' || p.title.toLowerCase().includes(query.toLowerCase())
       const matchesStatus = statusFilter === 'all' || p.status === statusFilter
       const matchesType = typeFilter === 'all' || p.project_type === typeFilter
       const matchesMine = !myProjectsOnly || (p as Project & { owner_id?: string }).owner_id === userId
       return matchesQuery && matchesStatus && matchesType && matchesMine
     })
-  }, [projects, query, statusFilter, typeFilter, myProjectsOnly, userId])
+    switch (sortBy) {
+      case 'oldest':  return [...list].sort((a, b) => new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime())
+      case 'updated': return [...list].sort((a, b) => new Date(b.updated_at ?? b.created_at ?? 0).getTime() - new Date(a.updated_at ?? a.created_at ?? 0).getTime())
+      case 'a_z':     return [...list].sort((a, b) => a.title.localeCompare(b.title))
+      case 'z_a':     return [...list].sort((a, b) => b.title.localeCompare(a.title))
+      case 'status':  return [...list].sort((a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99))
+      default:        return [...list].sort((a, b) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime())
+    }
+  }, [projects, query, statusFilter, typeFilter, myProjectsOnly, userId, sortBy])
 
   const hasActiveFilter = query || statusFilter !== 'all' || typeFilter !== 'all' || myProjectsOnly
 
@@ -190,6 +216,12 @@ export function ProjectList({ userId }: { userId: string }) {
           >
             My projects
           </button>
+
+          <FilterDropdown
+            value={sortBy}
+            onChange={setSortBy}
+            options={SORT_OPTIONS}
+          />
 
           {hasActiveFilter && (
             <button

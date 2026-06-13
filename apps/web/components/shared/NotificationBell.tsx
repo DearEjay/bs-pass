@@ -17,13 +17,18 @@ interface NotifConfig {
   Icon: React.ElementType
   iconBg: string
   iconColor: string
-  text: string
+  text: React.ReactNode
   href: string | null
+}
+
+function ProjectLink({ title }: { title: string }) {
+  return <span className="font-semibold text-primary underline underline-offset-2">{title}</span>
 }
 
 function getConfig(n: Notification): NotifConfig {
   const p = (n.payload ?? {}) as Record<string, string>
   const pid = n.project_id
+  const proj = p.projectTitle ? <ProjectLink title={p.projectTitle} /> : 'a project'
 
   switch (n.type) {
     case 'mention':
@@ -31,7 +36,7 @@ function getConfig(n: Notification): NotifConfig {
         Icon: AtSign,
         iconBg: 'bg-violet-500/15',
         iconColor: 'text-violet-500',
-        text: `${p.senderName ?? 'Someone'} mentioned you in ${p.projectTitle ?? 'a project'}`,
+        text: <>{p.senderName ?? 'Someone'} mentioned you in {proj}</>,
         href: pid ? `/projects/${pid}/chat` : null,
       }
     case 'collaborator_added':
@@ -39,7 +44,7 @@ function getConfig(n: Notification): NotifConfig {
         Icon: Users,
         iconBg: 'bg-blue-500/15',
         iconColor: 'text-blue-500',
-        text: `You've been added to ${p.projectTitle ?? 'a project'}${p.role ? ` as ${p.role}` : ''}`,
+        text: <>You&apos;ve been added to {proj}{p.role ? ` as ${p.role}` : ''}</>,
         href: pid ? `/projects/${pid}/roadmap` : null,
       }
     case 'collaborator_removed':
@@ -47,7 +52,7 @@ function getConfig(n: Notification): NotifConfig {
         Icon: Users,
         iconBg: 'bg-destructive/15',
         iconColor: 'text-destructive',
-        text: `You were removed from ${p.projectTitle ?? 'a project'}`,
+        text: <>You were removed from {proj}</>,
         href: null,
       }
     case 'task_assigned':
@@ -55,7 +60,7 @@ function getConfig(n: Notification): NotifConfig {
         Icon: CheckSquare,
         iconBg: 'bg-amber-500/15',
         iconColor: 'text-amber-500',
-        text: `${p.assignedBy ?? 'Someone'} assigned you${p.taskTitle ? ` "${p.taskTitle}"` : ' a task'}${p.projectTitle ? ` in ${p.projectTitle}` : ''}`,
+        text: <>{p.assignedBy ?? 'Someone'} assigned you{p.taskTitle ? ` "${p.taskTitle}"` : ' a task'}{p.projectTitle ? <> in {proj}</> : ''}</>,
         href: pid ? `/projects/${pid}/roadmap` : null,
       }
     case 'track_status_changed':
@@ -63,7 +68,7 @@ function getConfig(n: Notification): NotifConfig {
         Icon: Music2,
         iconBg: 'bg-teal-500/15',
         iconColor: 'text-teal-500',
-        text: `"${p.trackTitle ?? 'A track'}" moved to ${p.newStatus ?? 'a new status'}${p.projectTitle ? ` in ${p.projectTitle}` : ''}`,
+        text: <>&ldquo;{p.trackTitle ?? 'A track'}&rdquo; moved to {p.newStatus ?? 'a new status'}{p.projectTitle ? <> in {proj}</> : ''}</>,
         href: pid ? `/projects/${pid}/roadmap` : null,
       }
     case 'split_request':
@@ -71,7 +76,7 @@ function getConfig(n: Notification): NotifConfig {
         Icon: FileSignature,
         iconBg: 'bg-orange-500/15',
         iconColor: 'text-orange-500',
-        text: `Sign your split for "${p.trackTitle ?? 'a track'}"${p.projectTitle ? ` in ${p.projectTitle}` : ''}`,
+        text: <>Sign your split for &ldquo;{p.trackTitle ?? 'a track'}&rdquo;{p.projectTitle ? <> in {proj}</> : ''}</>,
         href: p.signUrl ?? (pid ? `/projects/${pid}/splits` : null),
       }
     default:
