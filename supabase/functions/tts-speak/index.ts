@@ -43,15 +43,17 @@ Deno.serve(async (req) => {
 
     // Fetch each chunk from Google Translate TTS (server-to-server, no CORS issues)
     const buffers = await Promise.all(
-      chunks.map(chunk =>
-        fetch(
+      chunks.map(async chunk => {
+        const r = await fetch(
           `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(chunk)}&tl=en&client=tw-ob`,
           { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } }
-        ).then(r => {
-          if (!r.ok) throw new Error(`Google TTS ${r.status}`)
-          return r.arrayBuffer()
-        })
-      )
+        )
+        if (!r.ok) {
+          const body = await r.text().catch(() => '')
+          throw new Error(`Google TTS returned ${r.status}: ${body.slice(0, 200)}`)
+        }
+        return r.arrayBuffer()
+      })
     )
 
     // Concatenate MP3 chunks into a single buffer

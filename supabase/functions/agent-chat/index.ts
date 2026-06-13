@@ -138,12 +138,22 @@ Rules:
     try {
       const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }])
       const cleaned = raw.replace(/```json?\n?/g, '').replace(/```/g, '').trim()
-      parsed = JSON.parse(cleaned)
+      try {
+        parsed = JSON.parse(cleaned)
+      } catch {
+        // LLM returned plain text instead of JSON — use as-is
+        parsed = { reply: raw.trim() }
+      }
     } catch (e) {
-      console.warn('agent-chat JSON parse failed:', e)
-      // Fallback: treat raw output as plain reply
-      const raw = await generateContent([{ role: 'user', parts: [{ text: prompt }] }])
-      parsed = { reply: raw.trim() }
+      // LLM call itself failed (rate limit, key issue, etc.) — post visible error to chat
+      const errMsg = e instanceof Error ? e.message : String(e)
+      console.error('agent-chat LLM error:', errMsg)
+      await supabase.from('chat_messages').insert({
+        project_id: projectId,
+        sender_type: 'agent',
+        body: `Manager is temporarily unavailable. Error: ${errMsg.slice(0, 200)}`,
+      })
+      return json({ error: errMsg }, 503)
     }
 
     // Create any tasks the agent produced

@@ -80,6 +80,7 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
   // Track last-updated time separately so it reflects the localStorage timestamp
   const [lastTs, setLastTs] = useState<number | null>(null)
   const [ttsState, setTtsState] = useState<'idle' | 'loading' | 'playing'>('idle')
+  const [ttsError, setTtsError] = useState<string | null>(null)
 
   const audioRef   = useRef<HTMLAudioElement | null>(null)
   const blobUrlRef = useRef<string | null>(null)
@@ -192,6 +193,8 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
     } catch (e) {
       console.error('TTS error:', e)
       stopAudio()
+      setTtsError(e instanceof Error ? e.message : String(e))
+      setTimeout(() => setTtsError(null), 4000)
     }
   }
 
@@ -233,21 +236,28 @@ export function RoadmapAISummary({ projectId, tasks, displayName }: Props) {
       </button>
 
       {summary && !isLoading && (
-        <button
-          onClick={handleSpeak}
-          className={`absolute bottom-3 right-3 p-1.5 rounded-md transition-colors ${
-            ttsState !== 'idle'
-              ? 'text-primary bg-primary/10 hover:bg-primary/20'
-              : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-          }`}
-          title={ttsState !== 'idle' ? 'Stop reading' : 'Listen to summary'}
-        >
-          {ttsState === 'loading'
-            ? <Loader2 size={13} className="animate-spin" />
-            : ttsState === 'playing'
-            ? <Square size={13} fill="currentColor" />
-            : <Volume2 size={13} />}
-        </button>
+        <>
+          {ttsError && (
+            <div className="absolute bottom-10 right-2 text-[10px] text-destructive bg-destructive/10 px-2 py-1 rounded max-w-[180px] text-right leading-tight">
+              {ttsError}
+            </div>
+          )}
+          <button
+            onClick={handleSpeak}
+            className={`absolute bottom-3 right-3 p-1.5 rounded-md transition-colors ${
+              ttsState !== 'idle'
+                ? 'text-primary bg-primary/10 hover:bg-primary/20'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+            }`}
+            title={ttsState !== 'idle' ? 'Stop reading' : 'Listen to summary'}
+          >
+            {ttsState === 'loading'
+              ? <Loader2 size={13} className="animate-spin" />
+              : ttsState === 'playing'
+              ? <Square size={13} fill="currentColor" />
+              : <Volume2 size={13} />}
+          </button>
+        </>
       )}
     </div>
   )

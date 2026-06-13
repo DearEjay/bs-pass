@@ -53,6 +53,7 @@ export interface AgentContext {
 
 const TRACK_PIPELINE = [
   'not_started',
+  'writing',
   'recording',
   'recorded',
   'mixing',
@@ -64,7 +65,9 @@ const TRACK_PIPELINE = [
 
 function stagesNeeded(currentStatus: string): string[] {
   const idx = TRACK_PIPELINE.indexOf(currentStatus)
-  if (idx === -1 || currentStatus === 'released') return []
+  // Unknown status (e.g. future custom statuses) → treat as not started
+  if (currentStatus === 'released') return []
+  if (idx === -1) return TRACK_PIPELINE.slice(1)
   return TRACK_PIPELINE.slice(idx + 1)
 }
 
