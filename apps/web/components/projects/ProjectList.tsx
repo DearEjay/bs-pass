@@ -30,9 +30,9 @@ const TYPE_FILTERS = [
 ]
 
 const SORT_OPTIONS = [
+  { value: 'updated', label: 'Recently updated' },
   { value: 'newest',  label: 'Newest first' },
   { value: 'oldest',  label: 'Oldest first' },
-  { value: 'updated', label: 'Recently updated' },
   { value: 'a_z',     label: 'A → Z' },
   { value: 'z_a',     label: 'Z → A' },
   { value: 'status',  label: 'By status' },
@@ -105,7 +105,7 @@ export function ProjectList({ userId }: { userId: string }) {
   const [typeFilter, setTypeFilter] = useState<string>('all')
   const [myProjectsOnly, setMyProjectsOnly] = useState(false)
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
-  const [sortBy, setSortBy] = useState<string>('newest')
+  const [sortBy, setSortBy] = useState<string>('updated')
 
   const filtered = useMemo(() => {
     if (!projects) return []
