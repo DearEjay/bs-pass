@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Settings, ChevronLeft, Map, Music2, Users, MessageCircle, PieChart } from 'lucide-react'
+import { Settings, ChevronLeft, Map, Music2, Users, MessageCircle, PieChart, Paperclip } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ProjectSettingsModal } from './ProjectSettingsModal'
 import { useProjectStatus } from '@/hooks/useTracks'
@@ -34,6 +34,7 @@ const TABS = [
   { label: 'Tracks',        path: 'tracks',        icon: Music2 },
   { label: 'Collaborators', path: 'collaborators', icon: Users },
   { label: 'Chat',          path: 'chat',          icon: MessageCircle },
+  { label: 'Assets',        path: 'assets',        icon: Paperclip },
   { label: 'Splits',        path: 'splits',        icon: PieChart },
 ]
 

@@ -403,8 +403,8 @@ export type Database = {
           timeline_end: string | null
           timeline_start: string | null
           title: string
-          updated_at: string | null
           upc: string | null
+          updated_at: string | null
         }
         Insert: {
           agent_mode?: string
@@ -424,8 +424,8 @@ export type Database = {
           timeline_end?: string | null
           timeline_start?: string | null
           title: string
-          updated_at?: string | null
           upc?: string | null
+          updated_at?: string | null
         }
         Update: {
           agent_mode?: string
@@ -445,8 +445,8 @@ export type Database = {
           timeline_end?: string | null
           timeline_start?: string | null
           title?: string
-          updated_at?: string | null
           upc?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -762,6 +762,73 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      track_assets: {
+        Row: {
+          asset_type: string
+          created_at: string
+          deleted_at: string | null
+          external_url: string | null
+          file_size: number | null
+          id: string
+          mime_type: string | null
+          name: string
+          project_id: string
+          storage_path: string | null
+          track_id: string
+          uploader_id: string
+        }
+        Insert: {
+          asset_type: string
+          created_at?: string
+          deleted_at?: string | null
+          external_url?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name: string
+          project_id: string
+          storage_path?: string | null
+          track_id: string
+          uploader_id: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          deleted_at?: string | null
+          external_url?: string | null
+          file_size?: number | null
+          id?: string
+          mime_type?: string | null
+          name?: string
+          project_id?: string
+          storage_path?: string | null
+          track_id?: string
+          uploader_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "track_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "track_assets_track_id_fkey"
+            columns: ["track_id"]
+            isOneToOne: false
+            referencedRelation: "tracks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "track_assets_uploader_id_fkey"
+            columns: ["uploader_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

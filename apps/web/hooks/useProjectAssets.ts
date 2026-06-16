@@ -3,9 +3,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 
-export interface TrackAsset {
+export interface ProjectAsset {
   id: string
-  track_id: string
   project_id: string
   asset_type: 'file' | 'link'
   name: string
@@ -18,21 +17,21 @@ export interface TrackAsset {
   created_at: string
 }
 
-export function useTrackAssets(trackId: string) {
+export function useProjectAssets(projectId: string) {
   const supabase = createClient()
   return useQuery({
-    queryKey: ['track-assets', trackId],
+    queryKey: ['project-assets', projectId],
     queryFn: async () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
-        .from('track_assets')
+        .from('project_assets')
         .select(`
-          id, track_id, project_id, asset_type, name,
+          id, project_id, asset_type, name,
           storage_path, external_url, file_size, mime_type,
           uploader_id, created_at,
           uploader:profiles!uploader_id(full_name, display_name)
         `)
-        .eq('track_id', trackId)
+        .eq('project_id', projectId)
         .is('deleted_at', null)
         .order('created_at', { ascending: false })
       if (error) throw error
@@ -41,7 +40,6 @@ export function useTrackAssets(trackId: string) {
         const p = a.uploader as { full_name: string | null; display_name: string | null } | null
         return {
           id: a.id,
-          track_id: a.track_id,
           project_id: a.project_id,
           asset_type: a.asset_type,
           name: a.name,
@@ -52,15 +50,15 @@ export function useTrackAssets(trackId: string) {
           uploader_id: a.uploader_id,
           uploader_name: p?.full_name ?? p?.display_name ?? null,
           created_at: a.created_at,
-        } as TrackAsset
+        } as ProjectAsset
       })
     },
-    enabled: !!trackId,
+    enabled: !!projectId,
     staleTime: 15_000,
   })
 }
 
-export function useAddTrackAsset(trackId: string, projectId: string) {
+export function useAddProjectAsset(projectId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
@@ -74,8 +72,7 @@ export function useAddTrackAsset(trackId: string, projectId: string) {
 
       if (input.type === 'link') {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).from('track_assets').insert({
-          track_id: trackId,
+        const { error } = await (supabase as any).from('project_assets').insert({
           project_id: projectId,
           asset_type: 'link',
           name: input.name.trim(),
@@ -86,7 +83,7 @@ export function useAddTrackAsset(trackId: string, projectId: string) {
       } else {
         const ext = input.file.name.split('.').pop() ?? 'bin'
         const assetId = crypto.randomUUID()
-        const storagePath = `${projectId}/${trackId}/${assetId}.${ext}`
+        const storagePath = `${projectId}/${assetId}.${ext}`
 
         const { error: uploadErr } = await supabase.storage
           .from('track-assets')
@@ -94,8 +91,7 @@ export function useAddTrackAsset(trackId: string, projectId: string) {
         if (uploadErr) throw uploadErr
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: insertErr } = await (supabase as any).from('track_assets').insert({
-          track_id: trackId,
+        const { error: insertErr } = await (supabase as any).from('project_assets').insert({
           project_id: projectId,
           asset_type: 'file',
           name: input.file.name,
@@ -110,23 +106,23 @@ export function useAddTrackAsset(trackId: string, projectId: string) {
         }
       }
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['track-assets', trackId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-assets', projectId] }),
   })
 }
 
-export function useRemoveTrackAsset(trackId: string) {
+export function useRemoveProjectAsset(projectId: string) {
   const supabase = createClient()
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (assetId: string) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any)
-        .from('track_assets')
+        .from('project_assets')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', assetId)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['track-assets', trackId] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['project-assets', projectId] }),
   })
 }
 

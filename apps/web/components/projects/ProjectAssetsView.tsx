@@ -2,12 +2,12 @@
 
 import { useState, useRef } from 'react'
 import {
-  useTrackAssets,
-  useAddTrackAsset,
-  useRemoveTrackAsset,
+  useProjectAssets,
+  useAddProjectAsset,
+  useRemoveProjectAsset,
   useDownloadAsset,
-  type TrackAsset,
-} from '@/hooks/useTrackAssets'
+  type ProjectAsset,
+} from '@/hooks/useProjectAssets'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { createClient } from '@/lib/supabase/client'
 import { useQuery } from '@tanstack/react-query'
@@ -46,7 +46,7 @@ function AssetCard({
   onRemove,
   isRemoving,
 }: {
-  asset: TrackAsset
+  asset: ProjectAsset
   canRemove: boolean
   onRemove: () => void
   isRemoving: boolean
@@ -63,38 +63,30 @@ function AssetCard({
   }
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2.5 bg-card border border-border rounded-lg hover:border-border/80 transition-colors">
-      {/* Icon */}
-      <div className="w-8 h-8 rounded-md bg-accent flex items-center justify-center shrink-0">
+    <div className="flex items-center gap-3 px-4 py-3 bg-card border border-border rounded-lg hover:border-border/80 transition-colors">
+      <div className="w-9 h-9 rounded-md bg-accent flex items-center justify-center shrink-0">
         {isFile
           ? <FileIcon mimeType={asset.mime_type} className="text-muted-foreground" />
           : <Link size={15} className="text-muted-foreground" />
         }
       </div>
 
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium truncate">{asset.name}</p>
-        <p className="text-[11px] text-muted-foreground mt-0.5 truncate">
+        <p className="text-[11px] text-muted-foreground mt-0.5">
           {asset.uploader_name ?? 'Unknown'}
           <span className="mx-1 opacity-40">·</span>
           {formatDate(asset.created_at)}
           {asset.file_size != null && (
-            <>
-              <span className="mx-1 opacity-40">·</span>
-              {formatBytes(asset.file_size)}
-            </>
+            <><span className="mx-1 opacity-40">·</span>{formatBytes(asset.file_size)}</>
           )}
           {!isFile && asset.external_url && (
-            <>
-              <span className="mx-1 opacity-40">·</span>
-              <span className="truncate max-w-[120px] inline-block align-bottom">{asset.external_url}</span>
-            </>
+            <><span className="mx-1 opacity-40">·</span>
+            <span className="text-primary/70">{asset.external_url}</span></>
           )}
         </p>
       </div>
 
-      {/* Actions */}
       <div className="flex items-center gap-1 shrink-0">
         <button
           onClick={handleAction}
@@ -104,9 +96,7 @@ function AssetCard({
         >
           {downloadAsset.isPending
             ? <Loader2 size={13} className="animate-spin" />
-            : isFile
-            ? <Download size={13} />
-            : <ExternalLink size={13} />
+            : isFile ? <Download size={13} /> : <ExternalLink size={13} />
           }
         </button>
         {canRemove && (
@@ -124,17 +114,11 @@ function AssetCard({
   )
 }
 
-export function TrackAssetsTab({
-  trackId,
-  projectId,
-}: {
-  trackId: string
-  projectId: string
-}) {
-  const { data: assets = [] as TrackAsset[], isLoading } = useTrackAssets(trackId)
+export function ProjectAssetsView({ projectId }: { projectId: string }) {
+  const { data: assets = [] as ProjectAsset[], isLoading } = useProjectAssets(projectId)
   const { data: currentUser } = useCurrentUser()
-  const addAsset = useAddTrackAsset(trackId, projectId)
-  const removeAsset = useRemoveTrackAsset(trackId)
+  const addAsset = useAddProjectAsset(projectId)
+  const removeAsset = useRemoveProjectAsset(projectId)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [showLinkForm, setShowLinkForm] = useState(false)
@@ -142,7 +126,6 @@ export function TrackAssetsTab({
   const [linkUrl, setLinkUrl] = useState('')
   const [removingId, setRemovingId] = useState<string | null>(null)
 
-  // Check if current user is main artist
   const supabase = createClient()
   const { data: myCollab } = useQuery({
     queryKey: ['my-collab', projectId, currentUser?.id],
@@ -165,11 +148,8 @@ export function TrackAssetsTab({
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
-    try {
-      await addAsset.mutateAsync({ type: 'file', file })
-    } finally {
-      e.target.value = ''
-    }
+    try { await addAsset.mutateAsync({ type: 'file', file }) }
+    finally { e.target.value = '' }
   }
 
   async function handleAddLink() {
@@ -184,80 +164,79 @@ export function TrackAssetsTab({
     } catch {}
   }
 
-  async function handleRemove(asset: TrackAsset) {
+  async function handleRemove(asset: ProjectAsset) {
     setRemovingId(asset.id)
-    try {
-      await removeAsset.mutateAsync(asset.id)
-    } finally {
-      setRemovingId(null)
-    }
+    try { await removeAsset.mutateAsync(asset.id) }
+    finally { setRemovingId(null) }
   }
 
-  function canRemove(asset: TrackAsset) {
+  function canRemove(asset: ProjectAsset) {
     if (!currentUser) return false
     return isMainArtist || asset.uploader_id === currentUser.id
   }
 
   return (
-    <div className="px-3 py-3 space-y-3">
-      {/* Header row */}
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => fileInputRef.current?.click()}
-          disabled={addAsset.isPending}
-          className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
-        >
-          {addAsset.isPending
-            ? <Loader2 size={12} className="animate-spin" />
-            : <Upload size={12} />
-          }
-          Upload file
-        </button>
-
-        <button
-          onClick={() => { setShowLinkForm(v => !v); setLinkName(''); setLinkUrl('') }}
-          className={cn(
-            'flex items-center gap-1.5 px-2.5 py-1.5 text-xs rounded-md border transition-colors',
-            showLinkForm
-              ? 'border-primary/50 bg-primary/5 text-primary'
-              : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent',
-          )}
-        >
-          <Link size={12} />
-          Add link
-        </button>
+    <div className="px-4 sm:px-6 py-6 max-w-3xl mx-auto space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-base font-semibold">Assets</h2>
+          <p className="text-xs text-muted-foreground mt-0.5">Files and links shared with the project</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={addAsset.isPending}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors disabled:opacity-40"
+          >
+            {addAsset.isPending ? <Loader2 size={13} className="animate-spin" /> : <Upload size={13} />}
+            Upload file
+          </button>
+          <button
+            onClick={() => { setShowLinkForm(v => !v); setLinkName(''); setLinkUrl('') }}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-md border transition-colors',
+              showLinkForm
+                ? 'border-primary/50 bg-primary/5 text-primary'
+                : 'border-border text-muted-foreground hover:text-foreground hover:bg-accent',
+            )}
+          >
+            <Link size={13} />
+            Add link
+          </button>
+        </div>
       </div>
 
       {/* Inline link form */}
       {showLinkForm && (
-        <div className="p-3 rounded-lg border border-border bg-accent/30 space-y-2">
+        <div className="p-4 rounded-lg border border-border bg-accent/30 space-y-2.5">
           <input
             autoFocus
             type="text"
             placeholder="Name (e.g. Spotify Pre-Save)"
             value={linkName}
             onChange={e => setLinkName(e.target.value)}
-            className="w-full px-2.5 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <input
             type="url"
-            placeholder="https://..."
+            placeholder="https://…"
             value={linkUrl}
             onChange={e => setLinkUrl(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') handleAddLink() }}
-            className="w-full px-2.5 py-1.5 text-xs rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+            className="w-full px-3 py-2 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
           />
           <div className="flex gap-2">
             <button
               onClick={handleAddLink}
               disabled={!linkName.trim() || !linkUrl.trim() || addAsset.isPending}
-              className="px-3 py-1.5 text-xs rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-40"
+              className="px-4 py-1.5 text-sm rounded-md bg-primary text-primary-foreground hover:opacity-90 transition-opacity disabled:opacity-40"
             >
               {addAsset.isPending ? 'Adding…' : 'Add link'}
             </button>
             <button
               onClick={() => setShowLinkForm(false)}
-              className="px-3 py-1.5 text-xs rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              className="px-4 py-1.5 text-sm rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             >
               Cancel
             </button>
@@ -267,17 +246,18 @@ export function TrackAssetsTab({
 
       {/* Asset list */}
       {isLoading ? (
-        <div className="flex items-center justify-center py-6">
-          <Loader2 size={16} className="animate-spin text-muted-foreground" />
+        <div className="flex items-center justify-center py-16">
+          <Loader2 size={18} className="animate-spin text-muted-foreground" />
         </div>
       ) : assets.length === 0 ? (
-        <div className="py-8 flex flex-col items-center gap-2 text-muted-foreground">
-          <Paperclip size={24} strokeWidth={1.5} />
-          <p className="text-xs">No assets yet — upload a file or add a link</p>
+        <div className="py-16 flex flex-col items-center gap-3 text-muted-foreground">
+          <Paperclip size={32} strokeWidth={1.5} />
+          <p className="text-sm">No assets yet</p>
+          <p className="text-xs opacity-60">Upload a file or add a link to share with the project</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {assets.map((asset: TrackAsset) => (
+          {(assets as ProjectAsset[]).map((asset: ProjectAsset) => (
             <AssetCard
               key={asset.id}
               asset={asset}
@@ -289,12 +269,7 @@ export function TrackAssetsTab({
         </div>
       )}
 
-      <input
-        ref={fileInputRef}
-        type="file"
-        className="hidden"
-        onChange={handleFileSelect}
-      />
+      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileSelect} />
     </div>
   )
 }
