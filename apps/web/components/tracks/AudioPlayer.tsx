@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useRef, useState, forwardRef, useImperativeHandle, useCallback } from 'react'
-import { Play, Pause, Loader2 } from 'lucide-react'
+import { Play, Pause, Loader2, SkipBack, SkipForward, Shuffle, Repeat, Repeat1 } from 'lucide-react'
 import { cn, formatTime } from '@/lib/utils'
 import { useAudioPlayerStore } from '@/hooks/useAudioPlayer'
+
+export type RepeatMode = 'none' | 'playlist' | 'song'
 
 export interface AudioMarker {
   id: string
@@ -24,15 +26,31 @@ interface AudioPlayerProps {
   autoPlay?: boolean
   onTimeUpdate?: (time: number) => void
   onEnded?: () => void
+  hasPrev?: boolean
+  hasNext?: boolean
+  onPrev?: () => void
+  onNext?: () => void
+  repeatMode?: RepeatMode
+  shuffleMode?: boolean
+  onRepeatChange?: (mode: RepeatMode) => void
+  onShuffleToggle?: () => void
 }
 
 export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
-  function AudioPlayer({ trackId, audioUrl, markers = [], autoPlay = false, onTimeUpdate, onEnded }, ref) {
+  function AudioPlayer({
+    trackId, audioUrl, markers = [], autoPlay = false,
+    onTimeUpdate, onEnded,
+    hasPrev = false, hasNext = false, onPrev, onNext,
+    repeatMode = 'none', shuffleMode = false,
+    onRepeatChange, onShuffleToggle,
+  }, ref) {
     const containerRef = useRef<HTMLDivElement>(null)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const wsRef = useRef<any>(null)
     const autoPlayRef = useRef(autoPlay)
     autoPlayRef.current = autoPlay
+    const repeatModeRef = useRef(repeatMode)
+    repeatModeRef.current = repeatMode
 
     const [isPlaying, setIsPlaying] = useState(false)
     const [currentTime, setCurrentTime] = useState(0)
@@ -154,8 +172,13 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
           onTimeUpdate?.(t)
         })
         ws.on('finish', () => {
-          setIsPlaying(false)
-          onEnded?.()
+          if (repeatModeRef.current === 'song') {
+            ws.seekTo(0)
+            ws.play()
+          } else {
+            setIsPlaying(false)
+            onEnded?.()
+          }
         })
 
         wsRef.current = ws
@@ -186,31 +209,14 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
       }
     }
 
+    function cycleRepeat() {
+      const next: RepeatMode = repeatMode === 'none' ? 'playlist' : repeatMode === 'playlist' ? 'song' : 'none'
+      onRepeatChange?.(next)
+    }
+
     return (
       <div className="flex flex-col gap-2 px-3 pb-3 pt-1">
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={togglePlay}
-            disabled={isLoading}
-            className="w-7 h-7 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity shrink-0 disabled:opacity-40"
-            aria-label={isPlaying ? 'Pause' : 'Play'}
-          >
-            {isLoading ? (
-              <Loader2 size={12} className="animate-spin" />
-            ) : isPlaying ? (
-              <Pause size={12} fill="currentColor" />
-            ) : (
-              <Play size={12} fill="currentColor" className="translate-x-px" />
-            )}
-          </button>
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {formatTime(currentTime)}
-            <span className="mx-0.5 opacity-40">/</span>
-            {formatTime(duration)}
-          </span>
-        </div>
-
-        {/* Waveform — pb-7 reserves space below the bars for avatar bubbles */}
+        {/* Waveform — pb-5 reserves space below the bars for avatar bubbles */}
         <div className="relative pb-5">
           <div ref={containerRef} className="w-full" />
 
@@ -270,6 +276,74 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
               </div>
             )
           })}
+        </div>
+
+        {/* Transport controls */}
+        <div className="flex items-center justify-between">
+          {/* Left: shuffle */}
+          <button
+            onClick={onShuffleToggle}
+            className={cn(
+              'p-1.5 rounded transition-colors',
+              shuffleMode ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+            )}
+            title="Shuffle"
+          >
+            <Shuffle size={13} />
+          </button>
+
+          {/* Center: prev / play / next */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onPrev}
+              disabled={!hasPrev}
+              className="p-1 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
+              title="Previous track"
+            >
+              <SkipBack size={15} fill="currentColor" />
+            </button>
+
+            <button
+              onClick={togglePlay}
+              disabled={isLoading}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:opacity-90 transition-opacity shrink-0 disabled:opacity-40"
+              aria-label={isPlaying ? 'Pause' : 'Play'}
+            >
+              {isLoading ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : isPlaying ? (
+                <Pause size={13} fill="currentColor" />
+              ) : (
+                <Play size={13} fill="currentColor" className="translate-x-px" />
+              )}
+            </button>
+
+            <button
+              onClick={onNext}
+              disabled={!hasNext}
+              className="p-1 text-muted-foreground hover:text-foreground transition-colors disabled:opacity-30"
+              title="Next track"
+            >
+              <SkipForward size={15} fill="currentColor" />
+            </button>
+          </div>
+
+          {/* Right: time + repeat */}
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-muted-foreground tabular-nums">
+              {formatTime(currentTime)}<span className="mx-0.5 opacity-40">/</span>{formatTime(duration)}
+            </span>
+            <button
+              onClick={cycleRepeat}
+              className={cn(
+                'p-1.5 rounded transition-colors',
+                repeatMode !== 'none' ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
+              )}
+              title={repeatMode === 'none' ? 'Repeat off' : repeatMode === 'playlist' ? 'Repeat playlist' : 'Repeat song'}
+            >
+              {repeatMode === 'song' ? <Repeat1 size={13} /> : <Repeat size={13} />}
+            </button>
+          </div>
         </div>
       </div>
     )

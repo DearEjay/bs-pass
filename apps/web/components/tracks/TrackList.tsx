@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { useTracks, useReorderTracks } from '@/hooks/useTracks'
-import { TrackItem } from './TrackItem'
+import { TrackItem, } from './TrackItem'
+import type { RepeatMode } from './AudioPlayer'
 import { AddTrackModal } from './AddTrackModal'
 import { Plus, Music } from 'lucide-react'
 import {
@@ -28,6 +29,44 @@ export function TrackList({ projectId }: { projectId: string }) {
   const [showAdd, setShowAdd] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [autoPlayId, setAutoPlayId] = useState<string | null>(null)
+  const [repeatMode, setRepeatMode] = useState<RepeatMode>('none')
+  const [shuffleMode, setShuffleMode] = useState(false)
+  const [shuffledIds, setShuffledIds] = useState<string[]>([])
+
+  const orderedIds = useMemo(() => {
+    if (shuffleMode && shuffledIds.length > 0) return shuffledIds
+    return tracks.map(t => t.id)
+  }, [shuffleMode, shuffledIds, tracks])
+
+  function handleShuffleToggle() {
+    if (!shuffleMode) {
+      const ids = [...tracks.map(t => t.id)]
+      for (let i = ids.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[ids[i], ids[j]] = [ids[j], ids[i]]
+      }
+      setShuffledIds(ids)
+    }
+    setShuffleMode(v => !v)
+  }
+
+  function getAdjacent(trackId: string) {
+    const idx = orderedIds.indexOf(trackId)
+    return {
+      prevId: idx > 0 ? orderedIds[idx - 1] : null,
+      nextId: idx < orderedIds.length - 1 ? orderedIds[idx + 1] : null,
+    }
+  }
+
+  function handlePrev(trackId: string) {
+    const { prevId } = getAdjacent(trackId)
+    if (prevId) { setExpandedId(prevId); setAutoPlayId(prevId) }
+  }
+
+  function handleNext(trackId: string) {
+    const { nextId } = getAdjacent(trackId)
+    if (nextId) { setExpandedId(nextId); setAutoPlayId(nextId) }
+  }
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -43,17 +82,20 @@ export function TrackList({ projectId }: { projectId: string }) {
   }
 
   const handleTrackEnded = useCallback((trackId: string) => {
-    const idx = tracks.findIndex(t => t.id === trackId)
-    const next = tracks[idx + 1]
-    if (next) {
-      setExpandedId(next.id)
-      setAutoPlayId(next.id)
+    // 'song' repeat is handled inside AudioPlayer (seeks to 0 and replays)
+    const idx = orderedIds.indexOf(trackId)
+    const nextId = orderedIds[idx + 1]
+    if (nextId) {
+      setExpandedId(nextId)
+      setAutoPlayId(nextId)
+    } else if (repeatMode === 'playlist' && orderedIds.length > 0) {
+      setExpandedId(orderedIds[0])
+      setAutoPlayId(orderedIds[0])
     } else {
-      // Last track finished — collapse
       setExpandedId(null)
       setAutoPlayId(null)
     }
-  }, [tracks])
+  }, [orderedIds, repeatMode])
 
   function toggleExpand(trackId: string) {
     if (expandedId === trackId) {
@@ -115,17 +157,28 @@ export function TrackList({ projectId }: { projectId: string }) {
             strategy={verticalListSortingStrategy}
           >
             <div className="bg-card border border-border rounded-lg divide-y divide-border">
-              {tracks.map(track => (
-                <TrackItem
-                  key={track.id}
-                  track={track}
-                  projectId={projectId}
-                  isExpanded={expandedId === track.id}
-                  autoPlay={autoPlayId === track.id}
-                  onToggleExpand={() => toggleExpand(track.id)}
-                  onEnded={() => handleTrackEnded(track.id)}
-                />
-              ))}
+              {tracks.map(track => {
+                const { prevId, nextId } = getAdjacent(track.id)
+                return (
+                  <TrackItem
+                    key={track.id}
+                    track={track}
+                    projectId={projectId}
+                    isExpanded={expandedId === track.id}
+                    autoPlay={autoPlayId === track.id}
+                    onToggleExpand={() => toggleExpand(track.id)}
+                    onEnded={() => handleTrackEnded(track.id)}
+                    hasPrev={!!prevId}
+                    hasNext={!!nextId}
+                    onPrev={() => handlePrev(track.id)}
+                    onNext={() => handleNext(track.id)}
+                    repeatMode={repeatMode}
+                    shuffleMode={shuffleMode}
+                    onRepeatChange={setRepeatMode}
+                    onShuffleToggle={handleShuffleToggle}
+                  />
+                )
+              })}
             </div>
           </SortableContext>
         </DndContext>

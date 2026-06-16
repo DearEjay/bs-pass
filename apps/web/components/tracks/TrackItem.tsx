@@ -20,7 +20,7 @@ import { useUndoToastStore } from '@/hooks/useUndoToast'
 import { useCurrentUser } from '@/hooks/useCurrentUser'
 import { useTrackComments } from '@/hooks/useTrackComments'
 import { TrackStatusBadge, STATUS_CONFIG } from './TrackStatusBadge'
-import { AudioPlayer, type AudioMarker, type AudioPlayerHandle } from './AudioPlayer'
+import { AudioPlayer, type AudioMarker, type AudioPlayerHandle, type RepeatMode } from './AudioPlayer'
 import { TrackComments } from './TrackComments'
 import { TrackVersionsPanel } from './TrackVersionsPanel'
 import { TrackABPlayer } from './TrackABPlayer'
@@ -50,6 +50,14 @@ interface TrackItemProps {
   autoPlay: boolean
   onToggleExpand: () => void
   onEnded: () => void
+  hasPrev: boolean
+  hasNext: boolean
+  onPrev: () => void
+  onNext: () => void
+  repeatMode: RepeatMode
+  shuffleMode: boolean
+  onRepeatChange: (mode: RepeatMode) => void
+  onShuffleToggle: () => void
 }
 
 export function TrackItem({
@@ -59,6 +67,14 @@ export function TrackItem({
   autoPlay,
   onToggleExpand,
   onEnded,
+  hasPrev,
+  hasNext,
+  onPrev,
+  onNext,
+  repeatMode,
+  shuffleMode,
+  onRepeatChange,
+  onShuffleToggle,
 }: TrackItemProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: track.id,
@@ -375,6 +391,14 @@ export function TrackItem({
                 autoPlay={autoPlay}
                 onTimeUpdate={handleTimeUpdate}
                 onEnded={handleEnded}
+                hasPrev={hasPrev}
+                hasNext={hasNext}
+                onPrev={onPrev}
+                onNext={onNext}
+                repeatMode={repeatMode}
+                shuffleMode={shuffleMode}
+                onRepeatChange={onRepeatChange}
+                onShuffleToggle={onShuffleToggle}
               />
               {currentUser && activeTab === 'player' && (
                 <TrackComments
