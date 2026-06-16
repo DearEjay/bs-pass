@@ -28,6 +28,7 @@ import { TrackStemsTab } from './TrackStemsTab'
 import { TrackLyricsTab } from './TrackLyricsTab'
 import { TrackCreditsTab } from './TrackCreditsTab'
 import { TrackMetadataTab } from './TrackMetadataTab'
+import { TrackAssetsTab } from './TrackAssetsTab'
 import {
   GripVertical,
   ChevronDown,
@@ -41,7 +42,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
 
 type Track = Database['public']['Tables']['tracks']['Row']
-type ActiveTab = 'player' | 'stems' | 'credits' | 'info'
+type ActiveTab = 'player' | 'stems' | 'credits' | 'assets' | 'info'
 
 interface TrackItemProps {
   track: Track
@@ -360,10 +361,11 @@ export function TrackItem({
           {/* Tab switcher */}
           <div className="flex border-b border-border/50">
             {([
-              { id: 'player', label: 'Audio' },
-              { id: 'stems', label: 'Stems' },
+              { id: 'player',  label: 'Audio' },
+              { id: 'stems',   label: 'Stems' },
               { id: 'credits', label: 'Credits' },
-              { id: 'info', label: 'Metadata' },
+              { id: 'assets',  label: 'Assets' },
+              { id: 'info',    label: 'Metadata' },
             ] as { id: ActiveTab; label: string }[]).map(tab => (
               <button
                 key={tab.id}
@@ -453,6 +455,10 @@ export function TrackItem({
 
           {activeTab === 'credits' && (
             <TrackCreditsTab trackId={track.id} projectId={projectId} />
+          )}
+
+          {activeTab === 'assets' && (
+            <TrackAssetsTab trackId={track.id} projectId={projectId} />
           )}
 
           {activeTab === 'info' && (
