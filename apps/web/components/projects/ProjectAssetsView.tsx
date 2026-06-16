@@ -148,7 +148,9 @@ export function ProjectAssetsView({ projectId }: { projectId: string }) {
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) return
+    addAsset.reset()
     try { await addAsset.mutateAsync({ type: 'file', file }) }
+    catch { /* error visible via addAsset.error */ }
     finally { e.target.value = '' }
   }
 
@@ -156,12 +158,13 @@ export function ProjectAssetsView({ projectId }: { projectId: string }) {
     const name = linkName.trim()
     const url = linkUrl.trim()
     if (!name || !url) return
+    addAsset.reset()
     try {
       await addAsset.mutateAsync({ type: 'link', name, url })
       setLinkName('')
       setLinkUrl('')
       setShowLinkForm(false)
-    } catch {}
+    } catch { /* error visible via addAsset.error */ }
   }
 
   async function handleRemove(asset: ProjectAsset) {
@@ -206,6 +209,13 @@ export function ProjectAssetsView({ projectId }: { projectId: string }) {
           </button>
         </div>
       </div>
+
+      {/* Upload / link error */}
+      {addAsset.isError && (
+        <div className="px-3 py-2 rounded-md bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+          {(addAsset.error as Error)?.message ?? 'Something went wrong. Please try again.'}
+        </div>
+      )}
 
       {/* Inline link form */}
       {showLinkForm && (

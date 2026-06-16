@@ -22,8 +22,7 @@ export function useProjectAssets(projectId: string) {
   return useQuery({
     queryKey: ['project-assets', projectId],
     queryFn: async () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('project_assets')
         .select(`
           id, project_id, asset_type, name,
@@ -71,8 +70,7 @@ export function useAddProjectAsset(projectId: string) {
       if (!user) throw new Error('Not authenticated')
 
       if (input.type === 'link') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error } = await (supabase as any).from('project_assets').insert({
+        const { error } = await supabase.from('project_assets').insert({
           project_id: projectId,
           asset_type: 'link',
           name: input.name.trim(),
@@ -90,8 +88,7 @@ export function useAddProjectAsset(projectId: string) {
           .upload(storagePath, input.file, { upsert: false })
         if (uploadErr) throw uploadErr
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: insertErr } = await (supabase as any).from('project_assets').insert({
+        const { error: insertErr } = await supabase.from('project_assets').insert({
           project_id: projectId,
           asset_type: 'file',
           name: input.file.name,
@@ -115,8 +112,7 @@ export function useRemoveProjectAsset(projectId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (assetId: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('project_assets')
         .update({ deleted_at: new Date().toISOString() })
         .eq('id', assetId)
