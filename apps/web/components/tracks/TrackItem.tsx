@@ -34,8 +34,10 @@ import {
   ChevronRight,
   MoreHorizontal,
   Trash2,
+  Download,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import type { Database } from '@/types/database'
 
 type Track = Database['public']['Tables']['tracks']['Row']
@@ -79,6 +81,7 @@ export function TrackItem({
   const [showStatusMenu, setShowStatusMenu] = useState(false)
   const [showEllipsisMenu, setShowEllipsisMenu] = useState(false)
   const [confirmDeleteTrack, setConfirmDeleteTrack] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
   const [activeTab, setActiveTab] = useState<ActiveTab>('player')
   const [currentTime, setCurrentTime] = useState(0)
   // A/B compare: 2-step selection — pick A first, then B
@@ -135,6 +138,37 @@ export function TrackItem({
     pushToast(`"${trackTitle}" deleted`, async () => {
       await restoreTrack.mutateAsync(trackId)
     })
+  }
+
+  async function handleDownload() {
+    if (!track.current_version_id) return
+    setShowEllipsisMenu(false)
+    setIsDownloading(true)
+    try {
+      const supabase = createClient()
+      const { data: version } = await supabase
+        .from('track_versions')
+        .select('file_path')
+        .eq('id', track.current_version_id)
+        .single()
+      if (!version?.file_path) return
+      const ext = version.file_path.split('.').pop() ?? 'mp3'
+      const { data } = await supabase.storage.from('tracks').createSignedUrl(
+        version.file_path,
+        300,
+        { download: `${track.title}.${ext}` },
+      )
+      if (!data?.signedUrl) return
+      const a = document.createElement('a')
+      a.href = data.signedUrl
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    } catch (e) {
+      console.error('Download failed:', e)
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   async function handleVersionFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
@@ -260,13 +294,24 @@ export function TrackItem({
               <div className="fixed inset-0 z-40" onClick={() => setShowEllipsisMenu(false)} />
               <div className="dropdown-menu right-0 top-full mt-1 w-48">
                 {!confirmDeleteTrack ? (
-                  <button
-                    onClick={() => setConfirmDeleteTrack(true)}
-                    className="dropdown-item-destructive"
-                  >
-                    <Trash2 size={13} className="shrink-0" />
-                    Delete track
-                  </button>
+                  <>
+                    <button
+                      onClick={handleDownload}
+                      disabled={!track.current_version_id || isDownloading}
+                      className="dropdown-item disabled:opacity-40"
+                    >
+                      <Download size={13} className="shrink-0" />
+                      {isDownloading ? 'Preparing…' : 'Download track'}
+                    </button>
+                    <div className="border-t border-border/50 my-1" />
+                    <button
+                      onClick={() => setConfirmDeleteTrack(true)}
+                      className="dropdown-item-destructive"
+                    >
+                      <Trash2 size={13} className="shrink-0" />
+                      Delete track
+                    </button>
+                  </>
                 ) : (
                   <div className="px-3 py-2 space-y-1.5">
                     <p className="text-xs text-muted-foreground">Delete this track?</p>
