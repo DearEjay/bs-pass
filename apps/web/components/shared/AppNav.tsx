@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { LayoutGrid, LogOut, User } from 'lucide-react'
+import { LayoutGrid, LogOut, User, WalletMinimal } from 'lucide-react'
 
 function clearLocalCache() {
   try {
@@ -37,7 +37,8 @@ export function AppNav() {
   }
 
   const onProjects = pathname.startsWith('/projects')
-  const onProfile = pathname.startsWith('/profile')
+  const onBudgets  = pathname.startsWith('/budgets')
+  const onProfile  = pathname.startsWith('/profile')
 
   return (
     <>
@@ -59,6 +60,19 @@ export function AppNav() {
           >
             <LayoutGrid size={16} />
             Projects
+          </Link>
+
+          <Link
+            href="/budgets"
+            className={cn(
+              'flex items-center gap-2.5 px-2 py-2 rounded-md text-sm transition-colors',
+              onBudgets
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+            )}
+          >
+            <WalletMinimal size={16} />
+            Budgets
           </Link>
 
           <Link
@@ -95,6 +109,17 @@ export function AppNav() {
         >
           <LayoutGrid size={22} />
           <span>Projects</span>
+        </Link>
+
+        <Link
+          href="/budgets"
+          className={cn(
+            'flex flex-col items-center gap-0.5 px-4 py-1 rounded-md text-xs transition-colors',
+            onBudgets ? 'text-primary' : 'text-muted-foreground',
+          )}
+        >
+          <WalletMinimal size={22} />
+          <span>Budgets</span>
         </Link>
 
         <Link
