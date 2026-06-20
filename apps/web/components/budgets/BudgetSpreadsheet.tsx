@@ -1,317 +1,177 @@
 'use client'
 
-import { useState, useCallback, useRef, useEffect, useMemo } from 'react'
-import HyperFormula from 'hyperformula'
-import { cn } from '@/lib/utils'
-import {
-  useUpdateLineItem, useAddLineItem, useDeleteLineItem,
-  type LineItem,
-} from '@/hooks/useBudgets'
-import { Plus, Trash2, GripVertical, ChevronDown, ChevronRight } from 'lucide-react'
+import { useMemo, useRef, useCallback, useState } from 'react'
+import dynamic from 'next/dynamic'
+import { useUpdateLineItem, type LineItem } from '@/hooks/useBudgets'
+import { Loader2, CheckCircle2 } from 'lucide-react'
+import '@fortune-sheet/react/dist/index.css'
 
-// ── Column definitions ──────────────────────────────────────────────────────
+// ── Lazy-load Fortune Sheet (requires browser APIs) ───────────────────────────
 
-export const COLS = [
-  { key: 'label',    label: 'Item',       width: 'flex-1 min-w-[180px]',    align: 'left'  },
-  { key: 'budgeted', label: 'Budgeted',   width: 'w-28 shrink-0',            align: 'right' },
-  { key: 'actual',   label: 'Actual',     width: 'w-28 shrink-0',            align: 'right' },
-  { key: 'variance', label: 'Variance',   width: 'w-28 shrink-0',            align: 'right' },
-  { key: 'pct',      label: '% of Total', width: 'w-24 shrink-0',            align: 'right' },
-  { key: 'notes',    label: 'Notes',      width: 'w-44 shrink-0',            align: 'left'  },
-] as const
+const Workbook = dynamic(
+  () => import('@fortune-sheet/react').then(m => m.Workbook),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="flex items-center justify-center bg-white" style={{ height: 520 }}>
+        <Loader2 size={22} className="animate-spin text-gray-400" />
+      </div>
+    ),
+  },
+)
 
-type ColKey = typeof COLS[number]['key']
+// ── Row metadata (parallel array to sheet rows) ───────────────────────────────
 
-// ── HyperFormula singleton ──────────────────────────────────────────────────
+type RowMeta =
+  | { type: 'header' }
+  | { type: 'category'; name: string }
+  | { type: 'item'; itemId: string }
+  | { type: 'subtotal' }
+  | { type: 'total' }
 
-function createHF() {
-  return HyperFormula.buildEmpty({ licenseKey: 'gpl-v3' })
+// ── Sheet builder ─────────────────────────────────────────────────────────────
+
+function buildSheet(lineItems: LineItem[]): { sheet: object; rowMeta: RowMeta[] } {
+  // Group items by category preserving insertion order
+  const grouped = new Map<string, LineItem[]>()
+  for (const item of lineItems) {
+    const cat = item.category || 'Miscellaneous'
+    if (!grouped.has(cat)) grouped.set(cat, [])
+    grouped.get(cat)!.push(item)
+  }
+  for (const items of grouped.values()) {
+    items.sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+  }
+
+  // Pre-compute layout so we know the TOTAL row index before building formulas
+  type LayoutRow =
+    | { type: 'header' }
+    | { type: 'category'; name: string }
+    | { type: 'item'; item: LineItem }
+    | { type: 'subtotal'; firstItemR: number; lastItemR: number }
+    | { type: 'total'; subtotalRs: number[] }
+
+  const layout: LayoutRow[] = [{ type: 'header' }]
+  const subtotalRs: number[] = []
+
+  for (const [cat, items] of grouped) {
+    layout.push({ type: 'category', name: cat })
+    const firstItemR = layout.length
+    for (const item of items) layout.push({ type: 'item', item })
+    const lastItemR = layout.length - 1
+    subtotalRs.push(layout.length)
+    layout.push({ type: 'subtotal', firstItemR, lastItemR })
+  }
+  const totalR = layout.length
+  layout.push({ type: 'total', subtotalRs })
+  const totalExcelR = totalR + 1 // Excel formulas are 1-indexed
+
+  // Build celldata + merge map + row meta
+  // Pre-compute grand totals so % of Total can be seeded for initial render
+  const grandB = lineItems.reduce((s, i) => s + Number(i.budgeted ?? 0), 0)
+  const grandA = lineItems.reduce((s, i) => s + Number(i.actual ?? 0), 0)
+
+  const celldata: object[] = []
+  const merge: Record<string, { r: number; c: number; rs: number; cs: number }> = {}
+  const rowMeta: RowMeta[] = []
+
+  for (let r = 0; r < layout.length; r++) {
+    const info = layout[r]
+    const er = r + 1 // Excel row number (1-indexed)
+
+    switch (info.type) {
+      case 'header': {
+        rowMeta.push({ type: 'header' })
+        const labels = ['Item', 'Budgeted', 'Actual', 'Variance', '% of Total', 'Notes']
+        labels.forEach((v, c) => {
+          celldata.push({ r, c, v: { v, m: v, t: 's', bl: 1, bg: '#e8eaf0', fc: '#374151', ht: c === 0 ? 0 : 2, vt: 1 } })
+        })
+        break
+      }
+      case 'category': {
+        rowMeta.push({ type: 'category', name: info.name })
+        celldata.push({ r, c: 0, v: { v: info.name, m: info.name, t: 's', bl: 1, bg: '#f1f5f9', fc: '#1e293b', vt: 1 } })
+        merge[`${r}_0`] = { r, c: 0, rs: 1, cs: 6 }
+        break
+      }
+      case 'item': {
+        const { item } = info
+        rowMeta.push({ type: 'item', itemId: item.id })
+        const b = Number(item.budgeted ?? 0)
+        const a = Number(item.actual ?? 0)
+        const fmt = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        celldata.push({ r, c: 0, v: { v: item.label || '', m: item.label || '', t: 's', vt: 1 } })
+        celldata.push({ r, c: 1, v: { v: b, m: fmt(b), t: 'n', ct: { fa: '#,##0.00', t: 'n' }, ht: 2, vt: 1 } })
+        celldata.push({ r, c: 2, v: { v: a, m: fmt(a), t: 'n', ct: { fa: '#,##0.00', t: 'n' }, ht: 2, vt: 1 } })
+        // Variance = Budgeted – Actual (auto-recalculates on edit)
+        const variance = b - a
+        celldata.push({ r, c: 3, v: { f: `=B${er}-C${er}`, v: variance, m: fmt(variance), t: 'n', ct: { fa: '#,##0.00', t: 'n' }, ht: 2, vt: 1 } })
+        // % of Total references the grand-total cell absolutely (seeded for initial render)
+        const pct = grandB > 0 ? b / grandB : 0
+        celldata.push({ r, c: 4, v: { f: `=IF($B$${totalExcelR}>0,B${er}/$B$${totalExcelR},0)`, v: pct, m: (pct * 100).toFixed(1) + '%', t: 'n', ct: { fa: '0.0%', t: 'n' }, ht: 2, vt: 1 } })
+        celldata.push({ r, c: 5, v: { v: item.notes || '', m: item.notes || '', t: 's', vt: 1 } })
+        break
+      }
+      case 'subtotal': {
+        rowMeta.push({ type: 'subtotal' })
+        const f1 = info.firstItemR + 1
+        const f2 = info.lastItemR + 1
+        // Pre-calculate subtotal values for initial display
+        const itemsInRange = lineItems.filter((item) => {
+          const itemR = layout.findIndex(l => l.type === 'item' && l.item.id === item.id)
+          return itemR >= info.firstItemR && itemR <= info.lastItemR
+        })
+        const subB = itemsInRange.reduce((s, i) => s + Number(i.budgeted ?? 0), 0)
+        const subA = itemsInRange.reduce((s, i) => s + Number(i.actual ?? 0), 0)
+        const fmtS = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        celldata.push({ r, c: 0, v: { v: 'Subtotal', m: 'Subtotal', t: 's', it: 1, fc: '#94a3b8', bg: '#f8fafc', vt: 1 } })
+        celldata.push({ r, c: 1, v: { f: `=SUM(B${f1}:B${f2})`, v: subB, m: fmtS(subB), t: 'n', ct: { fa: '#,##0.00', t: 'n' }, bl: 1, bg: '#f8fafc', ht: 2, vt: 1 } })
+        celldata.push({ r, c: 2, v: { f: `=SUM(C${f1}:C${f2})`, v: subA, m: fmtS(subA), t: 'n', ct: { fa: '#,##0.00', t: 'n' }, bl: 1, bg: '#f8fafc', ht: 2, vt: 1 } })
+        celldata.push({ r, c: 3, v: { f: `=B${er}-C${er}`, v: subB - subA, m: fmtS(subB - subA), t: 'n', ct: { fa: '#,##0.00', t: 'n' }, bl: 1, bg: '#f8fafc', ht: 2, vt: 1 } })
+        celldata.push({ r, c: 4, v: { v: '', m: '', t: 's', bg: '#f8fafc' } })
+        celldata.push({ r, c: 5, v: { v: '', m: '', t: 's', bg: '#f8fafc' } })
+        break
+      }
+      case 'total': {
+        rowMeta.push({ type: 'total' })
+        const bRef = info.subtotalRs.map(sr => `B${sr + 1}`).join(',')
+        const cRef = info.subtotalRs.map(sr => `C${sr + 1}`).join(',')
+        const fmtT = (n: number) => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        celldata.push({ r, c: 0, v: { v: 'TOTAL', m: 'TOTAL', t: 's', bl: 1, bg: '#dbeafe', fc: '#1e40af', vt: 1 } })
+        celldata.push({ r, c: 1, v: { f: `=SUM(${bRef})`, v: grandB, m: fmtT(grandB), t: 'n', ct: { fa: '#,##0.00', t: 'n' }, bl: 1, bg: '#dbeafe', fc: '#1e40af', ht: 2, vt: 1 } })
+        celldata.push({ r, c: 2, v: { f: `=SUM(${cRef})`, v: grandA, m: fmtT(grandA), t: 'n', ct: { fa: '#,##0.00', t: 'n' }, bl: 1, bg: '#dbeafe', fc: '#1e40af', ht: 2, vt: 1 } })
+        celldata.push({ r, c: 3, v: { f: `=B${er}-C${er}`, v: grandB - grandA, m: fmtT(grandB - grandA), t: 'n', ct: { fa: '#,##0.00', t: 'n' }, bl: 1, bg: '#dbeafe', fc: '#1e40af', ht: 2, vt: 1 } })
+        celldata.push({ r, c: 4, v: { v: '100.0%', m: '100.0%', t: 's', bl: 1, bg: '#dbeafe', fc: '#1e40af', ht: 2, vt: 1 } })
+        celldata.push({ r, c: 5, v: { v: '', m: '', t: 's', bg: '#dbeafe' } })
+        break
+      }
+    }
+  }
+
+  const sheet = {
+    name: 'Budget',
+    id: 'budget-sheet',
+    status: 1,
+    index: 0,
+    order: 0,
+    celldata,
+    config: {
+      merge,
+      columnlen: { 0: 220, 1: 130, 2: 130, 3: 110, 4: 100, 5: 200 },
+      rowlen: Object.fromEntries(layout.map((l, i) => [i, l.type === 'header' ? 34 : 28])),
+    },
+    row: layout.length + 20,
+    column: 6,
+    defaultRowHeight: 28,
+    defaultColWidth: 120,
+    showGridLines: 1,
+    zoomRatio: 1,
+  }
+
+  return { sheet, rowMeta }
 }
 
-// ── Cell editor ─────────────────────────────────────────────────────────────
-
-function CellInput({
-  value,
-  onCommit,
-  align = 'left',
-  placeholder = '',
-  numeric = false,
-  className = '',
-}: {
-  value: string
-  onCommit: (v: string) => void
-  align?: 'left' | 'right'
-  placeholder?: string
-  numeric?: boolean
-  className?: string
-}) {
-  const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState(value)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  // Sync external value changes when not editing
-  useEffect(() => {
-    if (!editing) setDraft(value)
-  }, [value, editing])
-
-  function startEdit() {
-    setDraft(value)
-    setEditing(true)
-    setTimeout(() => inputRef.current?.focus(), 0)
-  }
-
-  function commit() {
-    setEditing(false)
-    if (draft !== value) onCommit(draft)
-  }
-
-  function onKey(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') commit()
-    if (e.key === 'Escape') { setDraft(value); setEditing(false) }
-    e.stopPropagation()
-  }
-
-  if (editing) {
-    return (
-      <input
-        ref={inputRef}
-        value={draft}
-        onChange={e => setDraft(e.target.value)}
-        onBlur={commit}
-        onKeyDown={onKey}
-        placeholder={placeholder}
-        className={cn(
-          'w-full px-1 py-0.5 text-sm bg-input border border-ring rounded focus:outline-none focus:ring-1 focus:ring-ring',
-          align === 'right' && 'text-right',
-          className,
-        )}
-      />
-    )
-  }
-
-  return (
-    <div
-      onDoubleClick={startEdit}
-      onClick={startEdit}
-      title="Click to edit"
-      className={cn(
-        'w-full px-1 py-0.5 text-sm cursor-pointer rounded hover:bg-muted/50 truncate select-none',
-        align === 'right' && 'text-right',
-        !value && 'text-muted-foreground/50',
-        className,
-      )}
-    >
-      {value || placeholder}
-    </div>
-  )
-}
-
-// ── Spreadsheet row ─────────────────────────────────────────────────────────
-
-interface RowProps {
-  item: LineItem
-  totalBudget: number
-  currency: string
-  budgetId: string
-  onDelete: () => void
-}
-
-function SpreadsheetRow({ item, totalBudget, currency, budgetId, onDelete }: RowProps) {
-  const updateItem = useUpdateLineItem(budgetId)
-  const sym = currency === 'USD' ? '$' : currency
-
-  const variance = (item.budgeted ?? 0) - (item.actual ?? 0)
-  const pct = totalBudget > 0 ? ((item.budgeted ?? 0) / totalBudget) * 100 : 0
-
-  function fmt(n: number) {
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
-
-  function save(field: keyof LineItem, raw: string) {
-    const isNumeric = field === 'budgeted' || field === 'actual'
-    const value = isNumeric ? Number(raw.replace(/[^0-9.-]/g, '')) : raw
-    updateItem.mutate({ id: item.id, [field]: value })
-  }
-
-  return (
-    <div className="flex items-center gap-0 border-b border-border/50 group/row hover:bg-muted/20 transition-colors">
-      {/* Drag handle placeholder */}
-      <div className="w-7 shrink-0 flex items-center justify-center opacity-0 group-hover/row:opacity-40 transition-opacity">
-        <GripVertical size={13} className="text-muted-foreground" />
-      </div>
-
-      {/* Label */}
-      <div className="flex-1 min-w-[180px] px-2 py-1.5">
-        <CellInput
-          value={item.label}
-          onCommit={v => save('label', v)}
-          placeholder="Item name…"
-        />
-      </div>
-
-      {/* Budgeted */}
-      <div className="w-28 shrink-0 px-2 py-1.5 border-l border-border/30">
-        <CellInput
-          value={fmt(item.budgeted ?? 0)}
-          onCommit={v => save('budgeted', v)}
-          align="right"
-          numeric
-        />
-      </div>
-
-      {/* Actual */}
-      <div className="w-28 shrink-0 px-2 py-1.5 border-l border-border/30">
-        <CellInput
-          value={fmt(item.actual ?? 0)}
-          onCommit={v => save('actual', v)}
-          align="right"
-          numeric
-        />
-      </div>
-
-      {/* Variance (computed, read-only) */}
-      <div className={cn(
-        'w-28 shrink-0 px-3 py-1.5 border-l border-border/30 text-sm text-right font-mono select-none',
-        variance > 0 ? 'text-emerald-600 dark:text-emerald-400'
-          : variance < 0 ? 'text-destructive'
-            : 'text-muted-foreground',
-      )}>
-        {variance >= 0 ? '' : '−'}{sym}{fmt(Math.abs(variance))}
-      </div>
-
-      {/* % of total (read-only) */}
-      <div className="w-24 shrink-0 px-3 py-1.5 border-l border-border/30 text-sm text-right text-muted-foreground font-mono select-none">
-        {pct.toFixed(1)}%
-      </div>
-
-      {/* Notes */}
-      <div className="w-44 shrink-0 px-2 py-1.5 border-l border-border/30">
-        <CellInput
-          value={item.notes ?? ''}
-          onCommit={v => save('notes', v)}
-          placeholder="Notes…"
-          className="text-muted-foreground"
-        />
-      </div>
-
-      {/* Delete */}
-      <div className="w-8 shrink-0 flex items-center justify-center opacity-0 group-hover/row:opacity-100 transition-opacity">
-        <button
-          type="button"
-          onClick={onDelete}
-          className="p-1 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground transition-colors"
-        >
-          <Trash2 size={13} />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Category section ────────────────────────────────────────────────────────
-
-interface CategoryProps {
-  name: string
-  items: LineItem[]
-  totalBudget: number
-  currency: string
-  budgetId: string
-}
-
-function CategorySection({ name, items, totalBudget, currency, budgetId }: CategoryProps) {
-  const [collapsed, setCollapsed] = useState(false)
-  const addItem = useAddLineItem(budgetId)
-  const deleteItem = useDeleteLineItem(budgetId)
-
-  const sym = currency === 'USD' ? '$' : currency
-  const catBudgeted = items.reduce((s, i) => s + (i.budgeted ?? 0), 0)
-  const catActual = items.reduce((s, i) => s + (i.actual ?? 0), 0)
-  const catVariance = catBudgeted - catActual
-
-  function fmt(n: number) {
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
-
-  function addRow() {
-    const maxOrder = items.reduce((m, i) => Math.max(m, i.sort_order ?? 0), 0)
-    addItem.mutate({
-      category: name,
-      label: '',
-      budgeted: 0,
-      actual: 0,
-      sort_order: maxOrder + 1,
-    })
-  }
-
-  return (
-    <div>
-      {/* Category header */}
-      <div
-        className="flex items-center gap-0 bg-muted/40 border-b border-border cursor-pointer select-none"
-        onClick={() => setCollapsed(v => !v)}
-      >
-        <div className="w-7 shrink-0 flex items-center justify-center">
-          {collapsed
-            ? <ChevronRight size={13} className="text-muted-foreground" />
-            : <ChevronDown size={13} className="text-muted-foreground" />
-          }
-        </div>
-        <div className="flex-1 min-w-[180px] px-2 py-2">
-          <span className="text-sm font-semibold">{name}</span>
-          <span className="ml-2 text-xs text-muted-foreground">({items.length})</span>
-        </div>
-        <div className="w-28 shrink-0 px-3 py-2 border-l border-border/30 text-sm font-semibold text-right font-mono">
-          {sym}{fmt(catBudgeted)}
-        </div>
-        <div className="w-28 shrink-0 px-3 py-2 border-l border-border/30 text-sm font-semibold text-right font-mono">
-          {sym}{fmt(catActual)}
-        </div>
-        <div className={cn(
-          'w-28 shrink-0 px-3 py-2 border-l border-border/30 text-sm font-semibold text-right font-mono',
-          catVariance > 0 ? 'text-emerald-600 dark:text-emerald-400'
-            : catVariance < 0 ? 'text-destructive' : 'text-muted-foreground',
-        )}>
-          {catVariance >= 0 ? '' : '−'}{sym}{fmt(Math.abs(catVariance))}
-        </div>
-        <div className="w-24 shrink-0 px-3 py-2 border-l border-border/30 text-sm font-semibold text-right font-mono text-muted-foreground">
-          {totalBudget > 0 ? ((catBudgeted / totalBudget) * 100).toFixed(1) : '0.0'}%
-        </div>
-        <div className="w-44 shrink-0 px-2 py-2 border-l border-border/30" />
-        <div className="w-8 shrink-0" />
-      </div>
-
-      {/* Rows */}
-      {!collapsed && (
-        <>
-          {items.map(item => (
-            <SpreadsheetRow
-              key={item.id}
-              item={item}
-              totalBudget={totalBudget}
-              currency={currency}
-              budgetId={budgetId}
-              onDelete={() => deleteItem.mutate(item.id)}
-            />
-          ))}
-
-          {/* Add row button */}
-          <div className="border-b border-border/50">
-            <button
-              type="button"
-              onClick={addRow}
-              className="flex items-center gap-1.5 w-full px-9 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
-            >
-              <Plus size={11} />
-              Add row
-            </button>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-// ── Main spreadsheet ────────────────────────────────────────────────────────
+// ── Component ─────────────────────────────────────────────────────────────────
 
 interface Props {
   budgetId: string
@@ -320,163 +180,113 @@ interface Props {
   currency: string
 }
 
-export function BudgetSpreadsheet({ budgetId, lineItems, totalAmount, currency }: Props) {
-  const addItem = useAddLineItem(budgetId)
-  const sym = currency === 'USD' ? '$' : currency
+const EDITABLE_COLS = new Set([0, 1, 2, 5])
+const FIELD_MAP: Record<number, string> = { 0: 'label', 1: 'budgeted', 2: 'actual', 5: 'notes' }
+const NUMERIC_FIELDS = new Set(['budgeted', 'actual'])
 
-  // Group by category, preserve insertion order
-  const categories = useMemo(() => {
-    const order: string[] = []
-    const map: Record<string, LineItem[]> = {}
-    for (const item of lineItems) {
-      if (!map[item.category]) { map[item.category] = []; order.push(item.category) }
-      map[item.category].push(item)
+export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
+  const updateLineItem = useUpdateLineItem(budgetId)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+
+  // Compute initial sheet data once per budget (re-initialises on navigation between budgets)
+  const { initialData, rowMeta } = useMemo(() => {
+    const { sheet, rowMeta } = buildSheet(lineItems)
+    return { initialData: [sheet], rowMeta }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [budgetId])
+
+  const rowMetaRef = useRef(rowMeta)
+  rowMetaRef.current = rowMeta
+
+  const prevCells = useRef<Map<string, unknown> | null>(null)
+  const pending = useRef<{ itemId: string; field: string; value: unknown }[]>([])
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const flush = useCallback(() => {
+    const changes = pending.current.splice(0)
+    if (!changes.length) return
+
+    // Merge: last write wins per (itemId, field)
+    const byItem = new Map<string, Record<string, unknown>>()
+    for (const { itemId, field, value } of changes) {
+      if (!byItem.has(itemId)) byItem.set(itemId, {})
+      byItem.get(itemId)![field] = value
     }
-    return order.map(cat => ({ name: cat, items: map[cat] }))
-  }, [lineItems])
 
-  const grandBudgeted = lineItems.reduce((s, i) => s + (i.budgeted ?? 0), 0)
-  const grandActual = lineItems.reduce((s, i) => s + (i.actual ?? 0), 0)
-  const grandVariance = grandBudgeted - grandActual
+    setSaveStatus('saving')
+    Promise.all(
+      [...byItem.entries()].map(([id, fields]) => {
+        const update: Record<string, unknown> = { id }
+        for (const [k, v] of Object.entries(fields)) {
+          update[k] = NUMERIC_FIELDS.has(k) ? parseFloat(String(v)) || 0 : String(v ?? '')
+        }
+        return updateLineItem.mutateAsync(update as Parameters<typeof updateLineItem.mutateAsync>[0])
+      }),
+    )
+      .then(() => { setSaveStatus('saved'); setTimeout(() => setSaveStatus('idle'), 2000) })
+      .catch(() => setSaveStatus('idle'))
+  }, [updateLineItem])
 
-  function fmt(n: number) {
-    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-  }
+  const handleChange = useCallback((data: Record<string, unknown>[]) => {
+    const cells = (data?.[0] as Record<string, unknown> | undefined)?.celldata as Record<string, unknown>[] | undefined
+    if (!cells) return
 
-  const CATEGORY_OPTIONS = [
-    'Recording & Studio', 'Mixing & Mastering', 'Artwork & Creative',
-    'Music Video & Content', 'Marketing & Promotion', 'Distribution',
-    'Legal & Admin', 'Touring & Live', 'Wardrobe & Styling',
-    'Content Creation', 'Miscellaneous',
-  ]
-  const [newCat, setNewCat] = useState('')
-  const [showCatInput, setShowCatInput] = useState(false)
+    // Extract current editable-column values for item rows only
+    const current = new Map<string, unknown>()
+    for (const cell of cells) {
+      const c = cell.c as number
+      if (!EDITABLE_COLS.has(c)) continue
+      const meta = rowMetaRef.current[cell.r as number]
+      if (!meta || meta.type !== 'item') continue
+      current.set(`${cell.r}_${c}`, (cell.v as Record<string, unknown> | null)?.v ?? null)
+    }
 
-  function addCategory(cat: string) {
-    if (!cat.trim()) return
-    addItem.mutate({
-      category: cat.trim(),
-      label: '',
-      budgeted: 0,
-      actual: 0,
-      sort_order: 0,
-    })
-    setNewCat('')
-    setShowCatInput(false)
-  }
+    // First invocation: seed baseline without queuing saves
+    if (prevCells.current === null) {
+      prevCells.current = current
+      return
+    }
+
+    // Diff vs previous; queue any changes
+    for (const [key, val] of current) {
+      if (val !== prevCells.current.get(key)) {
+        const [rStr, cStr] = key.split('_')
+        const meta = rowMetaRef.current[parseInt(rStr)]
+        if (meta?.type === 'item') {
+          pending.current.push({
+            itemId: (meta as Extract<RowMeta, { type: 'item' }>).itemId,
+            field: FIELD_MAP[parseInt(cStr)],
+            value: val,
+          })
+        }
+      }
+    }
+
+    prevCells.current = current
+
+    if (pending.current.length > 0) {
+      if (timer.current) clearTimeout(timer.current)
+      timer.current = setTimeout(flush, 800)
+    }
+  }, [flush])
 
   return (
-    <div className="rounded-lg border border-border overflow-hidden">
-      {/* Column headers */}
-      <div className="flex items-center bg-muted/60 border-b border-border text-xs font-medium text-muted-foreground sticky top-0 z-10">
-        <div className="w-7 shrink-0" />
-        {COLS.map(col => (
-          <div
-            key={col.key}
-            className={cn(
-              col.width, 'px-3 py-2.5 border-l border-border/40 first:border-l-0',
-              col.align === 'right' && 'text-right',
-            )}
-          >
-            {col.label}
-          </div>
-        ))}
-        <div className="w-8 shrink-0" />
-      </div>
+    <div className="relative rounded-lg overflow-hidden border border-border">
+      {/* Auto-save indicator */}
+      {saveStatus !== 'idle' && (
+        <div className="absolute top-10 right-3 z-20 flex items-center gap-1.5 px-2.5 py-1 bg-white border border-gray-200 rounded-md shadow-sm text-xs pointer-events-none">
+          {saveStatus === 'saving'
+            ? <><Loader2 size={11} className="animate-spin text-gray-400" /><span className="text-gray-500">Saving…</span></>
+            : <><CheckCircle2 size={11} className="text-emerald-500" /><span className="text-emerald-600">Saved</span></>
+          }
+        </div>
+      )}
 
-      {/* Category sections */}
-      {categories.map(({ name, items }) => (
-        <CategorySection
-          key={name}
-          name={name}
-          items={items}
-          totalBudget={grandBudgeted || totalAmount}
-          currency={currency}
-          budgetId={budgetId}
+      <div style={{ height: 'calc(100vh - 400px)', minHeight: 520 }}>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <Workbook
+          {...({ data: initialData, onChange: handleChange, showSheetTabs: false, lang: 'en' } as any)}
         />
-      ))}
-
-      {/* Add category */}
-      <div className="border-b border-border bg-muted/20">
-        {showCatInput ? (
-          <div className="flex items-center gap-2 px-3 py-2">
-            <select
-              value={newCat}
-              onChange={e => setNewCat(e.target.value)}
-              className="flex-1 px-2 py-1.5 rounded border border-border bg-input text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              autoFocus
-            >
-              <option value="">Pick a category…</option>
-              {CATEGORY_OPTIONS.filter(c => !categories.find(x => x.name === c)).map(c => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-              <option value="__custom__">Custom…</option>
-            </select>
-            {newCat === '__custom__' && (
-              <input
-                type="text"
-                placeholder="Category name"
-                onKeyDown={e => { if (e.key === 'Enter') addCategory((e.target as HTMLInputElement).value) }}
-                className="flex-1 px-2 py-1.5 rounded border border-border bg-input text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-              />
-            )}
-            <button
-              type="button"
-              onClick={() => addCategory(newCat)}
-              disabled={!newCat || newCat === '__custom__'}
-              className="px-3 py-1.5 rounded bg-primary text-primary-foreground text-xs font-medium hover:opacity-90 disabled:opacity-40 transition-opacity"
-            >
-              Add
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowCatInput(false)}
-              className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => setShowCatInput(true)}
-            className="flex items-center gap-1.5 w-full px-4 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors"
-          >
-            <Plus size={12} />
-            Add category
-          </button>
-        )}
-      </div>
-
-      {/* Totals footer */}
-      <div className="flex items-center bg-foreground/5 border-t border-border font-semibold">
-        <div className="w-7 shrink-0" />
-        <div className="flex-1 min-w-[180px] px-3 py-3 text-sm">
-          Totals
-          {Math.abs(grandBudgeted - totalAmount) > 1 && grandBudgeted > 0 && (
-            <span className="ml-2 text-xs font-normal text-amber-500">
-              (target: {sym}{totalAmount.toLocaleString()})
-            </span>
-          )}
-        </div>
-        <div className="w-28 shrink-0 px-3 py-3 text-right text-sm font-mono border-l border-border/30">
-          {sym}{fmt(grandBudgeted)}
-        </div>
-        <div className="w-28 shrink-0 px-3 py-3 text-right text-sm font-mono border-l border-border/30">
-          {sym}{fmt(grandActual)}
-        </div>
-        <div className={cn(
-          'w-28 shrink-0 px-3 py-3 text-right text-sm font-mono border-l border-border/30',
-          grandVariance > 0 ? 'text-emerald-600 dark:text-emerald-400'
-            : grandVariance < 0 ? 'text-destructive' : 'text-muted-foreground',
-        )}>
-          {grandVariance >= 0 ? '' : '−'}{sym}{fmt(Math.abs(grandVariance))}
-        </div>
-        <div className="w-24 shrink-0 px-3 py-3 text-right text-sm font-mono border-l border-border/30 text-muted-foreground">
-          100%
-        </div>
-        <div className="w-44 shrink-0 border-l border-border/30" />
-        <div className="w-8 shrink-0" />
       </div>
     </div>
   )

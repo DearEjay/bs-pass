@@ -304,7 +304,7 @@ export function BudgetDetail({ budgetId, userId }: { budgetId: string; userId: s
       )}
 
       <p className="mt-4 text-xs text-muted-foreground text-center">
-        Click any cell to edit · Double-click to edit text · Changes save automatically
+        Click to select · Double-click or type to edit · Enter formulas with = · Changes save automatically
       </p>
     </div>
   )
