@@ -90,21 +90,6 @@ export function NewProjectModal({
     })
     if (coverPreview) URL.revokeObjectURL(coverPreview)
     onClose()
-
-    // Fire-and-forget: let the agent generate a roadmap in the background
-    const supabase = createClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    if (session?.access_token) {
-      const fnUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/agent-generate-roadmap`
-      fetch(fnUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.access_token}`,
-        },
-        body: JSON.stringify({ projectId: project.id }),
-      }).catch(() => { /* silent — background job */ })
-    }
   }
 
   return (
