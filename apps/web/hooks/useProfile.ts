@@ -34,6 +34,7 @@ export function useProfile(userId: string) {
       if (error) throw error
       return data
     },
+    enabled: !!userId,
   })
 }
 

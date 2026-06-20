@@ -9,6 +9,7 @@ import { ProjectSettingsModal } from './ProjectSettingsModal'
 import { useProjectStatus } from '@/hooks/useTracks'
 import { NotificationBell } from '@/components/shared/NotificationBell'
 import { UserButton } from '@/components/shared/UserButton'
+import { useMyEffectivePermissions } from '@/hooks/useProjectPermissions'
 import type { Database } from '@/types/database'
 
 type Project = Database['public']['Tables']['projects']['Row']
@@ -29,19 +30,27 @@ const STATUS_LABEL: Record<string, string> = {
   released: 'Released',
 }
 
-const TABS = [
-  { label: 'Roadmap',       path: 'roadmap',       icon: Map },
-  { label: 'Tracks',        path: 'tracks',        icon: Music2 },
-  { label: 'Collaborators', path: 'collaborators', icon: Users },
-  { label: 'Chat',          path: 'chat',          icon: MessageCircle },
-  { label: 'Assets',        path: 'assets',        icon: Paperclip },
-  { label: 'Splits',        path: 'splits',        icon: PieChart },
+// resource key: null means always visible
+const ALL_TABS = [
+  { label: 'Roadmap',       path: 'roadmap',       icon: Map,           resource: 'tasks'   as const },
+  { label: 'Tracks',        path: 'tracks',        icon: Music2,        resource: 'tracks'  as const },
+  { label: 'Collaborators', path: 'collaborators', icon: Users,         resource: null },
+  { label: 'Chat',          path: 'chat',          icon: MessageCircle, resource: 'chat'    as const },
+  { label: 'Assets',        path: 'assets',        icon: Paperclip,     resource: 'assets'  as const },
+  { label: 'Splits',        path: 'splits',        icon: PieChart,      resource: 'splits'  as const },
 ]
 
 export function ProjectHeader({ project, userId }: { project: Project; userId: string }) {
   const pathname = usePathname()
   const [showSettings, setShowSettings] = useState(false)
   const { data: liveProject } = useProjectStatus(project.id, project)
+  const perms = useMyEffectivePermissions(project.id)
+
+  // Hide tabs the user doesn't have view permission for.
+  // While permissions are still loading (perms===null), show all tabs to avoid flash.
+  const TABS = ALL_TABS.filter(t =>
+    t.resource === null || perms === null || (perms[t.resource] !== 'none')
+  )
 
   const activeTab = TABS.find(t => pathname.endsWith(`/${t.path}`))?.path
 

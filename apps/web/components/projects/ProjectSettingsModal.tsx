@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useUpdateProject, useDeleteProject, useUploadProjectCover } from '@/hooks/useProjects'
 import { useRouter } from 'next/navigation'
-import { X, ImagePlus } from 'lucide-react'
+import { X, ImagePlus, Settings2, Sparkles, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { AgentSection } from '@/components/profile/AgentSection'
 import { AgentPluginsSection } from '@/components/profile/AgentPluginsSection'
 import { SelectDropdown } from '@/components/ui/SelectDropdown'
+import { PermissionsTab } from './PermissionsTab'
 import type { Database } from '@/types/database'
 
 type Project = Database['public']['Tables']['projects']['Row']
@@ -47,6 +48,14 @@ const GENRE_OPTIONS = [
   { value: 'Other',         label: 'Other' },
 ]
 
+type Tab = 'general' | 'ai' | 'permissions'
+
+const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+  { id: 'general',     label: 'General',     icon: Settings2    },
+  { id: 'ai',         label: 'AI',           icon: Sparkles     },
+  { id: 'permissions', label: 'Permissions',  icon: ShieldCheck  },
+]
+
 export function ProjectSettingsModal({
   project,
   userId,
@@ -61,6 +70,14 @@ export function ProjectSettingsModal({
   const uploadCover = useUploadProjectCover(project.id)
   const deleteProject = useDeleteProject(userId)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [activeTab, setActiveTab] = useState<Tab>('general')
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
 
   const [title, setTitle] = useState(project.title)
   const [projectType, setProjectType] = useState(project.project_type as typeof PROJECT_TYPES[number]['value'])
@@ -79,7 +96,6 @@ export function ProjectSettingsModal({
   )
   const [confirmDelete, setConfirmDelete] = useState(false)
 
-  // null = removed, undefined = unchanged, string = local preview URL, existing = project.cover_url
   const [coverFile, setCoverFile] = useState<File | null | undefined>(undefined)
   const [coverPreview, setCoverPreview] = useState<string | null>(project.cover_url ?? null)
 
@@ -107,7 +123,6 @@ export function ProjectSettingsModal({
       release_date: releaseDate || null,
       target_track_count: targetTrackCount ? parseInt(targetTrackCount, 10) : null,
     })
-    // Upload new cover or clear it if explicitly removed
     if (coverFile !== undefined) {
       await uploadCover.mutateAsync(coverFile)
     }
@@ -122,223 +137,259 @@ export function ProjectSettingsModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 sm:p-4">
-      <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-md max-h-[85svh] overflow-y-auto">
-        <div className="flex items-center justify-between px-5 pt-5 pb-4 border-b border-border sticky top-0 bg-card z-10">
-          <h2 className="font-semibold">Project settings</h2>
-          <button onClick={onClose} className="p-2 -mr-1 text-muted-foreground hover:text-foreground transition-colors rounded-md">
+      <div className="bg-card border border-border rounded-t-2xl sm:rounded-xl w-full sm:max-w-2xl max-h-[90svh] flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 pt-5 pb-0 border-b border-border shrink-0">
+          <h2 className="font-semibold pb-4">Project settings</h2>
+          <button onClick={onClose} className="p-2 -mr-1 -mt-1 text-muted-foreground hover:text-foreground transition-colors rounded-md">
             <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={handleSave} className="px-5 pt-5 pb-5 space-y-4">
-          {/* Cover art */}
-          <div className="relative">
+        {/* Tab bar */}
+        <div className="flex border-b border-border shrink-0 px-5 -mt-[1px]">
+          {TABS.map(({ id, label, icon: Icon }) => (
             <button
+              key={id}
               type="button"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => setActiveTab(id)}
               className={cn(
-                'w-full aspect-[2/1] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors overflow-hidden group',
-                coverPreview
-                  ? 'border-transparent'
-                  : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground bg-muted/40',
+                'flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors whitespace-nowrap',
+                activeTab === id
+                  ? 'border-primary text-foreground font-medium'
+                  : 'border-transparent text-muted-foreground hover:text-foreground',
               )}
             >
-              {coverPreview ? (
-                <>
-                  <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-sm">
-                    <ImagePlus size={16} />
-                    Change artwork
-                  </div>
-                </>
-              ) : (
-                <>
-                  <ImagePlus size={22} />
-                  <span className="text-sm">Add cover art</span>
-                </>
-              )}
+              <Icon size={13} />
+              {label}
             </button>
-            {coverPreview && (
-              <button
-                type="button"
-                onClick={removeCover}
-                className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
-              >
-                <X size={12} />
-              </button>
-            )}
-          </div>
+          ))}
+        </div>
 
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={handleCoverChange}
-          />
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Title</label>
-            <input
-              type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              required
-              className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Type</label>
-            <div className="grid grid-cols-4 gap-2">
-              {PROJECT_TYPES.map(({ value, label }) => (
+        {/* Scrollable body */}
+        <div className="overflow-y-auto flex-1 min-h-0">
+          {/* ── General ── */}
+          {activeTab === 'general' && (
+            <form onSubmit={handleSave} className="px-5 pt-5 pb-5 space-y-4">
+              {/* Cover art */}
+              <div className="relative">
                 <button
-                  key={value}
                   type="button"
-                  onClick={() => setProjectType(value)}
+                  onClick={() => fileInputRef.current?.click()}
                   className={cn(
-                    'py-1.5 rounded-md text-sm border transition-colors',
-                    projectType === value
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border text-muted-foreground hover:text-foreground',
+                    'w-full aspect-[2/1] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors overflow-hidden group',
+                    coverPreview
+                      ? 'border-transparent'
+                      : 'border-border hover:border-primary/50 text-muted-foreground hover:text-foreground bg-muted/40',
                   )}
                 >
-                  {label}
+                  {coverPreview ? (
+                    <>
+                      <img src={coverPreview} alt="Cover" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-sm">
+                        <ImagePlus size={16} />
+                        Change artwork
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <ImagePlus size={22} />
+                      <span className="text-sm">Add cover art</span>
+                    </>
+                  )}
                 </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Genre <span className="text-muted-foreground font-normal">(optional)</span></label>
-            <SelectDropdown
-              value={genre}
-              onChange={setGenre}
-              options={GENRE_OPTIONS}
-              placeholder="Select genre…"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Record label <span className="text-muted-foreground font-normal">(optional)</span></label>
-              <input
-                type="text"
-                value={recordLabel}
-                onChange={e => setRecordLabel(e.target.value)}
-                placeholder="e.g. Independent…"
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">UPC <span className="text-muted-foreground font-normal">(optional)</span></label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={upc}
-                onChange={e => setUpc(e.target.value.replace(/\D/g, ''))}
-                placeholder="000000000000"
-                maxLength={13}
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium">Release date <span className="text-muted-foreground font-normal">(optional)</span></label>
-              <input
-                type="date"
-                value={releaseDate}
-                onChange={e => setReleaseDate(e.target.value)}
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-              {releaseDate && (() => {
-                const days = Math.ceil((new Date(releaseDate).getTime() - Date.now()) / 86_400_000)
-                return (
-                  <p className="text-xs text-muted-foreground">
-                    {days > 0 ? `${days} days from today` : days === 0 ? 'Today' : `${Math.abs(days)} days ago`}
-                  </p>
-                )
-              })()}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-sm font-medium"># of tracks <span className="text-muted-foreground font-normal">(target)</span></label>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={99}
-                value={targetTrackCount}
-                onChange={e => setTargetTrackCount(e.target.value.replace(/\D/g, ''))}
-                placeholder="e.g. 10"
-                className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
-              <p className="text-xs text-muted-foreground">AI will create tasks for missing tracks</p>
-            </div>
-          </div>
-
-
-
-          {updateProject.error && (
-            <p className="text-destructive text-sm">{(updateProject.error as Error).message}</p>
-          )}
-
-          <div className="flex gap-3 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 py-2 rounded-md border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={updateProject.isPending}
-              className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {updateProject.isPending ? 'Saving…' : 'Save changes'}
-            </button>
-          </div>
-
-          <div className="border-t border-border pt-4">
-            {!confirmDelete ? (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete(true)}
-                className="w-full py-2 rounded-md border border-destructive/40 text-destructive text-sm hover:bg-destructive/10 transition-colors"
-              >
-                Delete project
-              </button>
-            ) : (
-              <div className="space-y-2">
-                <p className="text-sm text-muted-foreground text-center">This cannot be undone. Are you sure?</p>
-                <div className="flex gap-2">
+                {coverPreview && (
                   <button
                     type="button"
-                    onClick={() => setConfirmDelete(false)}
-                    className="flex-1 py-2 rounded-md border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    onClick={removeCover}
+                    className="absolute top-2 right-2 w-6 h-6 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition-colors"
                   >
-                    Cancel
+                    <X size={12} />
                   </button>
-                  <button
-                    type="button"
-                    onClick={handleDelete}
-                    disabled={deleteProject.isPending}
-                    className="flex-1 py-2 rounded-md bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
-                  >
-                    {deleteProject.isPending ? 'Deleting…' : 'Yes, delete'}
-                  </button>
+                )}
+              </div>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleCoverChange}
+              />
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Title</label>
+                <input
+                  type="text"
+                  value={title}
+                  onChange={e => setTitle(e.target.value)}
+                  required
+                  className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Type</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {PROJECT_TYPES.map(({ value, label }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setProjectType(value)}
+                      className={cn(
+                        'py-1.5 rounded-md text-sm border transition-colors',
+                        projectType === value
+                          ? 'border-primary bg-primary/10 text-primary'
+                          : 'border-border text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
-            )}
-          </div>
-        </form>
-        <div className="px-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 space-y-4 border-t border-border pt-5">
-          <AgentSection userId={userId} />
-          <AgentPluginsSection userId={userId} />
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium">Genre <span className="text-muted-foreground font-normal">(optional)</span></label>
+                <SelectDropdown
+                  value={genre}
+                  onChange={setGenre}
+                  options={GENRE_OPTIONS}
+                  placeholder="Select genre…"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Record label <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    value={recordLabel}
+                    onChange={e => setRecordLabel(e.target.value)}
+                    placeholder="e.g. Independent…"
+                    className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">UPC <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={upc}
+                    onChange={e => setUpc(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000000000"
+                    maxLength={13}
+                    className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium">Release date <span className="text-muted-foreground font-normal">(optional)</span></label>
+                  <input
+                    type="date"
+                    value={releaseDate}
+                    onChange={e => setReleaseDate(e.target.value)}
+                    className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  {releaseDate && (() => {
+                    const days = Math.ceil((new Date(releaseDate).getTime() - Date.now()) / 86_400_000)
+                    return (
+                      <p className="text-xs text-muted-foreground">
+                        {days > 0 ? `${days} days from today` : days === 0 ? 'Today' : `${Math.abs(days)} days ago`}
+                      </p>
+                    )
+                  })()}
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-sm font-medium"># of tracks <span className="text-muted-foreground font-normal">(target)</span></label>
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={99}
+                    value={targetTrackCount}
+                    onChange={e => setTargetTrackCount(e.target.value.replace(/\D/g, ''))}
+                    placeholder="e.g. 10"
+                    className="w-full px-3 py-2 rounded-md bg-input border border-border text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <p className="text-xs text-muted-foreground">AI will create tasks for missing tracks</p>
+                </div>
+              </div>
+
+              {updateProject.error && (
+                <p className="text-destructive text-sm">{(updateProject.error as Error).message}</p>
+              )}
+
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 py-2 rounded-md border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updateProject.isPending}
+                  className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                >
+                  {updateProject.isPending ? 'Saving…' : 'Save changes'}
+                </button>
+              </div>
+
+              <div className="border-t border-border pt-4">
+                {!confirmDelete ? (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    className="w-full py-2 rounded-md border border-destructive/40 text-destructive text-sm hover:bg-destructive/10 transition-colors"
+                  >
+                    Delete project
+                  </button>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-sm text-muted-foreground text-center">This cannot be undone. Are you sure?</p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(false)}
+                        className="flex-1 py-2 rounded-md border border-border text-sm text-muted-foreground hover:text-foreground transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDelete}
+                        disabled={deleteProject.isPending}
+                        className="flex-1 py-2 rounded-md bg-destructive text-destructive-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+                      >
+                        {deleteProject.isPending ? 'Deleting…' : 'Yes, delete'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </form>
+          )}
+
+          {/* ── AI ── */}
+          {activeTab === 'ai' && (
+            <div className="px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5 space-y-6">
+              <AgentSection userId={userId} />
+              <AgentPluginsSection userId={userId} />
+            </div>
+          )}
+
+          {/* ── Permissions ── */}
+          {activeTab === 'permissions' && (
+            <div className="px-5 pt-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] sm:pb-5">
+              <PermissionsTab projectId={project.id} />
+            </div>
+          )}
         </div>
       </div>
     </div>
