@@ -99,8 +99,12 @@ export function BudgetDetail({ budgetId, userId }: { budgetId: string; userId: s
   }
 
   async function handleDelete() {
-    await deleteBudget.mutateAsync(budgetId)
-    router.push('/budgets')
+    try {
+      await deleteBudget.mutateAsync(budgetId)
+      router.push('/budgets')
+    } catch {
+      setShowDeleteConfirm(false)
+    }
   }
 
   return (
@@ -222,8 +226,10 @@ export function BudgetDetail({ budgetId, userId }: { budgetId: string; userId: s
               <span className="text-xs text-destructive">Delete?</span>
               <button
                 onClick={handleDelete}
-                className="text-xs px-1.5 py-0.5 rounded bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity"
+                disabled={deleteBudget.isPending}
+                className="text-xs px-1.5 py-0.5 rounded bg-destructive text-destructive-foreground hover:opacity-90 transition-opacity disabled:opacity-60 flex items-center gap-1"
               >
+                {deleteBudget.isPending && <Loader2 size={10} className="animate-spin" />}
                 Yes
               </button>
               <button

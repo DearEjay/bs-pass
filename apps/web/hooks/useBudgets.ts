@@ -115,7 +115,10 @@ export function useDeleteBudget(userId: string) {
         .eq('id', budgetId)
       if (error) throw error
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['budgets', userId] }),
+    onSuccess: (_data, budgetId) => {
+      qc.invalidateQueries({ queryKey: ['budgets', userId] })
+      qc.removeQueries({ queryKey: ['budget', budgetId] })
+    },
   })
 }
 
