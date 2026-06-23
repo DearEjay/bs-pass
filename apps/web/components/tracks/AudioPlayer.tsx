@@ -125,6 +125,15 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
       }
     }, [activeTrackId, trackId])
 
+    // When repeatMode changes, flip the native audio element loop flag.
+    // This gives truly gapless looping — the browser handles it at the codec
+    // level with no seek or JS re-trigger involved.
+    useEffect(() => {
+      const el = (wsRef.current as unknown as { getMediaElement?: () => HTMLMediaElement } | null)
+        ?.getMediaElement?.()
+      if (el) el.loop = repeatMode === 'song'
+    }, [repeatMode])
+
     useEffect(() => {
       if (!containerRef.current || !audioUrl) return
 
@@ -160,6 +169,10 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
         ws.on('ready', (dur: number) => {
           setDuration(dur)
           setIsLoading(false)
+          // Apply loop flag immediately so it's set before first playback ends
+          const el = (ws as unknown as { getMediaElement?: () => HTMLMediaElement })
+            .getMediaElement?.()
+          if (el) el.loop = repeatModeRef.current === 'song'
           if (autoPlayRef.current) {
             setActiveTrackId(trackId)
             ws.play()
@@ -171,14 +184,11 @@ export const AudioPlayer = forwardRef<AudioPlayerHandle, AudioPlayerProps>(
           setCurrentTime(t)
           onTimeUpdate?.(t)
         })
+        // 'finish' only fires when loop=false (native loop silently wraps).
+        // Both 'none' and 'playlist' modes bubble up to the parent here.
         ws.on('finish', () => {
-          if (repeatModeRef.current === 'song') {
-            ws.seekTo(0)
-            ws.play()
-          } else {
-            setIsPlaying(false)
-            onEnded?.()
-          }
+          setIsPlaying(false)
+          onEnded?.()
         })
 
         wsRef.current = ws

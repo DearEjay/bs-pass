@@ -265,7 +265,9 @@ export function formatContextForPrompt(ctx: AgentContext): string {
     ? `TARGET TRACK COUNT: ${project.target_track_count} tracks (currently ${tracks.length} uploaded${tracks.length < project.target_track_count ? ` — ${project.target_track_count - tracks.length} more needed` : ' — target reached'})`
     : ''
 
-  return `PROJECT: "${project.title}" — ${project.type} | genre: ${project.genre} | budget: ${project.budget}
+  // User-controlled strings (titles, names, descriptions) are wrapped in <user_content>
+  // so the LLM treats them as data, not instructions (prompt injection guard).
+  return `PROJECT: <user_content>${project.title}</user_content> — ${project.type} | genre: ${project.genre} | budget: ${project.budget}
 TIMELINE: ${project.timeline_start ?? 'not set'} → ${project.timeline_end ?? 'open-ended'} | today: ${project.today}
 ${releaseLine}
 ${trackCountLine ? trackCountLine + '\n' : ''}

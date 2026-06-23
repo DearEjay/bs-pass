@@ -1,12 +1,10 @@
 import { requireAuth } from '../_shared/auth.ts'
+import { CORS } from '../_shared/cors.ts'
+import { makeLlmRatelimiter } from '../_shared/ratelimit.ts'
 import { db } from '../_shared/db.ts'
 import { generateContent } from '../_shared/gemini.ts'
 import { buildAgentContext, formatContextForPrompt } from '../_shared/context.ts'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -29,6 +27,11 @@ Deno.serve(async (req) => {
 
   try {
     const { userId } = await requireAuth(req)
+
+    const rl = makeLlmRatelimiter()
+    const { success } = await rl.limit(userId)
+    if (!success) return json({ error: 'Rate limited. Please wait before regenerating.' }, 429)
+
     const { projectId } = await req.json()
     if (!projectId) return json({ error: 'projectId required' }, 400)
 

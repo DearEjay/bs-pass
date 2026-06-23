@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils'
 import { ProjectSettingsModal } from './ProjectSettingsModal'
 import { useProjectStatus } from '@/hooks/useTracks'
 import { NotificationBell } from '@/components/shared/NotificationBell'
-import { UserButton } from '@/components/shared/UserButton'
 import { useMyEffectivePermissions } from '@/hooks/useProjectPermissions'
 import type { Database } from '@/types/database'
 
@@ -76,7 +75,6 @@ export function ProjectHeader({ project, userId }: { project: Project; userId: s
 
           <div className="flex items-center gap-2 shrink-0 ml-2">
             <NotificationBell userId={userId} />
-            <UserButton userId={userId} />
             <button
               onClick={() => setShowSettings(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-border bg-card hover:bg-muted transition-colors text-sm text-muted-foreground hover:text-foreground whitespace-nowrap"

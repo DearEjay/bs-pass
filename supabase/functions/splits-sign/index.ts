@@ -1,12 +1,9 @@
 import { requireAuth } from '../_shared/auth.ts'
+import { CORS } from '../_shared/cors.ts'
 import { db } from '../_shared/db.ts'
 import { sendEmail } from '../_shared/resend.ts'
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {

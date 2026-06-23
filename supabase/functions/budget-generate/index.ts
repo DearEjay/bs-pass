@@ -1,10 +1,8 @@
 import { requireAuth } from '../_shared/auth.ts'
+import { CORS } from '../_shared/cors.ts'
+import { makeLlmRatelimiter } from '../_shared/ratelimit.ts'
 import { generateContent, GROQ_FAST, GROQ_SMART } from '../_shared/gemini.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 interface BudgetGenRequest {
   totalAmount: number
@@ -71,17 +69,23 @@ function buildFallback(totalAmount: number, focusAreas: string[]): { lineItems: 
 }
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS })
 
   try {
-    await requireAuth(req)
+    const { userId } = await requireAuth(req)
+
+    const rl = makeLlmRatelimiter()
+    const { success } = await rl.limit(userId)
+    if (!success) return new Response(JSON.stringify({ error: 'Rate limited. Please wait before generating again.' }), {
+      status: 429, headers: { ...CORS, 'Content-Type': 'application/json' },
+    })
 
     const body: BudgetGenRequest = await req.json()
     const { totalAmount, currency, focusAreas, projectType, goals } = body
 
     if (!totalAmount || totalAmount <= 0) {
       return new Response(JSON.stringify({ error: 'totalAmount is required' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400, headers: { ...CORS, 'Content-Type': 'application/json' },
       })
     }
 
@@ -142,13 +146,13 @@ Return ONLY this JSON (no markdown):
 
     return new Response(JSON.stringify(result), {
       status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   } catch (err) {
     console.error('budget-generate fatal error:', err)
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...CORS, 'Content-Type': 'application/json' },
     })
   }
 })

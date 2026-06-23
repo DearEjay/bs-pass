@@ -155,6 +155,8 @@ export function useUploadStem(projectId: string, trackId: string) {
       name: string
       trackVersionId: string
     }) => {
+      if (file.size > 500 * 1024 * 1024) throw new Error('File too large — maximum 500 MB per stem package')
+
       const { data: stem, error: stemErr } = await supabase
         .from('stems')
         .insert({
@@ -207,6 +209,8 @@ export function useUploadStemVersion(stemId: string, trackId: string, projectId:
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async ({ file }: { file: File; trackVersionId: string }) => {
+      if (file.size > 500 * 1024 * 1024) throw new Error('File too large — maximum 500 MB per stem package')
+
       const { data: existing } = await supabase
         .from('stem_versions')
         .select('version_number')

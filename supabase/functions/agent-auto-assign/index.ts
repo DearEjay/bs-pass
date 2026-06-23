@@ -1,11 +1,8 @@
 import { requireAuth } from '../_shared/auth.ts'
+import { CORS } from '../_shared/cors.ts'
 import { db } from '../_shared/db.ts'
 import { generateContent, GROQ_FAST } from '../_shared/gemini.ts'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {

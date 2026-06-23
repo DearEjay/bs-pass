@@ -109,11 +109,14 @@ export function useDeleteBudget(userId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: async (budgetId: string) => {
-      const { error } = await supabase
+      // Hard delete — budget_line_items cascade automatically.
+      // The RLS DELETE policy enforces user_id = auth.uid() so only the owner can delete.
+      const { error, count } = await supabase
         .from('budgets')
-        .update({ deleted_at: new Date().toISOString() })
+        .delete({ count: 'exact' })
         .eq('id', budgetId)
       if (error) throw error
+      if (count === 0) throw new Error('Budget not found or permission denied')
     },
     onSuccess: (_data, budgetId) => {
       qc.invalidateQueries({ queryKey: ['budgets', userId] })

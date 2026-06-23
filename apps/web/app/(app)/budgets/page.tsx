@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { BudgetListClient } from '@/components/budgets/BudgetListClient'
 import { NotificationBell } from '@/components/shared/NotificationBell'
-import { UserButton } from '@/components/shared/UserButton'
 
 export default async function BudgetsPage() {
   const supabase = await createClient()
@@ -14,10 +13,7 @@ export default async function BudgetsPage() {
           <h1 className="text-2xl font-bold">Budgets</h1>
           <p className="text-sm text-muted-foreground mt-0.5">Plan and track your music project spending</p>
         </div>
-        <div className="flex items-center gap-2">
-          <NotificationBell userId={user!.id} />
-          <UserButton userId={user!.id} />
-        </div>
+        <NotificationBell userId={user!.id} />
       </div>
       <BudgetListClient userId={user!.id} />
     </div>

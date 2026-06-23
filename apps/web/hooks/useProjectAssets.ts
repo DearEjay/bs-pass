@@ -79,6 +79,8 @@ export function useAddProjectAsset(projectId: string) {
         })
         if (error) throw error
       } else {
+        if (input.file.size > 100 * 1024 * 1024) throw new Error('File too large — maximum 100 MB per asset')
+
         const ext = input.file.name.split('.').pop() ?? 'bin'
         const assetId = crypto.randomUUID()
         const storagePath = `${projectId}/${assetId}.${ext}`

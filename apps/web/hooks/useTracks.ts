@@ -90,6 +90,12 @@ export function useCreateTrack(projectId: string) {
       bpm?: number | null
       key?: string | null
     }) => {
+      const ALLOWED_AUDIO = ['audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/aiff','audio/x-aiff','audio/flac','audio/ogg','audio/mp4','audio/m4a','audio/aac']
+      if (!ALLOWED_AUDIO.includes(file.type) && !file.name.match(/\.(mp3|wav|aiff|flac|ogg|m4a|aac)$/i)) {
+        throw new Error('Only audio files are supported (MP3, WAV, AIFF, FLAC, OGG, M4A, AAC)')
+      }
+      if (file.size > 500 * 1024 * 1024) throw new Error('File too large — maximum 500 MB per track')
+
       // 1. Create the track row first to get an ID
       const { data: track, error: trackErr } = await supabase
         .from('tracks')

@@ -1,9 +1,6 @@
 import { requireAuth } from '../_shared/auth.ts'
+import { CORS } from '../_shared/cors.ts'
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
 
 // Google TTS has a ~200 char per-request limit. Split on sentence boundaries.
 function chunkText(text: string, maxLen = 180): string[] {
