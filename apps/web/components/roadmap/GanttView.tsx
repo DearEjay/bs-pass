@@ -1,25 +1,18 @@
 'use client'
 
-import { useRef, useState, useEffect, useMemo } from 'react'
+import { useRef, useState, useEffect, useMemo, useCallback } from 'react'
 import { cn } from '@/lib/utils'
 import { useUpdateTask, useCreateTask, type TaskWithDeps } from '@/hooks/useTasks'
-import { Plus } from 'lucide-react'
-
-// ── Zoom config ───────────────────────────────────────────────────────────────
-type ZoomLevel = 'day' | 'week' | 'month' | 'quarter'
-
-const ZOOM_PRESETS: Record<ZoomLevel, { dayPx: number; totalDays: number }> = {
-  day:     { dayPx: 36, totalDays: 120 },
-  week:    { dayPx: 14, totalDays: 280 },
-  month:   { dayPx: 5,  totalDays: 540 },
-  quarter: { dayPx: 2,  totalDays: 730 },
-}
+import { Plus, ZoomIn, ZoomOut } from 'lucide-react'
 
 // ── Layout constants ──────────────────────────────────────────────────────────
-const ROW_H    = 56
-const HEADER_H = 48
-const HANDLE_W = 8
+const ROW_H        = 56
+const HEADER_H     = 48
+const HANDLE_W     = 8
 const MIN_BAR_DAYS = 1
+const MIN_DAY_PX   = 2
+const MAX_DAY_PX   = 64
+const HISTORY_DAYS = 7 // days before today that rangeStart is set to
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function addDays(d: Date, n: number): Date {
@@ -32,13 +25,23 @@ function isoToDate(s: string): Date { return new Date(s + 'T00:00:00') }
 function dateToIso(d: Date): string { return d.toISOString().split('T')[0] }
 function clamp(v: number, lo: number, hi: number) { return Math.max(lo, Math.min(hi, v)) }
 
+// Returns the Monday on or before date d (ISO week boundary)
+function getMondayOnOrBefore(d: Date): Date {
+  const day = d.getDay() // 0=Sun, 1=Mon, …
+  const diff = day === 0 ? -6 : 1 - day
+  const r = new Date(d)
+  r.setDate(d.getDate() + diff)
+  r.setHours(0, 0, 0, 0)
+  return r
+}
+
 // ── Bar colours ───────────────────────────────────────────────────────────────
 const BAR_COLOUR: Record<string, string> = {
-  complete:            'bg-emerald-500/70 border-emerald-600/40',
-  in_progress:         'bg-amber-400/85 border-amber-500/40',
-  not_started_high:    'bg-red-400/80 border-red-500/40',
-  not_started_medium:  'bg-indigo-500/75 border-indigo-600/40',
-  not_started_low:     'bg-zinc-400/75 border-zinc-500/40',
+  complete:           'bg-emerald-500/70 border-emerald-600/40',
+  in_progress:        'bg-amber-400/85 border-amber-500/40',
+  not_started_high:   'bg-red-400/80 border-red-500/40',
+  not_started_medium: 'bg-indigo-500/75 border-indigo-600/40',
+  not_started_low:    'bg-zinc-400/75 border-zinc-500/40',
 }
 function barColour(task: TaskWithDeps) {
   if (task.status === 'complete')    return BAR_COLOUR.complete
@@ -51,6 +54,15 @@ type DragKind = 'move' | 'resize-start' | 'resize-end'
 interface DragState  { taskId: string; kind: DragKind; originX: number; origStart: number; origEnd: number }
 interface NewBarDrag { anchorDay: number; currentDay: number }
 interface Preview    { startDay: number; endDay: number }
+
+// ── Named presets ─────────────────────────────────────────────────────────────
+type Grain = 'day' | 'week' | 'month' | 'quarter'
+const PRESETS: { label: string; grain: Grain; px: number }[] = [
+  { label: 'Day',     grain: 'day',     px: 36 },
+  { label: 'Week',    grain: 'week',    px: 14 },
+  { label: 'Month',   grain: 'month',   px: 5  },
+  { label: 'Quarter', grain: 'quarter', px: 2  },
+]
 
 export function GanttView({
   projectId,
@@ -65,18 +77,28 @@ export function GanttView({
   const createTask = useCreateTask(projectId)
   const scrollRef  = useRef<HTMLDivElement>(null)
 
-  const [zoom, setZoom] = useState<ZoomLevel>('day')
-  const { dayPx, totalDays } = ZOOM_PRESETS[zoom]
-  const dayPxRef = useRef(dayPx)
-  useEffect(() => { dayPxRef.current = dayPx }, [dayPx])
+  // ── Continuous dayPx state (drives zoom) ──────────────────────────────────
+  const [dayPx, setDayPxState] = useState(36)
+  const dayPxRef = useRef(36)
 
-  const rangeStart = useMemo(() => {
-    const d = new Date(); d.setDate(d.getDate() - 28); d.setHours(0, 0, 0, 0); return d
+  // Stable setter that keeps ref in sync for use inside event handlers
+  const setDayPx = useCallback((next: number) => {
+    const clamped = clamp(next, MIN_DAY_PX, MAX_DAY_PX)
+    dayPxRef.current = clamped
+    setDayPxState(clamped)
   }, [])
+
+  // Total canvas days: enough to fill ~3 600 px + history buffer
+  const totalDays = useMemo(
+    () => Math.max(180, Math.ceil(3600 / dayPx) + HISTORY_DAYS + 30),
+    [dayPx],
+  )
+
   const today = useMemo(() => {
     const d = new Date(); d.setHours(0, 0, 0, 0); return d
   }, [])
-  const todayOff = daysBetween(rangeStart, today)
+  const rangeStart = useMemo(() => addDays(today, -HISTORY_DAYS), [today])
+  const todayOff   = HISTORY_DAYS // daysBetween(rangeStart, today) — always constant
 
   // ── Drag refs ─────────────────────────────────────────────────────────────
   const dragRef    = useRef<DragState | null>(null)
@@ -120,19 +142,19 @@ export function GanttView({
       const px = dayPxRef.current
       const ds = dragRef.current
       if (ds) {
-        const rect = scrollRef.current!.getBoundingClientRect()
+        const rect  = scrollRef.current!.getBoundingClientRect()
         const curX  = e.clientX - rect.left + getScrollX()
         const delta = Math.round((curX - ds.originX) / px)
         let s = ds.origStart, en = ds.origEnd
-        if (ds.kind === 'move')          { s = ds.origStart + delta; en = ds.origEnd + delta }
-        else if (ds.kind === 'resize-start') { s = clamp(ds.origStart + delta, 0, ds.origEnd - MIN_BAR_DAYS) }
+        if      (ds.kind === 'move')         { s = ds.origStart + delta; en = ds.origEnd + delta }
+        else if (ds.kind === 'resize-start') { s  = clamp(ds.origStart + delta, 0, ds.origEnd - MIN_BAR_DAYS) }
         else                                 { en = Math.max(ds.origEnd + delta, ds.origStart + MIN_BAR_DAYS) }
         setPreview(prev => ({ ...prev, [ds.taskId]: { startDay: s, endDay: en } }))
       }
       const nb = newBarRef.current
       if (nb) {
         const rect = scrollRef.current!.getBoundingClientRect()
-        const x   = e.clientX - rect.left + getScrollX()
+        const x    = e.clientX - rect.left + getScrollX()
         setNewBarDrag({ ...nb, currentDay: Math.floor(x / px) })
       }
     }
@@ -168,19 +190,97 @@ export function GanttView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // ── Scroll to today when zoom changes ─────────────────────────────────────
+  // ── Initial scroll: put today at the left edge on mount ───────────────────
   useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollLeft = Math.max(0, todayOff * dayPx - 200)
+      scrollRef.current.scrollLeft = HISTORY_DAYS * 36 // default dayPx
     }
-  }, [zoom, todayOff, dayPx])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  // ── Header labels ─────────────────────────────────────────────────────────
-  // Top row: month labels (day/week) or year labels (month/quarter)
+  // ── Pinch / trackpad wheel zoom ───────────────────────────────────────────
+  const wheelHandler = useCallback((e: WheelEvent) => {
+    if (!e.ctrlKey) return
+    e.preventDefault()
+    const el = scrollRef.current
+    if (!el) return
+    const rect           = el.getBoundingClientRect()
+    const cursorX        = e.clientX - rect.left
+    const dayUnderCursor = (el.scrollLeft + cursorX) / dayPxRef.current
+    const factor         = Math.exp(-e.deltaY / 250)
+    const next           = clamp(dayPxRef.current * factor, MIN_DAY_PX, MAX_DAY_PX)
+    dayPxRef.current     = next
+    setDayPxState(next)
+    requestAnimationFrame(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollLeft = Math.max(0, dayUnderCursor * next - cursorX)
+      }
+    })
+  }, [])
+
+  // ── Touch pinch zoom ──────────────────────────────────────────────────────
+  const pinchRef = useRef<{ dist: number; baseDayPx: number; midX: number; scrollLeft: number } | null>(null)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+
+    el.addEventListener('wheel', wheelHandler, { passive: false })
+
+    function getDist(t: TouchList) {
+      const dx = t[0].clientX - t[1].clientX
+      const dy = t[0].clientY - t[1].clientY
+      return Math.sqrt(dx * dx + dy * dy)
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      if (e.touches.length === 2) {
+        const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2
+          - el!.getBoundingClientRect().left
+        pinchRef.current = {
+          dist:      getDist(e.touches),
+          baseDayPx: dayPxRef.current,
+          midX,
+          scrollLeft: el!.scrollLeft,
+        }
+      }
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      if (e.touches.length !== 2 || !pinchRef.current) return
+      e.preventDefault()
+      const scale       = getDist(e.touches) / pinchRef.current.dist
+      const next        = clamp(pinchRef.current.baseDayPx * scale, MIN_DAY_PX, MAX_DAY_PX)
+      const dayUnderMid = (pinchRef.current.scrollLeft + pinchRef.current.midX) / pinchRef.current.baseDayPx
+      dayPxRef.current  = next
+      setDayPxState(next)
+      requestAnimationFrame(() => {
+        if (el) el.scrollLeft = Math.max(0, dayUnderMid * next - pinchRef.current!.midX)
+      })
+    }
+
+    function onTouchEnd() { pinchRef.current = null }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove',  onTouchMove,  { passive: false })
+    el.addEventListener('touchend',   onTouchEnd)
+
+    return () => {
+      el.removeEventListener('wheel',      wheelHandler)
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove',  onTouchMove)
+      el.removeEventListener('touchend',   onTouchEnd)
+    }
+  }, [wheelHandler])
+
+  // ── Label grain (derived from continuous dayPx) ───────────────────────────
+  const grain: Grain = dayPx >= 25 ? 'day' : dayPx >= 7 ? 'week' : dayPx >= 3 ? 'month' : 'quarter'
+
+  // ── Top labels (month or year spans) ─────────────────────────────────────
   const topLabels = useMemo(() => {
     const out: { label: string; width: number }[] = []
     let day = 0
-    if (zoom === 'month' || zoom === 'quarter') {
+    if (grain === 'month' || grain === 'quarter') {
       while (day < totalDays) {
         const d    = addDays(rangeStart, day)
         const next = new Date(d.getFullYear() + 1, 0, 1)
@@ -198,21 +298,35 @@ export function GanttView({
       }
     }
     return out
-  }, [zoom, rangeStart, totalDays, dayPx])
+  }, [grain, rangeStart, totalDays, dayPx])
 
-  // Bottom row: day / week / month / quarter ticks
+  // ── Bottom labels (day / ISO-week / month / quarter) ─────────────────────
   const bottomLabels = useMemo(() => {
     const out: { day: number; label: string; width: number }[] = []
-    if (zoom === 'day') {
+
+    if (grain === 'day') {
       for (let d = 0; d < totalDays; d++) {
         out.push({ day: d, label: String(addDays(rangeStart, d).getDate()), width: dayPx })
       }
-    } else if (zoom === 'week') {
-      for (let d = 0; d < totalDays; d += 7) {
-        const date = addDays(rangeStart, d)
-        out.push({ day: d, label: `${date.getMonth() + 1}/${date.getDate()}`, width: 7 * dayPx })
+    } else if (grain === 'week') {
+      // ISO calendar weeks — columns always start on Monday
+      let monday = getMondayOnOrBefore(rangeStart)
+      for (let safety = 0; safety < 600; safety++) {
+        const startOff = daysBetween(rangeStart, monday)
+        if (startOff >= totalDays) break
+        const endOff   = startOff + 7
+        const visStart = Math.max(0, startOff)
+        const visEnd   = Math.min(totalDays, endOff)
+        if (visEnd > 0 && visStart < totalDays) {
+          out.push({
+            day:   visStart,
+            label: `${monday.getMonth() + 1}/${monday.getDate()}`,
+            width: (visEnd - visStart) * dayPx,
+          })
+        }
+        monday = addDays(monday, 7)
       }
-    } else if (zoom === 'month') {
+    } else if (grain === 'month') {
       let day = 0
       while (day < totalDays) {
         const d    = addDays(rangeStart, day)
@@ -222,7 +336,7 @@ export function GanttView({
         day += span
       }
     } else {
-      // quarter
+      // Quarter
       let day = 0
       while (day < totalDays) {
         const d    = addDays(rangeStart, day)
@@ -234,11 +348,9 @@ export function GanttView({
       }
     }
     return out
-  }, [zoom, rangeStart, totalDays, dayPx])
+  }, [grain, rangeStart, totalDays, dayPx])
 
-  // Alternating stripe positions (every other bottom-label unit)
-  const stripes = bottomLabels.filter((_, i) => i % 2 === 0)
-
+  const stripes       = bottomLabels.filter((_, i) => i % 2 === 0)
   const totalWidth    = totalDays * dayPx
   const contentHeight = (tasks.length + 1) * ROW_H + 4
   const isDragging    = dragState !== null || newBarDrag !== null
@@ -246,8 +358,8 @@ export function GanttView({
   // ── Drag helpers ──────────────────────────────────────────────────────────
   function startDrag(e: React.MouseEvent, task: TaskWithDeps, kind: DragKind) {
     e.preventDefault(); e.stopPropagation()
-    const g      = taskGeom(task)
-    const rect   = scrollRef.current!.getBoundingClientRect()
+    const g       = taskGeom(task)
+    const rect    = scrollRef.current!.getBoundingClientRect()
     const originX = e.clientX - rect.left + (scrollRef.current?.scrollLeft ?? 0)
     setDragState({ taskId: task.id, kind, originX, origStart: g.startDay, origEnd: g.endDay })
   }
@@ -259,38 +371,68 @@ export function GanttView({
     setNewBarDrag({ anchorDay: Math.floor(x / dayPx), currentDay: Math.floor(x / dayPx) })
   }
 
+  // ── Snap to preset (keeps visible centre on the same date) ────────────────
+  function snapTo(targetPx: number) {
+    const el = scrollRef.current
+    if (!el) { setDayPx(targetPx); return }
+    const centerX        = el.getBoundingClientRect().width / 2
+    const dayUnderCenter = (el.scrollLeft + centerX) / dayPxRef.current
+    setDayPx(targetPx)
+    requestAnimationFrame(() => {
+      if (el) el.scrollLeft = Math.max(0, dayUnderCenter * targetPx - centerX)
+    })
+  }
+
   return (
     <div className={cn('flex flex-col select-none', isDragging && 'cursor-grabbing')}>
 
       {/* ── Zoom toolbar ───────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1 px-3 py-2 border-b border-border bg-card">
-        {(['day', 'week', 'month', 'quarter'] as ZoomLevel[]).map(z => (
+        <button
+          onClick={() => snapTo(clamp(dayPx / 1.5, MIN_DAY_PX, MAX_DAY_PX))}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          title="Zoom out"
+        >
+          <ZoomOut size={14} />
+        </button>
+        <button
+          onClick={() => snapTo(clamp(dayPx * 1.5, MIN_DAY_PX, MAX_DAY_PX))}
+          className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+          title="Zoom in"
+        >
+          <ZoomIn size={14} />
+        </button>
+        <div className="w-px h-4 bg-border mx-1" />
+        {PRESETS.map(p => (
           <button
-            key={z}
-            onClick={() => setZoom(z)}
+            key={p.label}
+            onClick={() => snapTo(p.px)}
             className={cn(
-              'px-2.5 py-1 text-xs rounded-md capitalize font-medium transition-colors',
-              zoom === z
+              'px-2.5 py-1 text-xs rounded-md font-medium transition-colors',
+              grain === p.grain
                 ? 'bg-primary text-primary-foreground'
                 : 'text-muted-foreground hover:text-foreground hover:bg-accent',
             )}
           >
-            {z}
+            {p.label}
           </button>
         ))}
+        <span className="ml-auto text-[10px] text-muted-foreground/40 hidden sm:block pr-1">
+          Pinch or ctrl+scroll to zoom
+        </span>
       </div>
 
-      {/* ── Scrollable timeline ────────────────────────────────────────────── */}
+      {/* ── Scrollable timeline — overflow-auto so sticky header works ──────── */}
       <div
         ref={scrollRef}
-        className="overflow-x-auto overflow-y-hidden"
-        style={{ maxHeight: HEADER_H + contentHeight }}
+        className="overflow-auto"
+        style={{ height: 'calc(100vh - 360px)', minHeight: 400 }}
       >
         <div style={{ width: totalWidth, position: 'relative' }}>
 
-          {/* ── Sticky header ───────────────────────────────────────────────── */}
+          {/* ── Sticky date header (stays visible while scrolling down) ─────── */}
           <div className="sticky top-0 z-30 bg-card border-b border-border" style={{ height: HEADER_H }}>
-            {/* Top row */}
+            {/* Top row: month / year spans */}
             <div className="flex" style={{ height: 24 }}>
               {topLabels.map((m, i) => (
                 <div
@@ -303,7 +445,7 @@ export function GanttView({
               ))}
             </div>
 
-            {/* Bottom row */}
+            {/* Bottom row: day / week / month / quarter ticks */}
             <div className="flex relative" style={{ height: 24 }}>
               <div
                 className="absolute inset-y-0 w-px bg-primary/50 z-10 pointer-events-none"
@@ -313,7 +455,7 @@ export function GanttView({
                 <div
                   key={i}
                   className="shrink-0 border-r border-border/20 flex items-center px-1 text-[9px] text-muted-foreground/60 overflow-hidden"
-                  style={{ width: b.width }}
+                  style={{ width: b.width, ...(i === 0 && b.day > 0 ? { marginLeft: b.day * dayPx } : {}) }}
                 >
                   {b.label}
                 </div>
@@ -329,7 +471,7 @@ export function GanttView({
               style={{ left: todayOff * dayPx, height: contentHeight }}
             />
 
-            {/* Alternating stripes */}
+            {/* Alternating column stripes */}
             {stripes.map((s, i) => (
               <div
                 key={i}
@@ -340,10 +482,10 @@ export function GanttView({
 
             {/* Task bars */}
             {tasks.map((task, rowIdx) => {
-              const g   = preview[task.id] ?? taskGeom(task)
-              const left  = g.startDay * dayPx
-              const width = Math.max(MIN_BAR_DAYS * dayPx, (g.endDay - g.startDay) * dayPx)
-              const top   = rowIdx * ROW_H
+              const g              = preview[task.id] ?? taskGeom(task)
+              const left           = g.startDay * dayPx
+              const width          = Math.max(MIN_BAR_DAYS * dayPx, (g.endDay - g.startDay) * dayPx)
+              const top            = rowIdx * ROW_H
               const isThisDragging = dragState?.taskId === task.id
 
               return (
@@ -396,7 +538,7 @@ export function GanttView({
               )
             })}
 
-            {/* New-bar ghost */}
+            {/* New-bar ghost while dragging to create */}
             {newBarDrag && (() => {
               const s = Math.min(newBarDrag.anchorDay, newBarDrag.currentDay)
               const e = Math.max(newBarDrag.anchorDay, newBarDrag.currentDay)
