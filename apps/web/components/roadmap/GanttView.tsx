@@ -65,7 +65,7 @@ export function GanttView({
   const createTask = useCreateTask(projectId)
   const scrollRef  = useRef<HTMLDivElement>(null)
 
-  const [zoom, setZoom] = useState<ZoomLevel>('week')
+  const [zoom, setZoom] = useState<ZoomLevel>('day')
   const { dayPx, totalDays } = ZOOM_PRESETS[zoom]
   const dayPxRef = useRef(dayPx)
   useEffect(() => { dayPxRef.current = dayPx }, [dayPx])
