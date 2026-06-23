@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useRef, useCallback, useMemo } from 'react'
+import { useState, useRef, useCallback, useMemo, useEffect } from 'react'
 import { useUpdateLineItem, type LineItem } from '@/hooks/useBudgets'
 import { Loader2, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-// ── Formatting ────────────────────────────────────────────────────────────────
 function fmt(n: number): string {
   return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
@@ -13,7 +12,6 @@ function fmtPct(n: number): string {
   return (n * 100).toFixed(1) + '%'
 }
 
-// ── Types ─────────────────────────────────────────────────────────────────────
 type Field = 'label' | 'budgeted' | 'actual' | 'notes'
 
 type Row =
@@ -27,28 +25,29 @@ interface Props {
   lineItems: LineItem[]
   totalAmount: number
   currency: string
+  onTotalsChange?: (totals: { budgeted: number; actual: number }) => void
 }
 
 // column layout: Label(flex) | Budgeted | Actual | Variance | % of Total | Notes(flex)
 const COLS = 'grid-cols-[1fr_130px_130px_120px_105px_180px]'
 
-export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
+export function BudgetSpreadsheet({ budgetId, lineItems, onTotalsChange }: Props) {
   const updateLineItem = useUpdateLineItem(budgetId)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
 
-  // Optimistic local overrides so edits display instantly before DB round-trip
+  // Optimistic local overrides — edits display instantly before the DB round-trip
   const [localValues, setLocalValues] = useState<Record<string, Partial<LineItem>>>({})
 
-  // Currently active edit
+  // Active cell edit
   const [editing, setEditing] = useState<{ itemId: string; field: Field } | null>(null)
   const [editValue, setEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
   // Debounced save queue
   const pending = useRef<{ itemId: string; field: Field; value: unknown }[]>([])
-  const timer   = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // ── Flush DB saves ─────────────────────────────────────────────────────────
+  // ── Flush DB saves ──────────────────────────────────────────────────────────
   const flush = useCallback(() => {
     const changes = pending.current.splice(0)
     if (!changes.length) return
@@ -62,7 +61,7 @@ export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
       [...byItem.entries()].map(([id, fields]) => {
         const update: Record<string, unknown> = { id }
         for (const [k, v] of Object.entries(fields)) {
-          update[k] = (k === 'budgeted' || k === 'actual')
+          update[k] = k === 'budgeted' || k === 'actual'
             ? parseFloat(String(v)) || 0
             : String(v ?? '')
         }
@@ -73,14 +72,14 @@ export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
       .catch(() => setSaveStatus('idle'))
   }, [updateLineItem])
 
-  // ── Commit a cell edit ─────────────────────────────────────────────────────
+  // ── Commit a cell edit ──────────────────────────────────────────────────────
   const commitEdit = useCallback((itemId: string, field: Field, rawValue: string) => {
     const parsed: number | string =
       field === 'budgeted' || field === 'actual'
         ? parseFloat(rawValue) || 0
         : rawValue
 
-    // Instant optimistic display
+    // Instantly update local display — rows memo recalculates subtotals/totals
     setLocalValues(prev => ({
       ...prev,
       [itemId]: { ...(prev[itemId] ?? {}), [field]: parsed },
@@ -92,8 +91,8 @@ export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
     setEditing(null)
   }, [flush])
 
-  // ── Start editing ──────────────────────────────────────────────────────────
-  function startEdit(item: LineItem, field: Field) {
+  // ── Start editing a cell ────────────────────────────────────────────────────
+  const startEdit = useCallback((item: LineItem, field: Field) => {
     const d = { ...item, ...(localValues[item.id] ?? {}) }
     const val =
       field === 'budgeted' ? String(d.budgeted ?? 0)
@@ -102,11 +101,12 @@ export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
       : String(d.notes ?? '')
     setEditing({ itemId: item.id, field })
     setEditValue(val)
+    // Focus after React has painted the input
     setTimeout(() => { inputRef.current?.focus(); inputRef.current?.select() }, 0)
-  }
+  }, [localValues])
 
-  // ── Build display rows (recalculates on every localValues change) ──────────
-  const { rows, grandBudgeted } = useMemo(() => {
+  // ── Build display rows (recalculates whenever localValues changes) ───────────
+  const { rows, grandBudgeted, grandActual } = useMemo(() => {
     const grouped = new Map<string, LineItem[]>()
     for (const item of lineItems) {
       const cat = item.category || 'Miscellaneous'
@@ -138,49 +138,45 @@ export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
     return { rows, grandBudgeted: grandB, grandActual: grandA }
   }, [lineItems, localValues])
 
-  // ── Inline input (shared) ──────────────────────────────────────────────────
-  function CellInput({ itemId, field }: { itemId: string; field: Field }) {
-    return (
-      <input
-        ref={inputRef}
-        value={editValue}
-        onChange={e => setEditValue(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === 'Escape') { setEditing(null); return }
-          if (e.key === 'Enter' || e.key === 'Tab') {
-            e.preventDefault()
-            commitEdit(itemId, field, editValue)
-          }
-        }}
-        onBlur={() => commitEdit(itemId, field, editValue)}
-        className="w-full h-full px-2 py-1 text-xs bg-blue-50 border border-blue-400 rounded focus:outline-none ring-2 ring-blue-300/40"
-      />
-    )
-  }
+  // Notify parent whenever live totals change so summary cards stay in sync
+  useEffect(() => {
+    onTotalsChange?.({ budgeted: grandBudgeted, actual: grandActual })
+  }, [grandBudgeted, grandActual, onTotalsChange])
 
-  // ── Editable cell ──────────────────────────────────────────────────────────
-  function EditableCell({
-    item,
-    field,
-    display,
-    align = 'right',
-  }: {
-    item: LineItem
-    field: Field
-    display: string
-    align?: 'left' | 'right'
-  }) {
-    const active = editing?.itemId === item.id && editing.field === field
-    if (active) return <CellInput itemId={item.id} field={field} />
+  // ── Cell renderer — called as renderCell(...), NOT as <RenderCell /> ─────────
+  // Calling as a plain function means React never sees a component-type change
+  // between renders, so the <input> stays mounted while the user types.
+  function renderCell(item: LineItem, field: Field, display: string, align: 'left' | 'right' = 'right') {
+    const isEditing = editing?.itemId === item.id && editing.field === field
+
+    if (isEditing) {
+      return (
+        <input
+          ref={inputRef}
+          value={editValue}
+          onChange={e => setEditValue(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Escape') { setEditing(null); return }
+            if (e.key === 'Enter' || e.key === 'Tab') {
+              e.preventDefault()
+              commitEdit(item.id, field, editValue)
+            }
+          }}
+          onBlur={() => commitEdit(item.id, field, editValue)}
+          className="w-full h-full px-2 py-1 text-xs bg-blue-50 border border-blue-400 rounded focus:outline-none ring-2 ring-blue-300/40"
+        />
+      )
+    }
+
     return (
       <div
         className={cn(
-          'truncate px-2 py-1 rounded text-xs cursor-pointer transition-colors',
+          'truncate w-full px-2 py-1 rounded text-xs cursor-pointer transition-colors select-none',
           'hover:bg-blue-50 hover:text-blue-900',
           align === 'right' ? 'text-right' : 'text-left',
         )}
-        onDoubleClick={() => startEdit(item, field)}
-        title="Double-click to edit"
+        onClick={() => startEdit(item, field)}
+        title="Click to edit"
       >
         {display || <span className="text-muted-foreground/30">—</span>}
       </div>
@@ -200,7 +196,7 @@ export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
         </div>
       )}
 
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      {/* ── Header ─────────────────────────────────────────────────────────────── */}
       <div className={cn('grid sticky top-0 z-10 border-b-2 border-border', COLS)}>
         {[
           { label: 'Item',       align: 'left'  },
@@ -222,7 +218,7 @@ export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
         ))}
       </div>
 
-      {/* ── Rows ───────────────────────────────────────────────────────────── */}
+      {/* ── Rows ───────────────────────────────────────────────────────────────── */}
       <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 520px)', minHeight: 280 }}>
         {rows.map((row, idx) => {
 
@@ -288,32 +284,32 @@ export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
                 COLS,
               )}
             >
-              {/* Label (editable) */}
+              {/* Label */}
               <div className="border-r border-border/15 px-1 min-h-[34px] flex items-center">
-                <EditableCell item={row.item} field="label" display={d.label || ''} align="left" />
+                {renderCell(row.item, 'label', d.label || '', 'left')}
               </div>
-              {/* Budgeted (editable) */}
+              {/* Budgeted */}
               <div className="border-r border-border/15 px-1 flex items-center">
-                <EditableCell item={row.item} field="budgeted" display={fmt(b)} />
+                {renderCell(row.item, 'budgeted', fmt(b))}
               </div>
-              {/* Actual (editable) */}
+              {/* Actual */}
               <div className="border-r border-border/15 px-1 flex items-center">
-                <EditableCell item={row.item} field="actual" display={fmt(a)} />
+                {renderCell(row.item, 'actual', fmt(a))}
               </div>
-              {/* Variance (computed — always up to date) */}
+              {/* Variance (computed — always live) */}
               <div className={cn(
                 'border-r border-border/15 px-3 text-xs text-right flex items-center justify-end font-mono',
                 variance >= 0 ? 'text-emerald-600' : 'text-red-500',
               )}>
                 {variance < 0 && '−'}{fmt(Math.abs(variance))}
               </div>
-              {/* % of Total (computed) */}
+              {/* % of Total (computed — always live) */}
               <div className="border-r border-border/15 px-3 text-xs text-right text-slate-500 flex items-center justify-end">
                 {fmtPct(pct)}
               </div>
-              {/* Notes (editable) */}
+              {/* Notes */}
               <div className="px-1 flex items-center">
-                <EditableCell item={row.item} field="notes" display={d.notes || ''} align="left" />
+                {renderCell(row.item, 'notes', d.notes || '', 'left')}
               </div>
             </div>
           )
@@ -322,7 +318,7 @@ export function BudgetSpreadsheet({ budgetId, lineItems }: Props) {
 
       {/* Footer hint */}
       <div className="px-3 py-1.5 text-[11px] text-muted-foreground/40 bg-slate-50/60 border-t border-border/20">
-        Double-click to edit · Tab / Enter to confirm · Esc to cancel · Variance and % of Total update instantly
+        Click to edit · Enter or Tab to confirm · Esc to cancel · Totals update instantly
       </div>
     </div>
   )

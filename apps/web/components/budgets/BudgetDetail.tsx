@@ -36,6 +36,8 @@ export function BudgetDetail({ budgetId, userId }: { budgetId: string; userId: s
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showAdvice, setShowAdvice] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  // Live totals from spreadsheet optimistic edits — updates instantly on cell change
+  const [liveTotals, setLiveTotals] = useState<{ budgeted: number; actual: number } | null>(null)
 
   if (budgetLoading) {
     return (
@@ -57,8 +59,11 @@ export function BudgetDetail({ budgetId, userId }: { budgetId: string; userId: s
   }
 
   const sym = getSymbol(budget.currency)
-  const grandBudgeted = lineItems.reduce((s, i) => s + (i.budgeted ?? 0), 0)
-  const grandActual = lineItems.reduce((s, i) => s + (i.actual ?? 0), 0)
+  const dbBudgeted = lineItems.reduce((s, i) => s + (i.budgeted ?? 0), 0)
+  const dbActual   = lineItems.reduce((s, i) => s + (i.actual   ?? 0), 0)
+  // Prefer live (optimistic) totals from the spreadsheet; fall back to DB values
+  const grandBudgeted = liveTotals?.budgeted ?? dbBudgeted
+  const grandActual   = liveTotals?.actual   ?? dbActual
   const pctSpent = grandBudgeted > 0 ? (grandActual / grandBudgeted) * 100 : 0
 
   async function handleExportPDF() {
@@ -300,11 +305,12 @@ export function BudgetDetail({ budgetId, userId }: { budgetId: string; userId: s
           lineItems={lineItems}
           totalAmount={Number(budget.total_amount)}
           currency={budget.currency}
+          onTotalsChange={setLiveTotals}
         />
       )}
 
       <p className="mt-4 text-xs text-muted-foreground text-center">
-        Click to select · Double-click or type to edit · Enter formulas with = · Changes save automatically
+        Click any cell to edit · Enter or Tab to confirm · Esc to cancel · All totals update instantly
       </p>
     </div>
   )
