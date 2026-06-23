@@ -527,7 +527,7 @@ export function RoadmapView({ projectId }: { projectId: string }) {
         </>
       ) : (
         <div className="border border-border rounded-lg overflow-hidden">
-          <GanttView projectId={projectId} tasks={filteredTasks} onEditTask={setEditingTask} />
+          <GanttView projectId={projectId} tasks={sortedTasks} onEditTask={setEditingTask} />
         </div>
       )}
 
