@@ -1,15 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useProjects } from '@/hooks/useProjects'
-import { useCreateBudget, useUpsertLineItems, useBudgetForProject } from '@/hooks/useBudgets'
+import { useCreateBudget, useBudgetForProject } from '@/hooks/useBudgets'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
-  ChevronRight, ChevronLeft, Check, DollarSign, Target, Sparkles,
-  AlertTriangle, Loader2, FileText, Music2, Mic2, Blend,
+  ChevronRight, ChevronLeft, Check, DollarSign, Sparkles,
+  AlertTriangle, Loader2, Mic2, Blend,
   Camera, Video, Megaphone, Globe, Scale, Plane, Shirt, Clapperboard,
+  Trash2, Plus,
 } from 'lucide-react'
 
 // ── Focus area config ───────────────────────────────────────────────────────
@@ -300,7 +301,7 @@ function StepGoals({ goals, setGoals, projectType, setProjectType }: {
   )
 }
 
-// Step 5: AI loading + review
+// Step 5: AI loading + review (editable)
 interface GeneratedItem {
   category: string
   label: string
@@ -313,6 +314,7 @@ function StepReview({
   loading,
   error,
   lineItems,
+  setLineItems,
   aiAdvice,
   totalAmount,
   currency,
@@ -320,13 +322,87 @@ function StepReview({
   loading: boolean
   error: string | null
   lineItems: GeneratedItem[]
+  setLineItems: (items: GeneratedItem[]) => void
   aiAdvice: string
   totalAmount: number
   currency: string
 }) {
   const sym = currency === 'USD' ? '$' : currency
-  const categories = [...new Set(lineItems.map(i => i.category))]
+  const [editing, setEditing] = useState<{ idx: number; field: 'label' | 'budgeted' | 'category' } | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
   const total = lineItems.reduce((s, i) => s + i.budgeted, 0)
+  const diff = total - totalAmount
+
+  const categories = [...new Set(lineItems.map(i => i.category))]
+
+  function startEdit(idx: number, field: 'label' | 'budgeted' | 'category') {
+    const item = lineItems[idx]
+    setEditValue(field === 'budgeted' ? String(item.budgeted) : field === 'category' ? item.category : item.label)
+    setEditing({ idx, field })
+    setTimeout(() => { inputRef.current?.select() }, 0)
+  }
+
+  function commitEdit(idx: number, field: 'label' | 'budgeted' | 'category', raw: string) {
+    const updated = [...lineItems]
+    if (field === 'budgeted') {
+      const n = parseFloat(raw.replace(/[^0-9.]/g, ''))
+      if (!isNaN(n) && n >= 0) updated[idx] = { ...updated[idx], budgeted: Math.round(n) }
+    } else if (field === 'category') {
+      const newCat = raw.trim()
+      if (newCat) updated[idx] = { ...updated[idx], category: newCat }
+    } else {
+      const newLabel = raw.trim()
+      if (newLabel) updated[idx] = { ...updated[idx], label: newLabel }
+    }
+    setLineItems(updated)
+    setEditing(null)
+  }
+
+  function deleteItem(idx: number) {
+    setLineItems(lineItems.filter((_, i) => i !== idx))
+  }
+
+  function addItem(category: string) {
+    const maxSort = lineItems.reduce((m, i) => Math.max(m, i.sort_order), 0)
+    setLineItems([...lineItems, { category, label: 'New item', budgeted: 0, notes: '', sort_order: maxSort + 1 }])
+  }
+
+  // Called as {renderCell(...)} — NOT <RenderCell /> — no remount on state change
+  function renderCell(idx: number, field: 'label' | 'budgeted' | 'category', display: string, align: 'left' | 'right' = 'left') {
+    const isEditing = editing?.idx === idx && editing.field === field
+    if (isEditing) {
+      return (
+        <input
+          ref={inputRef}
+          value={editValue}
+          onChange={e => setEditValue(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Escape') { setEditing(null); return }
+            if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); commitEdit(idx, field, editValue) }
+          }}
+          onBlur={() => commitEdit(idx, field, editValue)}
+          className={cn(
+            'w-full px-2 py-0.5 text-sm bg-blue-50 border border-blue-400 rounded focus:outline-none ring-2 ring-blue-300/40 dark:bg-blue-900/30 dark:border-blue-500',
+            align === 'right' && 'text-right font-mono',
+          )}
+        />
+      )
+    }
+    return (
+      <span
+        onClick={() => startEdit(idx, field)}
+        title="Click to edit"
+        className={cn(
+          'cursor-text rounded px-1 -mx-1 hover:bg-muted/60 transition-colors',
+          align === 'right' && 'font-mono',
+        )}
+      >
+        {display}
+      </span>
+    )
+  }
 
   if (loading) {
     return (
@@ -358,7 +434,7 @@ function StepReview({
           Your AI Budget
         </h2>
         <p className="text-sm text-muted-foreground mt-1">
-          Review the allocation below. You can fine-tune every number once the budget is created.
+          Click any label or amount to edit it. Add or remove line items before creating.
         </p>
       </div>
 
@@ -372,47 +448,72 @@ function StepReview({
       )}
 
       <div className="rounded-lg border border-border overflow-hidden">
-        <div className="bg-muted/50 px-4 py-2 grid grid-cols-[1fr_auto] text-xs font-medium text-muted-foreground">
+        <div className="bg-muted/50 px-4 py-2 grid grid-cols-[1fr_auto_auto] text-xs font-medium text-muted-foreground">
           <span>Item</span>
-          <span className="text-right">Amount</span>
+          <span className="text-right pr-8">Amount</span>
+          <span />
         </div>
 
         {categories.map(cat => {
-          const items = lineItems.filter(i => i.category === cat)
-          const subtotal = items.reduce((s, i) => s + i.budgeted, 0)
+          const catItems = lineItems.map((item, idx) => ({ item, idx })).filter(({ item }) => item.category === cat)
+          const subtotal = catItems.reduce((s, { item }) => s + item.budgeted, 0)
           return (
             <div key={cat}>
               <div className="px-4 py-2 bg-muted/30 flex items-center justify-between border-t border-border">
                 <span className="text-xs font-semibold text-foreground">{cat}</span>
                 <span className="text-xs font-semibold text-foreground">
-                  {sym}{subtotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                  {sym}{subtotal.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                 </span>
               </div>
-              {items.map((item, idx) => (
-                <div key={idx} className="px-4 py-2 border-t border-border/50 flex items-start justify-between gap-4">
+
+              {catItems.map(({ item, idx }) => (
+                <div key={idx} className="group px-4 py-2 border-t border-border/50 grid grid-cols-[1fr_auto_auto] items-center gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm">{item.label}</p>
+                    {renderCell(idx, 'label', item.label, 'left')}
                     {item.notes && <p className="text-xs text-muted-foreground mt-0.5">{item.notes}</p>}
                   </div>
-                  <span className="text-sm font-mono shrink-0">
-                    {sym}{item.budgeted.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-                  </span>
+                  <div className="text-sm text-right w-24">
+                    {sym}{renderCell(idx, 'budgeted', item.budgeted.toLocaleString(undefined, { maximumFractionDigits: 0 }), 'right')}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => deleteItem(idx)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded hover:bg-destructive/10 hover:text-destructive text-muted-foreground/50"
+                    title="Remove item"
+                  >
+                    <Trash2 size={13} />
+                  </button>
                 </div>
               ))}
+
+              <div className="px-4 py-1.5 border-t border-border/30">
+                <button
+                  type="button"
+                  onClick={() => addItem(cat)}
+                  className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Plus size={12} /> Add item
+                </button>
+              </div>
             </div>
           )
         })}
 
-        <div className="px-4 py-3 bg-foreground/5 border-t border-border flex items-center justify-between">
+        <div className={cn(
+          'px-4 py-3 border-t border-border flex items-center justify-between',
+          Math.abs(diff) > 1 ? 'bg-amber-500/5' : 'bg-foreground/5',
+        )}>
           <span className="font-semibold text-sm">Total</span>
-          <span className="font-semibold font-mono">
-            {sym}{total.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
-            {Math.abs(total - totalAmount) > 1 && (
-              <span className="ml-2 text-xs text-amber-500">
-                (target: {sym}{totalAmount.toLocaleString()})
-              </span>
+          <div className="text-right">
+            <span className="font-semibold font-mono text-sm">
+              {sym}{total.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+            </span>
+            {Math.abs(diff) > 1 && (
+              <p className="text-xs text-amber-500 mt-0.5">
+                {diff > 0 ? `${sym}${diff.toLocaleString(undefined, { maximumFractionDigits: 0 })} over` : `${sym}${Math.abs(diff).toLocaleString(undefined, { maximumFractionDigits: 0 })} under`} target of {sym}{totalAmount.toLocaleString()}
+              </p>
             )}
-          </span>
+          </div>
         </div>
       </div>
     </div>
@@ -612,6 +713,7 @@ export function BudgetWizard({ userId }: { userId: string }) {
             loading={generating}
             error={genError}
             lineItems={lineItems}
+            setLineItems={setLineItems}
             aiAdvice={aiAdvice}
             totalAmount={Number(amount)}
             currency={currency}
