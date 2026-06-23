@@ -417,9 +417,26 @@ export function GanttView({
             {p.label}
           </button>
         ))}
-        <span className="ml-auto text-[10px] text-muted-foreground/40 hidden sm:block pr-1">
-          Pinch or ctrl+scroll to zoom
-        </span>
+        <div className="ml-auto flex items-center gap-3 pr-1">
+          {/* Color legend */}
+          <div className="hidden sm:flex items-center gap-2.5">
+            {[
+              { cls: 'bg-emerald-500/70',  label: 'Complete'     },
+              { cls: 'bg-amber-400/85',    label: 'In Progress'  },
+              { cls: 'bg-red-400/80',      label: 'High'         },
+              { cls: 'bg-indigo-500/75',   label: 'Medium'       },
+              { cls: 'bg-zinc-400/75',     label: 'Low'          },
+            ].map(({ cls, label }) => (
+              <span key={label} className="flex items-center gap-1 text-[10px] text-muted-foreground/60">
+                <span className={`inline-block w-2.5 h-2.5 rounded-sm ${cls}`} />
+                {label}
+              </span>
+            ))}
+          </div>
+          <span className="text-[10px] text-muted-foreground/40 hidden lg:block">
+            Pinch or ctrl+scroll to zoom
+          </span>
+        </div>
       </div>
 
       {/* ── Scrollable timeline — overflow-auto so sticky header works ──────── */}
