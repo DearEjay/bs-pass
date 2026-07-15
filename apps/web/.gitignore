@@ -1,4 +1,5 @@
 .vercel
+public/ffmpeg/
 
 # iOS build artifacts
 ios/App/Pods/

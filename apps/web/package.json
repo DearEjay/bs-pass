@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postinstall": "node scripts/copy-ffmpeg.js",
+    "prebuild": "node scripts/copy-ffmpeg.js",
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
