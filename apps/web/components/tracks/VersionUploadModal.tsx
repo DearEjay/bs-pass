@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useUploadTrackVersion } from '@/hooks/useTracks'
-import { X, Upload, Music } from 'lucide-react'
+import { X, Upload, Music, Loader2 } from 'lucide-react'
 
 const ACCEPTED = '.mp3,.wav,.flac,.aac,.ogg,.m4a'
 const ACCEPTED_MIME = ['audio/mpeg', 'audio/wav', 'audio/flac', 'audio/aac', 'audio/ogg', 'audio/x-wav', 'audio/mp4', 'audio/x-m4a', 'audio/m4a']
@@ -110,9 +110,10 @@ export function VersionUploadModal({
             <button
               type="submit"
               disabled={!file || uploadVersion.isPending}
-              className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity"
+              className="flex-1 py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
             >
-              {uploadVersion.isPending ? 'Uploading…' : 'Upload version'}
+              {uploadVersion.isPending && <Loader2 size={14} className="animate-spin" />}
+              {uploadVersion.isPending ? 'Processing…' : 'Upload version'}
             </button>
           </div>
         </form>
