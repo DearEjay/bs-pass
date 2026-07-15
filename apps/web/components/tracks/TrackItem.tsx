@@ -11,7 +11,6 @@ import {
   useTrackVersions,
   useTrackAudioUrl,
   useVersionAudioUrl,
-  useUploadTrackVersion,
   TRACK_STATUSES,
   type TrackStatus,
   type TrackVersion,
@@ -23,6 +22,7 @@ import { TrackStatusBadge, STATUS_CONFIG } from './TrackStatusBadge'
 import { AudioPlayer, type AudioMarker, type AudioPlayerHandle, type RepeatMode } from './AudioPlayer'
 import { TrackComments } from './TrackComments'
 import { TrackVersionsPanel } from './TrackVersionsPanel'
+import { VersionUploadModal } from './VersionUploadModal'
 import { TrackABPlayer } from './TrackABPlayer'
 import { TrackStemsTab } from './TrackStemsTab'
 import { TrackLyricsTab } from './TrackLyricsTab'
@@ -85,7 +85,6 @@ export function TrackItem({
   const updateStatus = useUpdateTrackStatus(projectId)
   const deleteTrack = useDeleteTrack(projectId)
   const restoreTrack = useRestoreDeletedTrack(projectId)
-  const uploadVersion = useUploadTrackVersion(track.id, projectId)
   const pushToast = useUndoToastStore(s => s.push)
   const { data: versions = [] } = useTrackVersions(track.id)
   const { data: currentUser } = useCurrentUser()
@@ -98,13 +97,13 @@ export function TrackItem({
   const [showEllipsisMenu, setShowEllipsisMenu] = useState(false)
   const [confirmDeleteTrack, setConfirmDeleteTrack] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [showVersionModal, setShowVersionModal] = useState(false)
   const [activeTab, setActiveTab] = useState<ActiveTab>('player')
   const [currentTime, setCurrentTime] = useState(0)
   // A/B compare: 2-step selection — pick A first, then B
   const [compareA, setCompareA] = useState<TrackVersion | null>(null)
   const [compareB, setCompareB] = useState<TrackVersion | null>(null)
   const playerRef = useRef<AudioPlayerHandle>(null)
-  const versionUploadRef = useRef<HTMLInputElement>(null)
 
   const { data: compareAUrl } = useVersionAudioUrl(compareA?.file_path ?? null)
   const { data: compareBUrl } = useVersionAudioUrl(compareB?.file_path ?? null)
@@ -187,15 +186,6 @@ export function TrackItem({
     }
   }
 
-  async function handleVersionFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (!file) return
-    try {
-      await uploadVersion.mutateAsync({ file })
-    } finally {
-      e.target.value = ''
-    }
-  }
 
 
   return (
@@ -423,7 +413,7 @@ export function TrackItem({
               <TrackVersionsPanel
                 track={track}
                 projectId={projectId}
-                onAddVersion={() => versionUploadRef.current?.click()}
+                onAddVersion={() => setShowVersionModal(true)}
                 compareAId={compareA?.id ?? null}
                 compareBId={compareB?.id ?? null}
                 onSelectA={(v) => { setCompareA(v); setCompareB(null) }}
@@ -466,13 +456,14 @@ export function TrackItem({
       )}
 
 
-      <input
-        ref={versionUploadRef}
-        type="file"
-        accept=".mp3,.wav,.flac,.aac,.ogg,.m4a"
-        className="hidden"
-        onChange={handleVersionFileSelect}
-      />
+      {showVersionModal && (
+        <VersionUploadModal
+          trackId={track.id}
+          projectId={projectId}
+          trackTitle={track.title}
+          onClose={() => setShowVersionModal(false)}
+        />
+      )}
     </div>
   )
 }

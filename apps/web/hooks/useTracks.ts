@@ -276,10 +276,8 @@ export function useUploadTrackVersion(trackId: string, projectId: string) {
     mutationFn: async ({ file }: { file: File }) => {
       if (file.size > 500 * 1024 * 1024) throw new Error('File too large — maximum 500 MB per track')
 
-      // Compress WAV → FLAC (lossless). Other formats pass through.
-      const uploadFile = await compressAudioIfNeeded(file)
-
-      // Determine next version number
+      // Fetch next version number first — the network round-trip lets React
+      // flush isPending=true so the spinner is visible before compression starts.
       const { data: existing } = await supabase
         .from('track_versions')
         .select('version_number')
@@ -287,6 +285,9 @@ export function useUploadTrackVersion(trackId: string, projectId: string) {
         .order('version_number', { ascending: false })
         .limit(1)
       const nextNum = ((existing?.[0]?.version_number) ?? 0) + 1
+
+      // Compress WAV → FLAC (lossless). Other formats pass through.
+      const uploadFile = await compressAudioIfNeeded(file)
 
       // Upload file
       const ext = uploadFile.name.split('.').pop()
