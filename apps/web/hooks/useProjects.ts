@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { track } from '@/lib/analytics'
+import { compressImageIfNeeded } from '@/lib/compress-image'
 import type { Database } from '@/types/database'
 
 type Project = Database['public']['Tables']['projects']['Row']
@@ -71,11 +72,12 @@ export function useCreateProject(userId: string) {
 
       // 3. Upload cover art if provided
       if (coverFile) {
-        const ext = coverFile.name.split('.').pop() ?? 'jpg'
+        const compressed = await compressImageIfNeeded(coverFile)
+        const ext = compressed.name.split('.').pop() ?? 'webp'
         const path = `${project.id}/cover.${ext}`
         const { error: uploadErr } = await supabase.storage
           .from('covers')
-          .upload(path, coverFile, { upsert: true, contentType: coverFile.type })
+          .upload(path, compressed, { upsert: true, contentType: compressed.type })
         if (!uploadErr) {
           const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(path)
           await supabase.from('projects').update({ cover_url: publicUrl }).eq('id', project.id)
@@ -123,11 +125,12 @@ export function useUploadProjectCover(projectId: string) {
         if (error) throw error
         return null
       }
-      const ext = file.name.split('.').pop() ?? 'jpg'
+      const compressed = await compressImageIfNeeded(file)
+      const ext = compressed.name.split('.').pop() ?? 'webp'
       const path = `${projectId}/cover.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('covers')
-        .upload(path, file, { upsert: true, contentType: file.type })
+        .upload(path, compressed, { upsert: true, contentType: compressed.type })
       if (uploadErr) throw uploadErr
       const { data: { publicUrl } } = supabase.storage.from('covers').getPublicUrl(path)
       const coverUrl = `${publicUrl}?t=${Date.now()}`

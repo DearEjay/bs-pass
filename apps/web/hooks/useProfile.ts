@@ -3,6 +3,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { compressImageIfNeeded } from '@/lib/compress-image'
 import type { Database } from '@/types/database'
 
 type AgentPrefs = Database['public']['Tables']['user_agent_preferences']['Row']
@@ -61,11 +62,12 @@ export function useUploadAvatar(userId: string) {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: async (file: File) => {
-      const ext = file.name.split('.').pop() ?? 'jpg'
+      const compressed = await compressImageIfNeeded(file)
+      const ext = compressed.name.split('.').pop() ?? 'webp'
       const path = `${userId}/avatar.${ext}`
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(path, file, { upsert: true, contentType: file.type })
+        .upload(path, compressed, { upsert: true, contentType: compressed.type })
       if (uploadError) throw uploadError
       const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
       const avatarUrl = `${publicUrl}?t=${Date.now()}`

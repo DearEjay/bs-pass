@@ -2,6 +2,8 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
+import { compressImageIfNeeded } from '@/lib/compress-image'
+import { compressAudioIfNeeded } from '@/lib/compress-audio'
 
 export interface ProjectAsset {
   id: string
@@ -81,13 +83,19 @@ export function useAddProjectAsset(projectId: string) {
       } else {
         if (input.file.size > 100 * 1024 * 1024) throw new Error('File too large — maximum 100 MB per asset')
 
-        const ext = input.file.name.split('.').pop() ?? 'bin'
+        const uploadFile = /^image\//i.test(input.file.type)
+          ? await compressImageIfNeeded(input.file)
+          : /^audio\//i.test(input.file.type)
+          ? await compressAudioIfNeeded(input.file)
+          : input.file
+
+        const ext = uploadFile.name.split('.').pop() ?? 'bin'
         const assetId = crypto.randomUUID()
         const storagePath = `${projectId}/${assetId}.${ext}`
 
         const { error: uploadErr } = await supabase.storage
           .from('track-assets')
-          .upload(storagePath, input.file, { upsert: false })
+          .upload(storagePath, uploadFile, { upsert: false, contentType: uploadFile.type })
         if (uploadErr) throw uploadErr
 
         const { error: insertErr } = await supabase.from('project_assets').insert({

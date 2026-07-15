@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createClient } from '@/lib/supabase/client'
 import { computeProjectStatus } from '@/lib/project-status'
 import { trackEvent } from './useTrackEvent'
+import { compressAudioIfNeeded } from '@/lib/compress-audio'
 import type { Database } from '@/types/database'
 
 type Track = Database['public']['Tables']['tracks']['Row']
@@ -96,6 +97,9 @@ export function useCreateTrack(projectId: string) {
       }
       if (file.size > 500 * 1024 * 1024) throw new Error('File too large — maximum 500 MB per track')
 
+      // Compress WAV → FLAC (lossless, ~50% smaller). Other formats pass through.
+      const uploadFile = await compressAudioIfNeeded(file)
+
       // 1. Create the track row first to get an ID
       const { data: track, error: trackErr } = await supabase
         .from('tracks')
@@ -105,11 +109,11 @@ export function useCreateTrack(projectId: string) {
       if (trackErr) throw trackErr
 
       // 2. Upload file: tracks/{projectId}/{trackId}/{filename}
-      const ext = file.name.split('.').pop()
+      const ext = uploadFile.name.split('.').pop()
       const storagePath = `${projectId}/${track.id}/original.${ext}`
       const { error: uploadErr } = await supabase.storage
         .from('tracks')
-        .upload(storagePath, file, { upsert: false })
+        .upload(storagePath, uploadFile, { upsert: false, contentType: uploadFile.type })
       if (uploadErr) throw uploadErr
 
       // 3. Create the track_version record with the file path
