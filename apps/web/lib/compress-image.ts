@@ -6,6 +6,8 @@
  * Caps the longest dimension at maxDimension px to avoid pointlessly huge cover art.
  */
 export async function compressImageIfNeeded(file: File, maxDimension = 2400): Promise<File> {
+  if (typeof window === 'undefined') return file
+
   const isCompressible =
     /^image\/(jpeg|png|gif|bmp|tiff)$/i.test(file.type) ||
     /\.(jpe?g|png|gif|bmp|tiff?)$/i.test(file.name)
