@@ -13,10 +13,15 @@ async function getFFmpeg(): Promise<FFmpeg> {
   const { FFmpeg: FFmpegClass } = await import('@ffmpeg/ffmpeg')
   const { toBlobURL } = await import('@ffmpeg/util')
   const instance = new FFmpegClass()
+  // Use window.location.origin to build a full absolute URL so that
+  // new URL(classWorkerURL, import.meta.url) inside @ffmpeg/ffmpeg's bundle
+  // doesn't resolve to file:///ffmpeg/worker.js (webpack's import.meta.url
+  // in the output chunk is a file:// path, not https://).
+  const origin = window.location.origin
   await instance.load({
-    classWorkerURL: '/ffmpeg/worker.js',
-    coreURL: await toBlobURL('/ffmpeg/ffmpeg-core.js', 'text/javascript'),
-    wasmURL: await toBlobURL('/ffmpeg/ffmpeg-core.wasm', 'application/wasm'),
+    classWorkerURL: `${origin}/ffmpeg/worker.js`,
+    coreURL: await toBlobURL(`${origin}/ffmpeg/ffmpeg-core.js`, 'text/javascript'),
+    wasmURL: await toBlobURL(`${origin}/ffmpeg/ffmpeg-core.wasm`, 'application/wasm'),
   })
   ff = instance
   return ff
